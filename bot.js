@@ -1,5 +1,6 @@
-require('dotenv').config();
-
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+  }
 const { Client, GatewayIntentBits } = require('discord.js');
 
 const BOT_NAME = 'jessjessbot';
@@ -97,6 +98,9 @@ client.on('messageCreate', async (message) => {
   // Optional: Send a congratulations message
   await message.channel.send(`Congratulations <@${winner.id}>! You are the new Wordle King! 👑`);
 });
+
+console.log('Token exists:', !!process.env.BOT_TOKEN);
+console.log('Token length:', process.env.BOT_TOKEN ? process.env.BOT_TOKEN.length : 0);
 
 // Login with your bot token
 client.login(process.env.BOT_TOKEN);
