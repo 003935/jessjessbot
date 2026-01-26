@@ -16,10 +16,10 @@ const client = new Client({
 const WORDLE_KING_ROLE_NAME = 'Wordle King';
 const WORDLE_BOT_ID = '1211781489931452447'; // The Wordle app bot
 
-client.on('ready', () => {
-  console.log(`${BOT_NAME} is online!`);
-  console.log(`Logged in as ${client.user.tag}`);
-});
+client.on('clientReady', () => {
+    console.log(`${BOT_NAME} is online!`);
+    console.log(`Logged in as ${client.user.tag}`);
+  });
 
 client.on('messageCreate', async (message) => {
   // Only process messages from the Wordle bot
