@@ -201,10 +201,11 @@ if (process.env.NODE_ENV !== 'production') {
         }
         
         saveLeaguePlayers(leaguePlayers);
-      } catch (error) {
-        await message.channel.send('❌ Failed to find summoner. Check the name, tag, and region are correct!');
+    } catch (error) {
+        console.error('Status:', error.response?.status);
+        console.error('Data:', error.response?.data); // This usually contains the "Forbidden" message detail
+        throw error;
       }
-      
       return;
     }
     
