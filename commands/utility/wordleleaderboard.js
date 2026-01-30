@@ -10,8 +10,6 @@ module.exports = {
 	data: new SlashCommandBuilder().setName('king').setDescription('wordle leaderboard'),
 	async execute(interaction) {
         const guild = interaction.client.guilds.cache.get("1465292301780910254")
-        const user = guild.members.cache.get("718924549692850319")
-        console.log(user.displayName)
     const stats = loadStats()
     const sorted = Object.entries(stats.userStats).sort((a,b) => b[1].wins - a[1].wins).map(([userId, stats]) => ({userId, ...stats}))		
     const firstfive = sorted.slice(0,5).map((u)=>{
