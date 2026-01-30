@@ -80,6 +80,7 @@ if (process.env.NODE_ENV !== 'production') {
   
   async function getSummonerData(gameName, tagLine, region) {
     try {
+      
       const regionUpper = region.toUpperCase();
       const platform = REGION_PLATFORMS[regionUpper];
       const routing = REGION_ROUTING[regionUpper];
