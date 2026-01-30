@@ -9,7 +9,7 @@ const file = path.join(__dirname, "..", "..", 'wordle_stats.json');
 module.exports = {
 	data: new SlashCommandBuilder().setName('king').setDescription('wordle leaderboard'),
 	async execute(interaction) {
-        const guild = interaction.client.guilds.cache.get("1465292301780910254")
+        const guild = interaction.client.guilds.cache.get("1065718358986723470")
     const stats = loadStats()
     const sorted = Object.entries(stats.userStats).sort((a,b) => b[1].wins - a[1].wins).map(([userId, stats]) => ({userId, ...stats}))		
     const firstfive = sorted.slice(0,5).map((u)=>{

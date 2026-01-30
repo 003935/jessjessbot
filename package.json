@@ -4,7 +4,7 @@
     "description": "Discord bot for Wordle King role management",
     "main": "bot.js",
     "scripts": {
-        "start": "node bot.js",
+        "start": "bun run src/bot.ts",
         "deploy": "bun run deploy-commands.js"
     },
     "dependencies": {
