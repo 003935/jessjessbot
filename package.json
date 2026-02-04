@@ -8,8 +8,6 @@
         "deploy": "bun run deploy-commands.js"
     },
     "dependencies": {
-        "axios": "^1.13.4",
-        "discord.js": "^14.14.1",
-        "dotenv": "^16.4.5"
+        "discord.js": "^14.14.1"
     }
 }
