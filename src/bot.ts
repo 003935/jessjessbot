@@ -1,4 +1,4 @@
-import { Client, Collection, Events, GatewayIntentBits, Guild, GuildMember, Message, MessageFlags, OmitPartialGroupDMChannel, Role, User } from 'discord.js'
+import { Client, Collection, Events, GatewayIntentBits, Guild, GuildMember, Message, MessageFlags, OmitPartialGroupDMChannel, Role, Snowflake, User } from 'discord.js'
 import { getStatsManager, persistStats } from './stats';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -26,9 +26,9 @@ async function add_roles(wordleKingRole: Role, guild: Guild, winners: Array<User
   }
 }
 
-async function remove_roles(wordleKingRole: Role, guild: Guild) {
+async function remove_roles(wordleKingRole: Role, guild: Guild, users: Collection<Snowflake, GuildMember>) {
 
-  const members = await guild.members.fetch();
+  const members = users.size > 0 ? users : await guild.members.fetch();
 
   const membersWithRole = members.filter(member => member.roles.cache.has(wordleKingRole.id));
 
@@ -39,7 +39,7 @@ async function remove_roles(wordleKingRole: Role, guild: Guild) {
   }
 }
 
-async function Parse_Wordle_Message(message: OmitPartialGroupDMChannel<Message<boolean>>): Promise<{ winners: User[], winningScore: string } | undefined> {
+async function Parse_Wordle_Message(message: OmitPartialGroupDMChannel<Message<boolean>>, users: Collection<Snowflake, GuildMember>): Promise<{ winners: User[], winningScore: string } | undefined> {
   if (message.author.id !== WORDLE_BOT_ID) return;
   if (!message.content.includes("Here are yesterday's results:")) return;
 
@@ -66,34 +66,37 @@ async function Parse_Wordle_Message(message: OmitPartialGroupDMChannel<Message<b
 
   for (let i = 1; i < afterCrown.length; i++) {
     const letter = afterCrown[i];
-    if (letter === '@' && afterCrown[i-1] === ' ') {
+    if (letter === '@' && afterCrown[i - 1] === ' ') {
       if (starting_index === -1)
-        starting_index = i 
+        starting_index = i
       else {
         failed_mentions.add(afterCrown.slice(starting_index + 1, i).trim())
         starting_index = -1
       }
     }
     else if (letter === '<' && starting_index !== -1) {
-        failed_mentions.add(afterCrown.slice(starting_index + 1, i).trim())
-        starting_index = -1
-      }
+      failed_mentions.add(afterCrown.slice(starting_index + 1, i).trim())
+      starting_index = -1
+    }
   }
   if (starting_index !== -1) {
     failed_mentions.add(afterCrown.slice(starting_index + 1, afterCrown.length).trim())
   }
 
   if (failed_mentions.size > 0 && message.guild !== null) {
-    const members = Array.from((await message.guild.members.fetch()).values())
+    const memb = users.size > 0 ? users : await message.guild.members.fetch();
+    const members = Array.from(memb.values())
     for (let i = 0; i < members.length; i++) {
       const member = members[i];
       if (failed_mentions.has(member.displayName)) {
         winners.push(member.user as User)
         failed_mentions.delete(member.displayName)
       }
-      
+
     }
   }
+
+
 
   console.log(failed_mentions);
 
@@ -114,9 +117,11 @@ client.on('messageCreate', async (message) => {
   if (guild.id !== GUILD_ID) return; // Ignore other guilds
   if (message.author.id !== WORDLE_BOT_ID) return; // Ignore non-Wordle bot messages
 
+  let members: Collection<Snowflake, GuildMember> = new Collection();
+
   console.log('📨 Message received:', message.content);
 
-  const parse_result = await Parse_Wordle_Message(message);
+  const parse_result = await Parse_Wordle_Message(message, members);
   if (parse_result === undefined) {
     console.log('No valid Wordle result found in the message.');
     return;
@@ -124,13 +129,17 @@ client.on('messageCreate', async (message) => {
   const { winners, winningScore } = parse_result;
 
   const wordleKingRole = await guild.roles.fetch(WORDLE_ROLE_ID);
+  console.log(`Fetched role: ${wordleKingRole?.name}`);
   if (wordleKingRole === null) {
     console.error(`Role with ID ${WORDLE_ROLE_ID} not found in guild ${guild.name}.`);
     return;
   };
 
-  await remove_roles(wordleKingRole, guild) // Remove role from previous kings
+  await new Promise(resolve => setTimeout(resolve, 30000));
+  await remove_roles(wordleKingRole, guild, members) // Remove role from previous kings
+  console.log(`Previous Wordle Kings removed.`);
   await add_roles(wordleKingRole, guild, winners) // Add role to new kings
+  console.log(`New Wordle Kings assigned.`);
 
   const statManager = getStatsManager()
   statManager.addWinToUsers(winners.map((winner) => winner.id))
