@@ -1,4 +1,4 @@
-import { Client, Collection, Events, GatewayIntentBits, Guild, Message, MessageFlags, OmitPartialGroupDMChannel, Role, User } from 'discord.js'
+import { Client, Collection, Events, GatewayIntentBits, Guild, GuildMember, Message, MessageFlags, OmitPartialGroupDMChannel, Role, User } from 'discord.js'
 import { getStatsManager, persistStats } from './stats';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -60,6 +60,42 @@ async function Parse_Wordle_Message(message: OmitPartialGroupDMChannel<Message<b
     const position = afterCrown.indexOf(`<@${user.id}>`);
     if (position !== -1) winners.push(user);
   });
+
+  const failed_mentions = new Set<string>();
+  let starting_index = -1
+
+  for (let i = 1; i < afterCrown.length; i++) {
+    const letter = afterCrown[i];
+    if (letter === '@' && afterCrown[i-1] === ' ') {
+      if (starting_index === -1)
+        starting_index = i 
+      else {
+        failed_mentions.add(afterCrown.slice(starting_index + 1, i).trim())
+        starting_index = -1
+      }
+    }
+    else if (letter === '<' && starting_index !== -1) {
+        failed_mentions.add(afterCrown.slice(starting_index + 1, i).trim())
+        starting_index = -1
+      }
+  }
+  if (starting_index !== -1) {
+    failed_mentions.add(afterCrown.slice(starting_index + 1, afterCrown.length).trim())
+  }
+
+  if (failed_mentions.size > 0 && message.guild !== null) {
+    const members = Array.from((await message.guild.members.fetch()).values())
+    for (let i = 0; i < members.length; i++) {
+      const member = members[i];
+      if (failed_mentions.has(member.displayName)) {
+        winners.push(member.user as User)
+        failed_mentions.delete(member.displayName)
+      }
+      
+    }
+  }
+
+  console.log(failed_mentions);
 
   if (winners.length === 0) return;
 
