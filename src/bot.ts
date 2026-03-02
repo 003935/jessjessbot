@@ -157,21 +157,69 @@ client.on('messageCreate', async (message) => {
 client.login(process.env.BOT_TOKEN);
 
 client.commands = new Collection();
-const foldersPath = path.join(__dirname, "..", 'commands');
-const commandFolders = fs.readdirSync(foldersPath);
+// load commands from disk. historically the template put commands in subfolders
+// (e.g. `commands/utility/ping.js`) but we may conceivably ship flat files too
+// or have stray artifacts from a build process.  guard against non-directories so
+// `readdirSync` doesn't try to `scandir` a file and blow up (which is what
+// caused the ENOTDIR error above).
+const foldersPath = path.join(__dirname, '..', 'commands');
+
+// read with Dirent objects so we can filter directories only
+let commandFolders: string[] = [];
+try {
+  commandFolders = fs.readdirSync(foldersPath, { withFileTypes: true })
+    .filter((dirent) => dirent.isDirectory())
+    .map((dirent) => dirent.name);
+} catch (err) {
+  console.error(`Unable to read commands directory at ${foldersPath}:`, err);
+}
+
+// in addition to subfolders make it possible to drop commands directly in
+// `commands/` without a containing directory.  this mirrors the behaviour the
+// template originally provided but keeps our loading logic safe.
 for (const folder of commandFolders) {
   const commandsPath = path.join(foldersPath, folder);
-  const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
+  let commandFiles: string[] = [];
+  try {
+    commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
+  } catch (err) {
+    console.warn(`Skipping ${commandsPath}: not accessible (${err.message})`);
+    continue;
+  }
+
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const command = require(filePath);
-    // Set a new item in the Collection with the key as the command name and the value as the exported module
+    // ensure exports look like a discord command
     if ('data' in command && 'execute' in command) {
       client.commands.set(command.data.name, command);
     } else {
-      console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+      console.log(
+        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
+      );
     }
   }
+}
+
+// load any loose command files sitting directly in commands/
+try {
+  const rootFiles = fs.readdirSync(foldersPath).filter((file) => file.endsWith('.js'));
+  for (const file of rootFiles) {
+    const filePath = path.join(foldersPath, file);
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const command = require(filePath);
+    if ('data' in command && 'execute' in command) {
+      client.commands.set(command.data.name, command);
+    } else {
+      console.log(
+        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
+      );
+    }
+  }
+} catch (err) {
+  // if the directory couldn't be read, we've already logged above, no need
+  // to duplicate the message.
 }
 
 client.on(Events.InteractionCreate, async (interaction) => {

@@ -43,7 +43,24 @@ class StatsManager {
 function loadStats(): STATS_FILE {
   try {
     if (fs.existsSync(file)) {
-      return JSON.parse(fs.readFileSync(file, 'utf8'));
+      const raw = fs.readFileSync(file, 'utf8');
+      // If the file exists but is empty (e.g. touched by the Docker build step)
+      // JSON.parse will throw `Unexpected EOF`.  We treat that as an empty
+      // stats object and bootstrap the file with the default contents so
+      // future loads don't keep erroring.
+      if (raw.trim().length === 0) {
+        const empty: STATS_FILE = { userStats: {} };
+        try {
+          fs.writeFileSync(file, JSON.stringify(empty, null, 2));
+        } catch (err) {
+          // if we can't write the file, log and continue; the runtime will
+          // operate with an in-memory empty stats object and we'll attempt
+          // to persist later (which may also fail with permission errors).
+          console.error('Unable to initialize empty stats file:', err);
+        }
+        return empty;
+      }
+      return JSON.parse(raw);
     }
   } catch (error) {
     console.error('Error loading stats:', error);
