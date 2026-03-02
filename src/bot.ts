@@ -5,6 +5,7 @@ import { WORDLE_BOT_ID, GUILD_ID, WORDLE_ROLE_ID } from './environment';
 import { db } from './db';
 import { winnersTable } from './db/schema';
 import { eq } from 'drizzle-orm';
+import { Parse_Wordle_Message } from './wordle';
 
 interface ClientWithCommands extends Client {
   commands: Collection<string, any>
@@ -41,72 +42,6 @@ async function remove_roles(wordleKingRole: Role, guild: Guild, users: Collectio
   }
 }
 
-async function Parse_Wordle_Message(message: OmitPartialGroupDMChannel<Message<boolean>>, users: Collection<Snowflake, GuildMember>): Promise<{ winners: User[], winningScore: string } | undefined> {
-  if (message.author.id !== WORDLE_BOT_ID) return;
-  if (!message.content.includes("Here are yesterday's results:")) return;
-
-  const lines = message.content.split('\n');
-  const crownLine = lines.find(line => line.includes('👑'));
-
-  if (!crownLine) return;
-
-  const scoreMatch = crownLine.match(/(\d+)\/6/);
-  if (!scoreMatch) return;
-
-  const winningScore = scoreMatch[1];
-  const crownIndex = crownLine.indexOf('👑');
-  const afterCrown = crownLine.substring(crownIndex);
-
-  const winners: Array<User> = [];
-  message.mentions.users.forEach(user => {
-    const position = afterCrown.indexOf(`<@${user.id}>`);
-    if (position !== -1) winners.push(user);
-  });
-
-  const failed_mentions = new Set<string>();
-  let starting_index = -1
-
-  for (let i = 1; i < afterCrown.length; i++) {
-    const letter = afterCrown[i];
-    if (letter === '@' && afterCrown[i - 1] === ' ') {
-      if (starting_index === -1)
-        starting_index = i
-      else {
-        failed_mentions.add(afterCrown.slice(starting_index + 1, i).trim())
-        starting_index = -1
-      }
-    }
-    else if (letter === '<' && starting_index !== -1) {
-      failed_mentions.add(afterCrown.slice(starting_index + 1, i).trim())
-      starting_index = -1
-    }
-  }
-  if (starting_index !== -1) {
-    failed_mentions.add(afterCrown.slice(starting_index + 1, afterCrown.length).trim())
-  }
-
-  if (failed_mentions.size > 0 && message.guild !== null) {
-    const memb = users.size > 0 ? users : await message.guild.members.fetch();
-    const members = Array.from(memb.values())
-    for (let i = 0; i < members.length; i++) {
-      const member = members[i];
-      if (failed_mentions.has(member.displayName)) {
-        winners.push(member.user as User)
-        failed_mentions.delete(member.displayName)
-      }
-
-    }
-  }
-
-
-
-  console.log(failed_mentions);
-
-  if (winners.length === 0) return;
-
-  return { winners, winningScore };
-
-}
 
 client.on('clientReady', (client) => {
   console.log(`${client.user?.tag} is online!`);
