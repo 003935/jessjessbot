@@ -84,7 +84,7 @@ client.on('clientReady', async (client) => {
             break
         }
         console.log("waiting 20 seconds before fetching more messages...")
-        await new Promise(resolve => setTimeout(resolve, 20000));
+        await new Promise(resolve => setTimeout(resolve, 5000));
     }
     client.destroy();
 });
