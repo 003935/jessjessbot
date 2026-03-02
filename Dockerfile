@@ -31,15 +31,8 @@ COPY --from=prerelease /usr/src/app/src/* ./src/
 COPY --from=prerelease /usr/src/app/commands/* ./commands/
 COPY --from=prerelease /usr/src/app/package.json .
 COPY --from=prerelease /usr/src/app/deploy-commands.js .
-RUN touch wordle_stats.json
-
-# ensure the bun user can write to the stats file; the `touch` above creates
-# it as root, which leads to EACCES when the container runs as `bun`.
-RUN chown bun:bun wordle_stats.json \
-	&& chmod 0666 wordle_stats.json
-
+COPY --from=prerelease /usr/src/app/drizzle.config.ts .
 
 # run the app
 USER bun
-EXPOSE 3000/tcp
 ENTRYPOINT [ "bun", "run", "start" ]
