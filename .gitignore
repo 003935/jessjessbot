@@ -4,3 +4,4 @@ node_modules/
 config.json
 wordle_stats.json
 *.sqlite
+data/

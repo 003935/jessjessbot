@@ -8,7 +8,7 @@
         "deploy": "bun run deploy-commands.js"
     },
     "dependencies": {
-        "better-sqlite3": "^12.6.2",
+        "@libsql/client": "^0.17.0",
         "discord.js": "^14.14.1",
         "dotenv": "^17.3.1",
         "drizzle-orm": "^0.45.1"
