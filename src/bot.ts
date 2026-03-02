@@ -5,7 +5,7 @@ import { WORDLE_BOT_ID, GUILD_ID, WORDLE_ROLE_ID } from './environment';
 import { db } from './db';
 import { winnersTable } from './db/schema';
 import { eq } from 'drizzle-orm';
-import { Parse_Wordle_Message } from './wordle';
+import { get_users_from_failed_mentions, Parse_Wordle_Message } from './wordle';
 
 interface ClientWithCommands extends Client {
   commands: Collection<string, any>
@@ -54,16 +54,35 @@ client.on('messageCreate', async (message) => {
   if (guild.id !== GUILD_ID) return; // Ignore other guilds
   if (message.author.id !== WORDLE_BOT_ID) return; // Ignore non-Wordle bot messages
 
-  let members: Collection<Snowflake, GuildMember> = new Collection();
 
   console.log('📨 Message received:', message.content);
 
-  const parse_result = await Parse_Wordle_Message(message, members);
+  const parse_result = await Parse_Wordle_Message(message);
   if (parse_result === undefined) {
     console.log('No valid Wordle result found in the message.');
     return;
   }
-  const { winners, winningScore } = parse_result;
+
+  const members: Collection<Snowflake, GuildMember> = await guild.members.fetch();
+  await new Promise(resolve => setTimeout(resolve, 30000));
+
+  const winners = new Collection<string, User>(parse_result.winners.map((user) => [user.id, user]))
+  if (parse_result.failed_mentions.size > 0) {
+    const parsed_failed = get_users_from_failed_mentions(parse_result.failed_mentions, members)
+
+    if (parsed_failed.failed_mentions.size > 0) {
+      console.log("failed to parse some mentions in message: " + message.id)
+      console.log(parsed_failed.failed_mentions)
+    }
+    parsed_failed.winners.forEach((winner) => {
+      if (!winners.has(winner.id)) {
+        winners.set(winner.id, winner)
+      }
+    })
+  }
+
+
+  const { winningScore } = parse_result;
 
   const wordleKingRole = await guild.roles.fetch(WORDLE_ROLE_ID);
   console.log(`Fetched role: ${wordleKingRole?.name}`);
@@ -72,10 +91,12 @@ client.on('messageCreate', async (message) => {
     return;
   };
 
+
+  const winners_array = Array.from(winners.values());
   await new Promise(resolve => setTimeout(resolve, 30000));
   await remove_roles(wordleKingRole, guild, members) // Remove role from previous kings
   console.log(`Previous Wordle Kings removed.`);
-  await add_roles(wordleKingRole, guild, winners) // Add role to new kings
+  await add_roles(wordleKingRole, guild, winners_array) // Add role to new kings
   console.log(`New Wordle Kings assigned.`);
 
   const todays_date = new Date()
@@ -89,8 +110,8 @@ client.on('messageCreate', async (message) => {
   })
 
   const winnerMentions = winners.map((winner) => `<@${winner.id}>`);
-  if (winners.length === 1) {
-    const totalWins = await db.$count(winnersTable, eq(winnersTable.userID, winners[0].id));
+  if (winners_array.length === 1) {
+    const totalWins = await db.$count(winnersTable, eq(winnersTable.userID, winners_array[0].id));
     await message.channel.send(`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${totalWins})`);
   } else {
     await message.channel.send(`Congratulations ${winnerMentions.join(', ')}! You are the new Wordle Kings! 👑 (Tied with ${winningScore}/6)`);
