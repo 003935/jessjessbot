@@ -30,7 +30,6 @@ COPY --from=install /temp/prod/node_modules node_modules
 COPY --from=prerelease /usr/src/app/src ./src
 COPY --from=prerelease /usr/src/app/commands ./commands
 COPY --from=prerelease /usr/src/app/package.json .
-COPY --from=prerelease /usr/src/app/deploy-commands.js .
 COPY --from=prerelease /usr/src/app/drizzle.config.ts .
 
 # run the app
