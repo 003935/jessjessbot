@@ -59,15 +59,16 @@ client.on('clientReady', async (client) => {
                 })
             }
 
-            const message_date = message.createdAt
-            message_date.setUTCHours(0, 0, 0, 0);
-
             try {
-                await db.insert(winnersTable).values(winners.map((U) => {
-                    return {
-                        date: message_date, userID: U.id
+                for (const winner of winners.values()) {
+                    const users = await db.select().from(winnersTable).where(eq(winnersTable.userID, winner.id));
+                    const user = users.length > 0 ? users[0] : null
+                    if (user === null) {
+                        await db.insert(winnersTable).values({ userID: winner.id, wins: 1 });
+                    } else {
+                        await db.update(winnersTable).set({ wins: user.wins + 1 }).where(eq(winnersTable.userID, user.userID));
                     }
-                }))
+                }
             }
             catch (e) {
                 console.log("message already exists in database")

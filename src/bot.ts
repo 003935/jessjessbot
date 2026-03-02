@@ -99,20 +99,21 @@ client.on('messageCreate', async (message) => {
   await add_roles(wordleKingRole, guild, winners_array) // Add role to new kings
   console.log(`New Wordle Kings assigned.`);
 
-  const todays_date = new Date()
-  todays_date.setUTCHours(0, 0, 0, 0);
-
-  winners.forEach(async (W) => {
-    await db.insert(winnersTable).values({
-      date: todays_date,
-      userID: W.id
-    })
+  winners.forEach(async (winner) => {
+    const users = await db.select().from(winnersTable).where(eq(winnersTable.userID, winner.id));
+    const user = users.length > 0 ? users[0] : null
+    if (user === null) {
+      await db.insert(winnersTable).values({ userID: winner.id, wins: 1 });
+    } else {
+      await db.update(winnersTable).set({ wins: user.wins + 1 }).where(eq(winnersTable.userID, user.userID));
+    }
   })
 
   const winnerMentions = winners.map((winner) => `<@${winner.id}>`);
   if (winners_array.length === 1) {
-    const totalWins = await db.$count(winnersTable, eq(winnersTable.userID, winners_array[0].id));
-    await message.channel.send(`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${totalWins})`);
+    const users = await db.select().from(winnersTable).where(eq(winnersTable.userID, winners_array[0].id))
+    const user = users.length > 0 ? users[0] : null
+    await message.channel.send(`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${user?.wins})`);
   } else {
     await message.channel.send(`Congratulations ${winnerMentions.join(', ')}! You are the new Wordle Kings! 👑 (Tied with ${winningScore}/6)`);
   }
