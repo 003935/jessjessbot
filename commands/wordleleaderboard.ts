@@ -27,7 +27,7 @@ export class KingCommand extends Command {
             await interaction.reply({
                 content: "No one has won any games yet!",
                 withResponse: true,
-                flags: MessageFlags.Ephemeral
+                //flags: MessageFlags.Ephemeral
             });
             return;
         }
@@ -47,7 +47,7 @@ export class KingCommand extends Command {
                 .map((u, i) => `${i === 0 ? "👑 " : ""} ${u.name} | ${u.wins} Wins`)
                 .join("\n"),
             withResponse: true,
-            flags: MessageFlags.Ephemeral
+            //flags: MessageFlags.Ephemeral
         });
     }
 }
