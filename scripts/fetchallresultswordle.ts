@@ -71,7 +71,7 @@ client.on('clientReady', async (client) => {
                 }
             }
             catch (e) {
-                console.log("message already exists in database")
+                console.log("failed to insert winners into database for message: " + message.id)
             }
         }
         const last_message = messages.last();

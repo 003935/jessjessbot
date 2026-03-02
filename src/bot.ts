@@ -1,4 +1,4 @@
-import { Client, Collection, Events, GatewayIntentBits, Guild, GuildMember, Message, MessageFlags, OmitPartialGroupDMChannel, Role, Snowflake, User } from 'discord.js'
+import { Collection, Events, GatewayIntentBits, Guild, GuildMember, Message, MessageFlags, OmitPartialGroupDMChannel, Role, Snowflake, User } from 'discord.js'
 import * as path from 'path';
 import * as fs from 'fs';
 import { WORDLE_BOT_ID, GUILD_ID, WORDLE_ROLE_ID } from './environment';
@@ -6,18 +6,17 @@ import { db } from './db';
 import { winnersTable } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { get_users_from_failed_mentions, Parse_Wordle_Message } from './wordle';
+import { SapphireClient } from '@sapphire/framework';
 
-interface ClientWithCommands extends Client {
-  commands: Collection<string, any>
-}
-const client = new Client({
+const client = new SapphireClient({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
   ],
-}) as ClientWithCommands;
+  loadMessageCommandListeners: true
+});
 
 
 async function add_roles(wordleKingRole: Role, guild: Guild, winners: Array<User>) {
@@ -120,99 +119,3 @@ client.on('messageCreate', async (message) => {
 });
 
 client.login(process.env.BOT_TOKEN);
-
-client.commands = new Collection();
-// load commands from disk. historically the template put commands in subfolders
-// (e.g. `commands/utility/ping.js`) but we may conceivably ship flat files too
-// or have stray artifacts from a build process.  guard against non-directories so
-// `readdirSync` doesn't try to `scandir` a file and blow up (which is what
-// caused the ENOTDIR error above).
-const foldersPath = path.join(__dirname, '..', 'commands');
-
-// read with Dirent objects so we can filter directories only
-let commandFolders: string[] = [];
-try {
-  commandFolders = fs.readdirSync(foldersPath, { withFileTypes: true })
-    .filter((dirent) => dirent.isDirectory())
-    .map((dirent) => dirent.name);
-} catch (err) {
-  console.error(`Unable to read commands directory at ${foldersPath}:`, err);
-}
-
-// in addition to subfolders make it possible to drop commands directly in
-// `commands/` without a containing directory.  this mirrors the behaviour the
-// template originally provided but keeps our loading logic safe.
-for (const folder of commandFolders) {
-  const commandsPath = path.join(foldersPath, folder);
-  let commandFiles: string[] = [];
-  try {
-    commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
-  } catch (err) {
-    if (err && typeof err === 'object' && 'message' in err) {
-      console.warn(`Skipping ${commandsPath}: not accessible (${(err as { message: string }).message})`);
-    } else {
-      console.warn(`Skipping ${commandsPath}: not accessible (unknown error)`);
-    }
-    continue;
-  }
-
-  for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const command = require(filePath);
-    // ensure exports look like a discord command
-    if ('data' in command && 'execute' in command) {
-      client.commands.set(command.data.name, command);
-    } else {
-      console.log(
-        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
-      );
-    }
-  }
-}
-
-// load any loose command files sitting directly in commands/
-try {
-  const rootFiles = fs.readdirSync(foldersPath).filter((file) => file.endsWith('.js'));
-  for (const file of rootFiles) {
-    const filePath = path.join(foldersPath, file);
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const command = require(filePath);
-    if ('data' in command && 'execute' in command) {
-      client.commands.set(command.data.name, command);
-    } else {
-      console.log(
-        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
-      );
-    }
-  }
-} catch (err) {
-  // if the directory couldn't be read, we've already logged above, no need
-  // to duplicate the message.
-}
-
-client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-  const command = (interaction.client as ClientWithCommands).commands.get(interaction.commandName);
-  if (!command) {
-    console.error(`No command matching ${interaction.commandName} was found.`);
-    return;
-  }
-
-  try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error(error);
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({
-        content: 'There was an error while executing this command!',
-        flags: MessageFlags.Ephemeral,
-      });
-    } else {
-      await interaction.reply({
-        content: 'There was an error while executing this command!',
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-  }
-});
