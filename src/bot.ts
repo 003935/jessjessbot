@@ -1,8 +1,11 @@
 import { Client, Collection, Events, GatewayIntentBits, Guild, GuildMember, Message, MessageFlags, OmitPartialGroupDMChannel, Role, Snowflake, User } from 'discord.js'
-import { getStatsManager, persistStats } from './stats';
 import * as path from 'path';
 import * as fs from 'fs';
 import { WORDLE_BOT_ID, GUILD_ID, WORDLE_ROLE_ID } from './environment';
+import { db } from './db';
+import { winnersTable } from './db/schema';
+import { date } from 'drizzle-orm/mysql-core';
+import { eq } from 'drizzle-orm';
 
 interface ClientWithCommands extends Client {
   commands: Collection<string, any>
@@ -140,14 +143,18 @@ client.on('messageCreate', async (message) => {
   console.log(`Previous Wordle Kings removed.`);
   await add_roles(wordleKingRole, guild, winners) // Add role to new kings
   console.log(`New Wordle Kings assigned.`);
-
-  const statManager = getStatsManager()
-  statManager.addWinToUsers(winners.map((winner) => winner.id))
-  persistStats(statManager)
+  
+  const todays_date = new Date()
+  winners.forEach(async(W)=>{
+    await db.insert(winnersTable).values({
+      date:todays_date, 
+      userID:W.id
+    })
+  })
 
   const winnerMentions = winners.map((winner) => `<@${winner.id}>`);
   if (winners.length === 1) {
-    const totalWins = statManager.getUserStats(winners[0].id).wins;
+    const totalWins = db.$count(winnersTable, eq(winnersTable.userID, winners[0].id));
     await message.channel.send(`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${totalWins})`);
   } else {
     await message.channel.send(`Congratulations ${winnerMentions.join(', ')}! You are the new Wordle Kings! 👑 (Tied with ${winningScore}/6)`);
@@ -183,7 +190,11 @@ for (const folder of commandFolders) {
   try {
     commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
   } catch (err) {
-    console.warn(`Skipping ${commandsPath}: not accessible (${err.message})`);
+    if (err && typeof err === 'object' && 'message' in err) {
+      console.warn(`Skipping ${commandsPath}: not accessible (${(err as { message: string }).message})`);
+    } else {
+      console.warn(`Skipping ${commandsPath}: not accessible (unknown error)`);
+    }
     continue;
   }
 
