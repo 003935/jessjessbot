@@ -4,7 +4,6 @@ import * as fs from 'fs';
 import { WORDLE_BOT_ID, GUILD_ID, WORDLE_ROLE_ID } from './environment';
 import { db } from './db';
 import { winnersTable } from './db/schema';
-import { date } from 'drizzle-orm/mysql-core';
 import { eq } from 'drizzle-orm';
 
 interface ClientWithCommands extends Client {
@@ -143,18 +142,20 @@ client.on('messageCreate', async (message) => {
   console.log(`Previous Wordle Kings removed.`);
   await add_roles(wordleKingRole, guild, winners) // Add role to new kings
   console.log(`New Wordle Kings assigned.`);
-  
+
   const todays_date = new Date()
-  winners.forEach(async(W)=>{
+  todays_date.setUTCHours(0, 0, 0, 0);
+
+  winners.forEach(async (W) => {
     await db.insert(winnersTable).values({
-      date:todays_date, 
-      userID:W.id
+      date: todays_date,
+      userID: W.id
     })
   })
 
   const winnerMentions = winners.map((winner) => `<@${winner.id}>`);
   if (winners.length === 1) {
-    const totalWins = db.$count(winnersTable, eq(winnersTable.userID, winners[0].id));
+    const totalWins = await db.$count(winnersTable, eq(winnersTable.userID, winners[0].id));
     await message.channel.send(`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${totalWins})`);
   } else {
     await message.channel.send(`Congratulations ${winnerMentions.join(', ')}! You are the new Wordle Kings! 👑 (Tied with ${winningScore}/6)`);
