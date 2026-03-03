@@ -5,6 +5,10 @@ import { db } from ".";
 type User = InferSelectModel<typeof winnersTable>;
 
 export class WinnersTable {
+  static async size(): Promise<number> {
+    return await db.$count(winnersTable);
+  }
+
   static async getSortedWinners(limit: number = 5): Promise<User[]> {
     const users = await db.select().from(winnersTable).orderBy(desc(winnersTable.wins)).limit(limit);
     return users;

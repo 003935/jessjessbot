@@ -5,13 +5,11 @@ import { WinnersTable } from '../src/db/wordle';
 import { SapphireClient } from '@sapphire/framework';
 import { parseArgs } from "util";
 import { BOT_TOKEN, GUILD_ID, WORDLE_BOT_ID } from '../src/environment';
+import { exit } from 'process';
 
 const { values } = parseArgs({
     args: Bun.argv,
     options: {
-        guildId: {
-            type: "string",
-        },
         channelId: {
             type: "string",
         },
@@ -19,10 +17,6 @@ const { values } = parseArgs({
     strict: true,
     allowPositionals: true
 });
-
-if (values.guildId === undefined) {
-    throw new Error("Pass a Guild Id as argument")
-}
 
 if (values.channelId === undefined) {
     throw new Error("Pass a Channel Id as argument")
@@ -39,12 +33,13 @@ const client = new SapphireClient({
 
 client.on('clientReady', async (client) => {
     console.log(`${client.user?.tag} is online!`);
+
     const guild = await client.guilds.fetch(GUILD_ID)
     const channel = await guild.channels.fetch(values.channelId!)
 
     if (!channel || !channel.isTextBased()) {
-        console.log(123)
-        return
+        console.error("Channel is not appropriate")
+        exit(1)
     };
 
     let last_message_id: string | null = null
@@ -85,7 +80,7 @@ client.on('clientReady', async (client) => {
 
                 }
                 if (successful_failed_mentions_parses < parsed.failed_mentions.size) {
-                    console.log("failed to parse some failed mentions in message: " + message.id)
+                    console.error("failed to parse some failed mentions in message: " + message.id)
                 }
             }
 
@@ -97,8 +92,8 @@ client.on('clientReady', async (client) => {
         console.log(`Messages fetched: ${fetched}, Parsed Successfully ${messages_parsed_successfully}`)
         const last_message = messages.last();
         if (last_message === undefined) {
-            console.log(messages.size)
-            return
+            console.error(`messages.last() is undefined, messages.size: ${messages.size}`)
+            exit(1)
         }
         last_message_id = last_message.id
         if (messages.size < limit) {
@@ -109,5 +104,12 @@ client.on('clientReady', async (client) => {
     client.destroy();
 });
 
-client.login(BOT_TOKEN);
+WinnersTable.size().then((size) => {
+    const is_winners_table_empty = size === 0
+    if (!is_winners_table_empty) {
+        console.error("Winners table is not empty")
+        exit(1)
+    }
+    client.login(BOT_TOKEN);
+})
 
