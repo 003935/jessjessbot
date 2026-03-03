@@ -1,8 +1,6 @@
-import { isMessageInstance } from '@sapphire/discord.js-utilities';
 import { Command } from '@sapphire/framework';
-import { MessageFlags } from 'discord.js';
-import { db } from '../src/db';
-import { winnersTable } from '../src/db/schema';
+import { WinnersTable } from '../src/db/wordle';
+import { GUILD_ID } from '../src/environment';
 
 export class KingCommand extends Command {
     public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -17,11 +15,9 @@ export class KingCommand extends Command {
 
     public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
 
-        const guild = await this.container.client.guilds.fetch(process.env.GUILD_ID!);
+        const guild = await this.container.client.guilds.fetch(GUILD_ID);
 
-        const users = await db.select().from(winnersTable);
-
-        const sorted = users.sort((a, b) => b.wins - a.wins);
+        const sorted = await WinnersTable.getSortedWinners(5)
 
         if (sorted.length === 0) {
             await interaction.reply({
@@ -33,7 +29,7 @@ export class KingCommand extends Command {
         }
 
         const firstfive = await Promise.all(
-            sorted.slice(0, 5).map(async (u) => {
+            sorted.map(async (u) => {
                 const user = await guild.members.fetch(u.userID);
                 return {
                     name: user?.displayName ?? "undefined",

@@ -1,13 +1,6 @@
-import { Client, Collection, Events, GatewayIntentBits, Guild, GuildMember, Message, MessageFlags, OmitPartialGroupDMChannel, Role, Snowflake, User } from 'discord.js'
-import * as path from 'path';
-import * as fs from 'fs';
-import { WORDLE_BOT_ID, GUILD_ID, WORDLE_ROLE_ID } from './environment';
-import { db } from './db';
-import { winnersTable } from './db/schema';
-import { eq } from 'drizzle-orm';
+import { Collection, GuildMember, Message, Snowflake } from 'discord.js';
 
-export function Parse_Wordle_Message(message: Message<boolean>): { winners: User[], failed_mentions: Set<string>, winningScore: string } | undefined {
-  if (message.author.id !== WORDLE_BOT_ID) return;
+export function Parse_Wordle_Message(message: Message<true>): { winners: GuildMember[], failed_mentions: Set<string>, winningScore: string } | undefined {
   if (!message.content.includes("Here are yesterday's results:")) return;
 
   const lines = message.content.split('\n');
@@ -22,8 +15,9 @@ export function Parse_Wordle_Message(message: Message<boolean>): { winners: User
   const crownIndex = crownLine.indexOf('👑');
   const afterCrown = crownLine.substring(crownIndex);
 
-  const winners: Array<User> = [];
-  message.mentions.users.forEach(user => {
+  const winners: Array<GuildMember> = [];
+
+  message.mentions.members.forEach(user => {
     const position = afterCrown.indexOf(`<@${user.id}>`);
     if (position !== -1) winners.push(user);
   });
@@ -50,17 +44,17 @@ export function Parse_Wordle_Message(message: Message<boolean>): { winners: User
     failed_mentions.add(afterCrown.slice(starting_index + 1, afterCrown.length).trim())
   }
 
-  return { winners, winningScore, failed_mentions};
+  return { winners, winningScore, failed_mentions };
 }
 
 
-export function get_users_from_failed_mentions(failed_mentions: Set<string>, users: Collection<Snowflake, GuildMember>): { winners: Set<User>, failed_mentions: Set<string> } {
-  const winners = new Set<User>();
+export function get_users_from_failed_mentions(failed_mentions: Set<string>, users: Collection<Snowflake, GuildMember>): { winners: GuildMember[], failed_mentions: Set<string> } {
+  const winners = new Array<GuildMember>();
   const members = Array.from(users.values())
   for (let i = 0; i < members.length; i++) {
     const member = members[i];
     if (failed_mentions.has(member.displayName)) {
-      winners.add(member.user as User)
+      winners.push(member)
       failed_mentions.delete(member.displayName)
     }
   }
