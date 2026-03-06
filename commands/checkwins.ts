@@ -10,7 +10,15 @@ export class WinsCommand extends Command {
 
     public override registerApplicationCommands(registry: Command.Registry) {
         registry.registerChatInputCommand((builder) =>
-            builder.setName('wins').setDescription('check your wins')
+            builder
+                .setName('wins')
+                .setDescription('check your wins')
+                .addUserOption((option) =>
+                    option
+                        .setName('user')
+                        .setDescription('check user wins')
+                )
+
         );
     }
 
@@ -18,7 +26,9 @@ export class WinsCommand extends Command {
 
         const userID = interaction.user.id
 
-        const user = await WinnersTable.getUser(userID)
+        const optionuser = interaction.options.getUser('user')
+
+        const user = await WinnersTable.getUser(optionuser === null ? userID : optionuser.id)
 
         if (user === null) {
             await interaction.reply({
