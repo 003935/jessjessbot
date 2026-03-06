@@ -32,7 +32,7 @@ export class WinsCommand extends Command {
 
         if (user === null) {
             await interaction.reply({
-                content: "No wins yet!",
+                content: `${optionuser === null ? "You have" : optionuser.displayName + " has"} no wins yet!`,
                 withResponse: true,
                 flags: MessageFlags.Ephemeral
             });
@@ -41,7 +41,7 @@ export class WinsCommand extends Command {
 
         //You have 0 Wins!
         await interaction.reply({
-            content: `${optionuser === null ? "You have" : optionuser + " has"} ${user.wins} ${user.wins === 1 ? "Win!" : "Wins!"}`,
+            content: `${optionuser === null ? "You have" : optionuser.displayName + " has"} ${user.wins} ${user.wins === 1 ? "Win!" : "Wins!"}`,
             withResponse: true,
             //flags: MessageFlags.Ephemeral
         });

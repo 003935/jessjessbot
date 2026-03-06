@@ -81,7 +81,7 @@ client.on('messageCreate', async (message) => {
   const winnerMentions = winners.map((winner) => `<@${winner.id}>`);
   if (winners.length === 1) {
     const dbUser = await WinnersTable.getUser(winners[0].id)
-    await message.channel.send(`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${dbUser?.wins})`);
+    await message.channel.send(`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${dbUser?.wins ?? 0})`);
   } else {
     await message.channel.send(`Congratulations ${winnerMentions.join(', ')}! You are the new Wordle Kings! 👑 (Tied with ${winningScore}/6)`);
   }
