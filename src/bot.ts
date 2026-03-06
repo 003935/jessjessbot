@@ -59,7 +59,7 @@ client.on('messageCreate', async (message) => {
         winners.push(user);
         console.log(`Parsed failed mention: ${failed_mention} -> ${user.displayName} (@${user.user.tag})`);
       } else {
-        console.log(`No user found for failed mention: ${failed_mention}`);
+        console.warn(`No user found for failed mention: ${failed_mention}`);
       }
     }
   }
