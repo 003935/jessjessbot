@@ -1,8 +1,11 @@
-import { InferSelectModel, eq, desc } from "drizzle-orm";
+import { InferSelectModel, eq, desc, and } from "drizzle-orm";
 import { winnersTable } from "./schema";
 import { db } from ".";
 
-type User = InferSelectModel<typeof winnersTable>;
+type User = {
+  id: string;
+  wins: number;
+};
 
 export class WinnersTable {
   static async size(): Promise<number> {
@@ -10,24 +13,28 @@ export class WinnersTable {
   }
 
   static async getSortedWinners(limit: number = 5): Promise<User[]> {
-    const users = await db.select().from(winnersTable).orderBy(desc(winnersTable.wins)).limit(limit);
-    return users;
+    const win_entries = await db.select().from(winnersTable);
+    const users = new Map<string, number>();
+    for (const win_entry of win_entries) {
+      users.set(win_entry.userID, (users.get(win_entry.userID) || 0) + 1);
+    }
+    const sorted_users = Array.from(users.entries()).sort((a, b) => b[1] - a[1]).slice(0, limit);
+    return sorted_users.map(([id, wins]) => ({ id, wins }));
   }
 
   static async getUser(id: string): Promise<User | null> {
-    const users = await db.select().from(winnersTable).where(eq(winnersTable.userID, id));
-    if (users.length !== 1) return null;
-    return users[0]
+    const win_entries = await db.select().from(winnersTable).where(eq(winnersTable.userID, id));
+    return {
+      id,
+      wins: win_entries.length
+    }
   }
 
-  static async incrementWins(id: string) {
+  static async incrementWins(id: string, timestamp: Date) {
     await db.transaction(async (tx) => {
-      const users = await tx.select().from(winnersTable).where(eq(winnersTable.userID, id));
-      const user = users.length === 1 ? users[0] : null
-      if (user === null) {
-        await tx.insert(winnersTable).values({ userID: id, wins: 1 });
-      } else {
-        await tx.update(winnersTable).set({ wins: user.wins + 1 }).where(eq(winnersTable.userID, user.userID))
+      const win_entry = await tx.select().from(winnersTable).where(and(eq(winnersTable.userID, id), eq(winnersTable.message_timestamp, timestamp)));
+      if (win_entry.length === 0) {
+        await tx.insert(winnersTable).values({ userID: id, message_timestamp: timestamp });
       }
     })
   }

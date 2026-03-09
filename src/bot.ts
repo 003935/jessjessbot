@@ -41,7 +41,7 @@ client.on('messageCreate', async (message) => {
   if (message.author.id !== WORDLE_BOT_ID) return; // Ignore non-Wordle bot messages
 
   console.log(`📨 Message received:
-   \t${message.content.split("\n").join("\n\t")}`);
+   \t${message.content.split("\n").join("\n\t\t")}`);
 
   const parse_result = Parse_Wordle_Message(message);
   if (parse_result === undefined) {
@@ -74,14 +74,21 @@ client.on('messageCreate', async (message) => {
 
   await sync_wordle_role(winners, wordleKingRole)
 
-  winners.forEach(async (winner) => {
-    await WinnersTable.incrementWins(winner.id)
-  })
+  if (winners.length === 0) {
+    console.log("No winners found.")
+    return;
+  } else {
+    console.log(`Winners: ${winners.map((winner) => winner.displayName).join(", ")}`)
+  }
+
+  for (const winner of winners) {
+    await WinnersTable.incrementWins(winner.id, message.createdAt)
+  }
 
   const winnerMentions = winners.map((winner) => `<@${winner.id}>`);
   if (winners.length === 1) {
     const dbUser = await WinnersTable.getUser(winners[0].id)
-    await message.channel.send(`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${dbUser?.wins ?? 0})`);
+    await message.channel.send(`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${dbUser?.wins ?? 1})`);
   } else {
     await message.channel.send(`Congratulations ${winnerMentions.join(', ')}! You are the new Wordle Kings! 👑 (Tied with ${winningScore}/6)`);
   }

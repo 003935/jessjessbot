@@ -12,8 +12,8 @@ services:
       - BOT_ID=${BOT_ID}
       - ROLE_ID=${ROLE_ID}
       - GUILD_ID=${GUILD_ID}
-      - DB_FILE_NAME=/app/data/wordle_stats.db
+      - DB_FILE_NAME=data/wordle_stats.db
       - NODE_ENV=production
     volumes:
-      - ./data:/app/data
+      - ./data:/usr/src/app/data
     restart: unless-stopped

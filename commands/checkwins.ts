@@ -1,6 +1,5 @@
 import { Command } from '@sapphire/framework';
 import { WinnersTable } from '../src/db/wordle';
-import { GUILD_ID } from '../src/environment';
 import { MessageFlags } from 'discord.js';
 
 export class WinsCommand extends Command {
@@ -18,7 +17,6 @@ export class WinsCommand extends Command {
                         .setName('user')
                         .setDescription('check user wins')
                 )
-
         );
     }
 
@@ -33,16 +31,13 @@ export class WinsCommand extends Command {
         if (user === null) {
             await interaction.reply({
                 content: `${optionuser === null ? "You have" : optionuser.displayName + " has"} no wins yet!`,
-                withResponse: true,
                 flags: MessageFlags.Ephemeral
             });
             return;
         }
 
-        //You have 0 Wins!
         await interaction.reply({
             content: `${optionuser === null ? "You have" : optionuser.displayName + " has"} ${user.wins} ${user.wins === 1 ? "Win!" : "Wins!"}`,
-            withResponse: true,
             //flags: MessageFlags.Ephemeral
         });
     }

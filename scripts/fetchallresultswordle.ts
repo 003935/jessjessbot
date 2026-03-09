@@ -85,7 +85,7 @@ client.on('clientReady', async (client) => {
             }
 
             for (const winner_id of winner_ids) {
-                await WinnersTable.incrementWins(winner_id)
+                await WinnersTable.incrementWins(winner_id, message.createdAt)
             }
             messages_parsed_successfully += 1
         }
@@ -104,12 +104,5 @@ client.on('clientReady', async (client) => {
     client.destroy();
 });
 
-WinnersTable.size().then((size) => {
-    const is_winners_table_empty = size === 0
-    if (!is_winners_table_empty) {
-        console.error("Winners table is not empty")
-        exit(1)
-    }
-    client.login(BOT_TOKEN);
-})
+client.login(BOT_TOKEN);
 

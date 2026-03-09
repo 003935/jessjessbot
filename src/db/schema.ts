@@ -1,6 +1,8 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const winnersTable = sqliteTable("winners_Table", {
-  userID: text().primaryKey(),
-  wins: integer().notNull(),
-});
+  userID: text().notNull(),
+  message_timestamp: integer({ mode: 'timestamp' }).notNull()
+}, (table) => [
+  primaryKey({ columns: [table.userID, table.message_timestamp] }),
+]);

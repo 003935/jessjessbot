@@ -32,6 +32,9 @@ COPY --from=prerelease /usr/src/app/commands ./commands
 COPY --from=prerelease /usr/src/app/package.json .
 COPY --from=prerelease /usr/src/app/drizzle.config.ts .
 
+# Ensure the data directory exists and is owned by the bun user
+RUN mkdir -p /usr/src/app/data && chown -R bun:bun /usr/src/app/data
+
 # run the app
 USER bun
 ENTRYPOINT [ "bun", "run", "start" ]
