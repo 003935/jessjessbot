@@ -4,6 +4,7 @@ import { GUILD_ID, RIOT_API_KEY } from '../src/environment';
 import { MessageFlags } from 'discord.js';
 import { LeagueTable } from '../src/db/league';
 import { Constants, LolApi, RiotApi, TftApi } from 'twisted';
+import { Regions, regionToRegionGroupForAccountAPI, Tiers } from 'twisted/dist/constants';
 
 const riotApi = new RiotApi({ key: RIOT_API_KEY })
 const lolApi = new LolApi({ key: RIOT_API_KEY })
@@ -24,14 +25,27 @@ export class AddLeagueAccountCommand extends Command {
                         .setDescription('gamename#tagline')
                         .setRequired(true)
                 )
+                .addStringOption((option) =>
+                    option
+                        .setName("region")
+                        .setDescription("account region")
+                        .setChoices(
+                            Object.entries(Regions).filter((([_, val]) => [Regions.EU_WEST, Regions.AMERICA_NORTH].includes(val))).map(([id, val]) => ({
+                                name: id,
+                                value: val
+                            }))
+                        )
+                        .setRequired(true)
+                )
         );
     }
 
     public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
 
         const riotID = interaction.options.getString('game_id', true)
-        ///riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}
-        const splitted = riotID.split("#")
+        const region = interaction.options.getString('region', true)
+
+        const splitted = riotID.split("#").map((s) => s.trim())
 
         if (splitted.length !== 2 || (splitted[0].length === 0 || splitted[1].length === 0)) {
             await interaction.reply({
@@ -42,10 +56,9 @@ export class AddLeagueAccountCommand extends Command {
             return;
         }
 
-
         const [gamename, tagline] = splitted
         try {
-            const account = await riotApi.Account.getByRiotId(gamename, tagline, Constants.RegionGroups.EUROPE)
+            const account = await riotApi.Account.getByRiotId(gamename, tagline, regionToRegionGroupForAccountAPI(region as Regions))
             const dbAccounts = await LeagueTable.getAccounts(interaction.user.id);
 
             const alreadyAdded = dbAccounts?.some((acc) => acc.riot_puuid === account.response.puuid);
@@ -59,7 +72,7 @@ export class AddLeagueAccountCommand extends Command {
                 return;
             }
 
-            const leagueData = await lolApi.League.byPUUID(account.response.puuid, Constants.Regions.EU_WEST)
+            const leagueData = await lolApi.League.byPUUID(account.response.puuid, region as Regions)
             //FIXME NO API KEY const tftData = await tftApi.League.getByPUUID(account.response.puuid, Constants.Regions.EU_WEST)
 
             const league_soloq = leagueData.response.find((league_data) => league_data.queueType === "RANKED_SOLO_5x5");
@@ -70,11 +83,12 @@ export class AddLeagueAccountCommand extends Command {
                 riot_puuid: account.response.puuid,
                 riot_gamename: account.response.gameName,
                 riot_tagline: account.response.tagLine,
+                region: region,
                 leaguedata: {
                     soloq: league_soloq !== undefined ? {
                         lp: league_soloq.leaguePoints,
                         rank: league_soloq.rank,
-                        tier: league_soloq.tier,
+                        tier: league_soloq.tier as Tiers,
                         wins: league_soloq.wins
                     } : undefined
                 }

@@ -16,6 +16,8 @@ export function romanToNumeral(roman: string) {
     return accumulator;
 }
 
+
+
 type User = InferSelectModel<typeof leagueTable>;
 type InsertUser = InferInsertModel<typeof leagueTable>;
 

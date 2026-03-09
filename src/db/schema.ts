@@ -1,4 +1,5 @@
 import { integer, primaryKey, sqliteTable, text, blob } from "drizzle-orm/sqlite-core";
+import { Regions, Tiers } from "twisted/dist/constants";
 
 
 export const winnersTable = sqliteTable("winners_Table", {
@@ -13,11 +14,12 @@ export const leagueTable = sqliteTable("league_Table", {
   riot_puuid: text().notNull(),
   riot_gamename: text(),
   riot_tagline: text(),
+  region: text({ enum: Object.values(Regions) as [string, ...string[]] }).notNull(),
   leaguedata: blob({ mode: 'json' }).$type<{
     soloq?: {
       wins: number
       rank: string
-      tier: string
+      tier: Tiers
       lp: number
     }
   }>(),
