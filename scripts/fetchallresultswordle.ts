@@ -80,12 +80,12 @@ client.on('clientReady', async (client) => {
 
                 }
                 if (successful_failed_mentions_parses < parsed.failed_mentions.size) {
-                    console.error("failed to parse some failed mentions in message: " + message.id)
+                    console.error(`${message.id} | failed to parse mentions: ${Array.from(parsed.failed_mentions).join(", ")}`)
                 }
             }
 
             for (const winner_id of winner_ids) {
-                await WinnersTable.incrementWins(winner_id, message.createdAt)
+                await WinnersTable.addWin(winner_id, message.createdAt)
             }
             messages_parsed_successfully += 1
         }
