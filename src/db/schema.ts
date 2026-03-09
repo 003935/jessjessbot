@@ -4,9 +4,9 @@ import { Regions, Tiers } from "twisted/dist/constants";
 
 export const winnersTable = pgTable("winners_Table", {
   discordId: varchar({ length: 20 }).notNull(),
-  message_timestamp: timestamp().notNull()
+  messageId: varchar({ length: 20 }).notNull()
 }, (table) => [
-  primaryKey({ columns: [table.discordId, table.message_timestamp] }),
+  primaryKey({ columns: [table.discordId, table.messageId] }),
 ]);
 
 export const regionEnum = pgEnum('region', Object.values(Regions) as [string, ...string[]]);

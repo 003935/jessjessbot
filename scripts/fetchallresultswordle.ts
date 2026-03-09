@@ -83,7 +83,7 @@ async function main() {
             }
 
             for (const winner_id of winner_ids) {
-                await WinnersTable.addWin(winner_id, new Date(message.timestamp))
+                const added = await WinnersTable.addWin(winner_id, message.id)
             }
             messages_parsed_successfully += 1
         }

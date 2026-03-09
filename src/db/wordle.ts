@@ -30,11 +30,11 @@ export class WinnersTable {
     }
   }
 
-  static async addWin(userId: string, timestamp: Date) {
+  static async addWin(userId: string, messageId: string) {
     await db.transaction(async (tx) => {
-      const win_entry = await tx.select().from(winnersTable).where(and(eq(winnersTable.discordId, userId), eq(winnersTable.message_timestamp, timestamp)));
+      const win_entry = await tx.select().from(winnersTable).where(and(eq(winnersTable.discordId, userId), eq(winnersTable.messageId, messageId)));
       if (win_entry.length === 0) {
-        await tx.insert(winnersTable).values({ discordId: userId, message_timestamp: timestamp });
+        await tx.insert(winnersTable).values({ discordId: userId, messageId });
       }
     })
   }

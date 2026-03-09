@@ -105,7 +105,7 @@ client.on('messageCreate', async (message) => {
   }
 
   for (const winner of winners_array) {
-    await WinnersTable.addWin(winner.id, message.createdAt)
+    await WinnersTable.addWin(winner.id, message.id)
   }
 
   const winnerMentions = winners_array.map((winner) => `<@${winner.id}>`);
