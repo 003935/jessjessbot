@@ -14,6 +14,7 @@ services:
       - GUILD_ID=${GUILD_ID}
       - DB_FILE_NAME=data/wordle_stats.db
       - NODE_ENV=production
+      - RIOT_API_KEY=${RIOT_API_KEY}
     volumes:
       - ./data:/usr/src/app/data
     restart: unless-stopped
