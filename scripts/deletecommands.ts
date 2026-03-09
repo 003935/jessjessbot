@@ -16,10 +16,10 @@ const { values } = parseArgs({
 });
 
 if (values.commandId === undefined) {
-    console.log("global commands")
     rest
         .get(Routes.applicationCommands(CLIENT_ID))
         .then((_commands) => {
+            console.log("global commands")
             const commands = _commands as { id: string, name: string, description: string }[]
             for (let i = 0; i < commands.length; i++) {
                 const command = commands[i];
@@ -29,10 +29,10 @@ if (values.commandId === undefined) {
         })
         .catch(console.error);
 
-    console.log("guild commands")
     rest
         .get(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID))
         .then((_commands) => {
+            console.log("guild commands")
             const commands = _commands as { id: string, name: string, description: string }[]
             for (let i = 0; i < commands.length; i++) {
                 const command = commands[i];
@@ -42,13 +42,19 @@ if (values.commandId === undefined) {
         .catch(console.error);
 
 } else {
-
     // for global commands
     rest
         .delete(Routes.applicationCommand(CLIENT_ID, values.commandId))
         .then(() => console.log('Successfully deleted application command'))
-        .catch(console.error);
-
+        .catch(() => {
+            console.log("Failed to delete global command, trying guild command")
+            rest
+                .delete(Routes.applicationGuildCommand(CLIENT_ID, GUILD_ID, values.commandId!))
+                .then(() => console.log('Successfully deleted guild command'))
+                .catch((e) => {
+                    console.log(e)
+                })
+        });
 }
 
 
