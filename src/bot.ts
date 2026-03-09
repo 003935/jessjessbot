@@ -43,7 +43,7 @@ client.on('messageCreate', async (message) => {
   console.log(`📨 Message received:
    \t${message.content.split("\n").join("\n\t\t")}`);
 
-  const parse_result = Parse_Wordle_Message(message);
+  const parse_result = Parse_Wordle_Message(message.content);
   if (parse_result === undefined) {
     console.log('No valid Wordle result found in the message.');
     return;

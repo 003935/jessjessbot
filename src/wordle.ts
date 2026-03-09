@@ -1,9 +1,9 @@
 import { Collection, GuildMember, Message, Snowflake } from 'discord.js';
 
-export function Parse_Wordle_Message(message: Message<true>): { winner_ids: Set<string>, failed_mentions: Set<string>, winningScore: string } | undefined {
-  if (!message.content.includes("Here are yesterday's results:")) return;
+export function Parse_Wordle_Message(message: string): { winner_ids: Set<string>, failed_mentions: Set<string>, winningScore: string } | undefined {
+  if (!message.includes("Here are yesterday's results:")) return;
 
-  const lines = message.content.split('\n');
+  const lines = message.split('\n');
   const crownLine = lines.find(line => line.includes('👑'));
 
   if (!crownLine) return;

@@ -1,11 +1,11 @@
-import { Collection, GatewayIntentBits, GuildMember, Message } from 'discord.js';
+import { REST, Routes } from 'discord.js';
 
 import { Parse_Wordle_Message } from '../src/wordle';
 import { WinnersTable } from '../src/db/wordle';
-import { SapphireClient } from '@sapphire/framework';
 import { parseArgs } from "util";
 import { BOT_TOKEN, GUILD_ID, WORDLE_BOT_ID } from '../src/environment';
 import { exit } from 'process';
+import { URLSearchParams } from 'url';
 
 const { values } = parseArgs({
     args: Bun.argv,
@@ -22,39 +22,34 @@ if (values.channelId === undefined) {
     throw new Error("Pass a Channel Id as argument")
 }
 
-const client = new SapphireClient({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers,
-    ],
-});
+async function main() {
+    const rest = new REST().setToken(BOT_TOKEN);
+    const guild = await rest.get(Routes.guild(GUILD_ID))
 
-client.on('clientReady', async (client) => {
-    console.log(`${client.user?.tag} is online!`);
-
-    const guild = await client.guilds.fetch(GUILD_ID)
-    const channel = await guild.channels.fetch(values.channelId!)
-
-    if (!channel || !channel.isTextBased()) {
-        console.error("Channel is not appropriate")
-        exit(1)
-    };
-
-    let last_message_id: string | null = null
     const limit = 100;
 
     const failed_mentions_to_user_id_map = new Map<string, string>()
 
     let fetched = 0;
     let messages_parsed_successfully = 0;
+
+    const urlSearchParams = new URLSearchParams({ limit: limit.toString() });
     while (true) {
-        const messages: Collection<string, Message<true>> = await channel.messages.fetch({ limit, before: last_message_id === null ? undefined : last_message_id });
-        fetched += messages.size;
+        const messages = (await rest.get(Routes.channelMessages(values.channelId!), {
+            query: urlSearchParams
+        })) as {
+            id: string
+            content: string
+            timestamp: string
+            author: {
+                id: string
+            }
+        }[]
+        fetched += messages.length;
         const userMessages = messages.filter(msg => msg.author.id === WORDLE_BOT_ID);
-        for (const [_, message] of userMessages) {
-            const parsed = Parse_Wordle_Message(message)
+
+        for (const message of userMessages) {
+            const parsed = Parse_Wordle_Message(message.content)
             if (parsed === undefined) {
                 continue
             }
@@ -65,12 +60,15 @@ client.on('clientReady', async (client) => {
                 let successful_failed_mentions_parses = 0;
                 for (const failed_mention of parsed.failed_mentions) {
                     const cached_user_id = failed_mentions_to_user_id_map.get(failed_mention)
-                    if (cached_user_id) {
+                    if (cached_user_id !== undefined) {
                         winner_ids.add(cached_user_id)
                         successful_failed_mentions_parses += 1
                     } else {
-                        const users = await guild.members.fetch({ query: failed_mention, limit: 1 })
-                        const user = users.filter((member) => member.displayName === failed_mention).first()
+                        const users = (await rest.get(Routes.guildMembersSearch(GUILD_ID), {
+                            query: new URLSearchParams({ limit: "5", query: failed_mention })
+                        })) as { displayName: string, id: string }[]
+                        const user = users.filter((member) => member.displayName === failed_mention)[0]
+
                         if (user && !winner_ids.has(user.id)) {
                             failed_mentions_to_user_id_map.set(failed_mention, user.id)
                             winner_ids.add(user.id)
@@ -80,29 +78,29 @@ client.on('clientReady', async (client) => {
 
                 }
                 if (successful_failed_mentions_parses < parsed.failed_mentions.size) {
-                    console.error(`${message.id} | failed to parse mentions: ${Array.from(parsed.failed_mentions).join(", ")}`)
+                    console.error(`${message.id} | failed to parse mentions: \"${Array.from(parsed.failed_mentions).join("\", \"")}\"`)
                 }
             }
 
             for (const winner_id of winner_ids) {
-                await WinnersTable.addWin(winner_id, message.createdAt)
+                await WinnersTable.addWin(winner_id, new Date(message.timestamp))
             }
             messages_parsed_successfully += 1
         }
+
         console.log(`Messages fetched: ${fetched}, Parsed Successfully ${messages_parsed_successfully}`)
-        const last_message = messages.last();
+        const last_message = messages[messages.length - 1];
         if (last_message === undefined) {
-            console.error(`messages.last() is undefined, messages.size: ${messages.size}`)
+            console.error(`messages.last() is undefined, messages.size: ${messages.length}`)
             exit(1)
         }
-        last_message_id = last_message.id
-        if (messages.size < limit) {
+        urlSearchParams.set("before", last_message.id)
+        if (messages.length < limit) {
             console.log("its joever")
             break
         }
     }
-    client.destroy();
-});
+}
 
-client.login(BOT_TOKEN);
+main()
 
