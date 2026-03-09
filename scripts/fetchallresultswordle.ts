@@ -24,7 +24,6 @@ if (values.channelId === undefined) {
 
 async function main() {
     const rest = new REST().setToken(BOT_TOKEN);
-    const guild = await rest.get(Routes.guild(GUILD_ID))
 
     const limit = 100;
 
@@ -66,12 +65,21 @@ async function main() {
                     } else {
                         const users = (await rest.get(Routes.guildMembersSearch(GUILD_ID), {
                             query: new URLSearchParams({ limit: "5", query: failed_mention })
-                        })) as { displayName: string, id: string }[]
-                        const user = users.filter((member) => member.displayName === failed_mention)[0]
+                        })) as {
+                            nick: string, user: {
+                                global_name: string,
+                                username: string,
+                                id: string
+                            }
+                        }[]
+                        const user = users.filter((member) => {
+                            const nickname = member.nick || member.user.global_name || member.user.username
+                            return nickname === failed_mention
+                        })[0]
 
-                        if (user && !winner_ids.has(user.id)) {
-                            failed_mentions_to_user_id_map.set(failed_mention, user.id)
-                            winner_ids.add(user.id)
+                        if (user && !winner_ids.has(user.user.id)) {
+                            failed_mentions_to_user_id_map.set(failed_mention, user.user.id)
+                            winner_ids.add(user.user.id)
                             successful_failed_mentions_parses += 1
                         }
                     }
