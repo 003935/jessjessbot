@@ -4,11 +4,62 @@ import { GUILD_ID, RIOT_API_KEY } from '../src/environment';
 import { ContainerBuilder, MessageFlags } from 'discord.js';
 import { LeagueTable } from '../src/db/league';
 import { Constants, LolApi, RiotApi, TftApi } from 'twisted';
+import { Tiers } from 'twisted/dist/constants';
 
 const riotApi = new RiotApi({ key: RIOT_API_KEY })
 const lolApi = new LolApi({ key: RIOT_API_KEY })
 
+function shortenTier(tier: Tiers): string {
+    switch (tier) {
+        case Tiers.CHALLENGER:
+            return "C"
+        case Tiers.GRANDMASTER:
+            return "GM"
+        case Tiers.MASTER:
+            return "M"
+        case Tiers.DIAMOND:
+            return "D"
+        case Tiers.EMERALD:
+            return "E"
+        case Tiers.PLATINUM:
+            return "P"
+        case Tiers.GOLD:
+            return "G"
+        case Tiers.SILVER:
+            return "S"
+        case Tiers.BRONZE:
+            return "B"
+        case Tiers.IRON:
+            return "I"
+        default:
+            const _never: never = tier;
+            return _never
+    }
+}
 
+
+function treat_soloq(soloq_data: {
+    tier: string,
+    rank: string,
+    lp: number
+}): string {
+    switch (soloq_data.tier) {
+        case Tiers.CHALLENGER:
+        case Tiers.GRANDMASTER:
+        case Tiers.MASTER:
+            return `(${shortenTier(soloq_data.tier)} ${soloq_data.lp} LP)`
+        case Tiers.DIAMOND:
+        case Tiers.EMERALD:
+        case Tiers.PLATINUM:
+        case Tiers.GOLD:
+        case Tiers.SILVER:
+        case Tiers.BRONZE:
+        case Tiers.IRON:
+            return `(${shortenTier(soloq_data.tier)} ${soloq_data.rank} ${soloq_data.lp} LP)`
+        default:
+            return "undefined"
+    }
+}
 
 export class LeagueLeaderboardCommand extends Command {
     public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -39,18 +90,18 @@ export class LeagueLeaderboardCommand extends Command {
         const iconURL = `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${summoner.response.profileIconId}.jpg`
 
         const container = new ContainerBuilder()
-            .setAccentColor(0x0099ff)
+            .setAccentColor(0xAD66F2)
             .addSectionComponents((section) =>
                 section
                     .addTextDisplayComponents(
                         (textDisplay) =>
                             textDisplay.setContent(
-                                '## League Leaderboard'
+                                '## 🔥League Leaderboard'
                             ),
                         (textDisplay) =>
                             textDisplay.setContent(
                                 leaderboard
-                                    .map((l, i) => `${i + 1}. ${l.riot_gamename}#${l.riot_tagline} (${l.leaguedata?.soloq?.tier} ${l.leaguedata?.soloq?.rank} ${l.leaguedata?.soloq?.lp} LP)`)
+                                    .map((l, i) => `${i + 1}. **${l.riot_gamename}#${l.riot_tagline}** ${treat_soloq(l.leaguedata!.soloq!)}`)
                                     .join("\n"),
                             ),
                     )

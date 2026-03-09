@@ -49,18 +49,18 @@ export class KingCommand extends Command {
         const king_avatar = king.displayAvatarURL() || king.user.displayAvatarURL()
 
         const container = new ContainerBuilder()
-            .setAccentColor(0x0099ff)
+            .setAccentColor(0x51C962)
             .addSectionComponents((section) =>
                 section
                     .addTextDisplayComponents(
                         (textDisplay) =>
                             textDisplay.setContent(
-                                '**Wordle Leaderboard**'
+                                '## 🏅 Wordle Leaderboard' + "\n"
                             ),
                         (textDisplay) =>
                             textDisplay.setContent(
                                 firstfive
-                                    .map((u, i) => `${i === 0 ? "👑 **" + u.name : u.name} | ${u.wins} ${u.wins === 1 ? "Win" : "Wins"} ${i === 0 ? "**" : ""}`)
+                                    .map((u, i) => ` ${i + 1}. ${i === 0 ? `<@` + u.id + `>` : `<@` + u.id + `>`} : ${u.wins} ${u.wins === 1 ? "Win" : "Wins"} `)
                                     .join("\n"),
                             ),
                     )
@@ -69,6 +69,7 @@ export class KingCommand extends Command {
 
         await interaction.reply({
             components: [container],
+            allowedMentions: { parse: [] },
             flags: MessageFlags.IsComponentsV2,
         });
     }
