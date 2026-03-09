@@ -1,4 +1,4 @@
-import { Collection, GatewayIntentBits, Message } from 'discord.js';
+import { Collection, GatewayIntentBits, GuildMember, Message } from 'discord.js';
 
 import { Parse_Wordle_Message } from '../src/wordle';
 import { WinnersTable } from '../src/db/wordle';
@@ -59,7 +59,7 @@ client.on('clientReady', async (client) => {
                 continue
             }
 
-            const winner_ids = new Set(parsed.winners.map((m) => m.id))
+            const winner_ids = new Set<string>(parsed.winner_ids);
 
             if (parsed.failed_mentions.size > 0) {
                 let successful_failed_mentions_parses = 0;

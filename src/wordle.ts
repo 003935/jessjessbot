@@ -1,6 +1,6 @@
 import { Collection, GuildMember, Message, Snowflake } from 'discord.js';
 
-export function Parse_Wordle_Message(message: Message<true>): { winners: GuildMember[], failed_mentions: Set<string>, winningScore: string } | undefined {
+export function Parse_Wordle_Message(message: Message<true>): { winner_ids: Set<string>, failed_mentions: Set<string>, winningScore: string } | undefined {
   if (!message.content.includes("Here are yesterday's results:")) return;
 
   const lines = message.content.split('\n');
@@ -15,12 +15,7 @@ export function Parse_Wordle_Message(message: Message<true>): { winners: GuildMe
   const crownIndex = crownLine.indexOf('👑');
   const afterCrown = crownLine.substring(crownIndex);
 
-  const winners: Array<GuildMember> = [];
-
-  message.mentions.members.forEach(user => {
-    const position = afterCrown.indexOf(`<@${user.id}>`);
-    if (position !== -1) winners.push(user);
-  });
+  const winner_ids = new Set([...afterCrown.matchAll(/<@!?(\d+)>/g)].map(match => match[1]))
 
   const failed_mentions = new Set<string>();
   let starting_index = -1
@@ -44,7 +39,7 @@ export function Parse_Wordle_Message(message: Message<true>): { winners: GuildMe
     failed_mentions.add(afterCrown.slice(starting_index + 1, afterCrown.length).trim())
   }
 
-  return { winners, winningScore, failed_mentions };
+  return { winner_ids, winningScore, failed_mentions };
 }
 
 

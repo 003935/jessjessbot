@@ -49,14 +49,35 @@ client.on('messageCreate', async (message) => {
     return;
   }
 
-  const winners = Array.from(parse_result.winners)
+  const winners = new Map<string, GuildMember>();
+  const ids_to_fetch = new Set<string>();
+
+  for (const parsed_winner_id of parse_result.winner_ids) {
+    const mentioned_member = message.mentions.members.get(parsed_winner_id)
+    if (mentioned_member !== undefined)
+      winners.set(parsed_winner_id, mentioned_member)
+    else
+      ids_to_fetch.add(parsed_winner_id)
+  }
+
+  if (ids_to_fetch.size > 0) {
+    const membersMentioned = await guild.members.fetch({ user: Array.from(ids_to_fetch) })
+    for (const id of ids_to_fetch) {
+      const member = membersMentioned.get(id)
+      if (member === undefined) {
+        console.log(`Failed to fetch user Id: ${id}`)
+        continue
+      }
+      winners.set(id, member)
+    }
+  }
 
   if (parse_result.failed_mentions.size > 0) {
     for (const failed_mention of parse_result.failed_mentions) {
       const users = await guild.members.fetch({ query: failed_mention, limit: 1 })
       const user = users.filter((member) => member.displayName === failed_mention).first()
       if (user) {
-        winners.push(user);
+        winners.set(user.id, user);
         console.log(`Parsed failed mention: ${failed_mention} -> ${user.displayName} (@${user.user.tag})`);
       } else {
         console.warn(`No user found for failed mention: ${failed_mention}`);
@@ -72,22 +93,24 @@ client.on('messageCreate', async (message) => {
     return;
   };
 
-  await sync_wordle_role(winners, wordleKingRole)
+  const winners_array = Array.from(winners.values())
 
-  if (winners.length === 0) {
+  await sync_wordle_role(winners_array, wordleKingRole)
+
+  if (winners_array.length === 0) {
     console.log("No winners found.")
     return;
   } else {
-    console.log(`Winners: ${winners.map((winner) => winner.displayName).join(", ")}`)
+    console.log(`Winners: ${winners_array.map((winner) => winner.displayName).join(", ")}`)
   }
 
-  for (const winner of winners) {
-    await WinnersTable.incrementWins(winner.id, message.createdAt)
+  for (const winner of winners_array) {
+    await WinnersTable.addWin(winner.id, message.createdAt)
   }
 
-  const winnerMentions = winners.map((winner) => `<@${winner.id}>`);
-  if (winners.length === 1) {
-    const dbUser = await WinnersTable.getUser(winners[0].id)
+  const winnerMentions = winners_array.map((winner) => `<@${winner.id}>`);
+  if (winners_array.length === 1) {
+    const dbUser = await WinnersTable.getUser(winners_array[0].id)
     await message.channel.send(`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${dbUser?.wins ?? 1})`);
   } else {
     await message.channel.send(`Congratulations ${winnerMentions.join(', ')}! You are the new Wordle Kings! 👑 (Tied with ${winningScore}/6)`);
