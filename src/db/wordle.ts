@@ -16,14 +16,14 @@ export class WinnersTable {
     const win_entries = await db.select().from(winnersTable);
     const users = new Map<string, number>();
     for (const win_entry of win_entries) {
-      users.set(win_entry.userID, (users.get(win_entry.userID) || 0) + 1);
+      users.set(win_entry.discordId, (users.get(win_entry.discordId) || 0) + 1);
     }
     const sorted_users = Array.from(users.entries()).sort((a, b) => b[1] - a[1]).slice(0, limit);
     return sorted_users.map(([id, wins]) => ({ id, wins }));
   }
 
   static async getUser(id: string): Promise<User | null> {
-    const win_entries = await db.select().from(winnersTable).where(eq(winnersTable.userID, id));
+    const win_entries = await db.select().from(winnersTable).where(eq(winnersTable.discordId, id));
     return {
       id,
       wins: win_entries.length
@@ -32,9 +32,9 @@ export class WinnersTable {
 
   static async addWin(userId: string, timestamp: Date) {
     await db.transaction(async (tx) => {
-      const win_entry = await tx.select().from(winnersTable).where(and(eq(winnersTable.userID, userId), eq(winnersTable.message_timestamp, timestamp)));
+      const win_entry = await tx.select().from(winnersTable).where(and(eq(winnersTable.discordId, userId), eq(winnersTable.message_timestamp, timestamp)));
       if (win_entry.length === 0) {
-        await tx.insert(winnersTable).values({ userID: userId, message_timestamp: timestamp });
+        await tx.insert(winnersTable).values({ discordId: userId, message_timestamp: timestamp });
       }
     })
   }

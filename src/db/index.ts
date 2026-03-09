@@ -1,8 +1,8 @@
 import 'dotenv/config';
-import { drizzle } from 'drizzle-orm/bun-sqlite';
-import { Database } from 'bun:sqlite';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { SQL } from 'bun';
 
-const sqlite = new Database(process.env.DB_FILE_NAME!);
-const db = drizzle({ client: sqlite });
+const client = new SQL(process.env.DATABASE_URL!);
+const db = drizzle({ client });
 
-export { db };
+export { db }

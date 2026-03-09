@@ -27,7 +27,7 @@ export class LeagueTable {
     }
 
     static async getAccounts(id: string): Promise<User[] | null> {
-        const users = await db.select().from(leagueTable).where(eq(leagueTable.discordID, id));
+        const users = await db.select().from(leagueTable).where(eq(leagueTable.discordId, id));
         return users
     }
 

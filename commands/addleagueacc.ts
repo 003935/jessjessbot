@@ -4,6 +4,7 @@ import { GUILD_ID, RIOT_API_KEY } from '../src/environment';
 import { MessageFlags } from 'discord.js';
 import { LeagueTable } from '../src/db/league';
 import { Constants, LolApi, RiotApi, TftApi } from 'twisted';
+import { Tiers } from 'twisted/dist/constants';
 
 const riotApi = new RiotApi({ key: RIOT_API_KEY })
 const lolApi = new LolApi({ key: RIOT_API_KEY })
@@ -66,7 +67,7 @@ export class AddLeagueAccountCommand extends Command {
 
 
             await LeagueTable.insertAccount({
-                discordID: interaction.user.id,
+                discordId: interaction.user.id,
                 riot_puuid: account.response.puuid,
                 riot_gamename: account.response.gameName,
                 riot_tagline: account.response.tagLine,
@@ -74,7 +75,7 @@ export class AddLeagueAccountCommand extends Command {
                     soloq: league_soloq !== undefined ? {
                         lp: league_soloq.leaguePoints,
                         rank: league_soloq.rank,
-                        tier: league_soloq.tier,
+                        tier: league_soloq.tier as Tiers,
                         wins: league_soloq.wins
                     } : undefined
                 }
