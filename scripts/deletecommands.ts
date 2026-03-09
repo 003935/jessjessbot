@@ -1,5 +1,5 @@
 import { parseArgs } from "util";
-import { BOT_TOKEN, CLIENT_ID } from '../src/environment';
+import { BOT_TOKEN, CLIENT_ID, GUILD_ID } from '../src/environment';
 import { REST, Routes } from "discord.js";
 
 const rest = new REST().setToken(BOT_TOKEN);
@@ -16,6 +16,7 @@ const { values } = parseArgs({
 });
 
 if (values.commandId === undefined) {
+    console.log("global commands")
     rest
         .get(Routes.applicationCommands(CLIENT_ID))
         .then((_commands) => {
@@ -27,9 +28,20 @@ if (values.commandId === undefined) {
             }
         })
         .catch(console.error);
-}
 
-else {
+    console.log("guild commands")
+    rest
+        .get(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID))
+        .then((_commands) => {
+            const commands = _commands as { id: string, name: string, description: string }[]
+            for (let i = 0; i < commands.length; i++) {
+                const command = commands[i];
+                console.log(command.id, command.name, command.description)
+            }
+        })
+        .catch(console.error);
+
+} else {
 
     // for global commands
     rest
