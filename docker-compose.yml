@@ -21,7 +21,7 @@ services:
     depends_on:
       - db
 
-  db:
+db:
     image: postgres
     restart: always
     shm_size: 128mb
@@ -30,7 +30,7 @@ services:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
 
 volumes:
   postgres_data:
