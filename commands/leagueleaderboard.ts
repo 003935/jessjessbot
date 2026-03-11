@@ -12,25 +12,25 @@ const lolApi = new LolApi({ key: RIOT_API_KEY })
 function shortenTier(tier: Tiers): string {
     switch (tier) {
         case Tiers.CHALLENGER:
-            return "C"
+            return "<:chall:1481245575323193496>"
         case Tiers.GRANDMASTER:
-            return "GM"
+            return "<:gm:1481245503843995800>"
         case Tiers.MASTER:
-            return "M"
+            return "<:master:1481243836478001212>"
         case Tiers.DIAMOND:
-            return "D"
+            return "<:diamond:1481247193863291001>"
         case Tiers.EMERALD:
-            return "E"
+            return "<:emerald:1481247224762601584>"
         case Tiers.PLATINUM:
-            return "P"
+            return "<:plat:1481247241745207418>"
         case Tiers.GOLD:
-            return "G"
+            return "<:gold:1481247259504017550>"
         case Tiers.SILVER:
-            return "S"
+            return "<:silver:1481249419205804123>"
         case Tiers.BRONZE:
-            return "B"
+            return "<:bronze:1481249459185909860>"
         case Tiers.IRON:
-            return "I"
+            return "<:iron:1481249532791750758>"
         default:
             const _never: never = tier;
             return _never
@@ -47,7 +47,7 @@ function treat_soloq(soloq_data: {
         case Tiers.CHALLENGER:
         case Tiers.GRANDMASTER:
         case Tiers.MASTER:
-            return `(${shortenTier(soloq_data.tier)} ${soloq_data.lp} LP)`
+            return `${shortenTier(soloq_data.tier)} ${soloq_data.lp} LP`
         case Tiers.DIAMOND:
         case Tiers.EMERALD:
         case Tiers.PLATINUM:
@@ -55,7 +55,7 @@ function treat_soloq(soloq_data: {
         case Tiers.SILVER:
         case Tiers.BRONZE:
         case Tiers.IRON:
-            return `(${shortenTier(soloq_data.tier)} ${soloq_data.rank} ${soloq_data.lp} LP)`
+            return `${shortenTier(soloq_data.tier)} ${soloq_data.rank} ${soloq_data.lp} LP`
         default:
             return "undefined"
     }
