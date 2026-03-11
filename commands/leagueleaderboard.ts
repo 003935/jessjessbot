@@ -89,7 +89,7 @@ export class LeagueLeaderboardCommand extends Command {
         const rankone = leaderboard[0].riot_puuid
         const summoner = await lolApi.Summoner.getByPUUID(rankone, Constants.Regions.EU_WEST)
         const iconURL = `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${summoner.response.profileIconId}.jpg`
-
+        const bee = '<:bee001:1481311305603485756>'
         const container = new ContainerBuilder()
             .setAccentColor(0xAD66F2)
             .addSectionComponents((section) =>
@@ -97,7 +97,7 @@ export class LeagueLeaderboardCommand extends Command {
                     .addTextDisplayComponents(
                         (textDisplay) =>
                             textDisplay.setContent(
-                                '## 🔥League Leaderboard'
+                                `## ${bee} League Leaderboard`
                             ),
                         (textDisplay) =>
                             textDisplay.setContent(
