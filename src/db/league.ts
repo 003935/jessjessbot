@@ -39,29 +39,31 @@ export class LeagueTable {
 
     static async leaderboard(limit: number = 7) {
         const users = await db.select().from(leagueTable);
-        const soloqUsers = users.filter((u) => u.leaguedata !== null && u.leaguedata.soloq !== undefined);
-        const sorted = soloqUsers.sort((a, b) => {
-            const asoloq = a.leaguedata!.soloq!
-            const bsoloq = b.leaguedata!.soloq!
-            const aTierIndexOf = TiersSorted.indexOf(asoloq.tier as Tiers)
-            const bTierIndexOf = TiersSorted.indexOf(bsoloq.tier as Tiers)
-            if (aTierIndexOf !== bTierIndexOf) {
-                return bTierIndexOf > aTierIndexOf ? 1 : -1
-            }
+        const ranked = users.filter((u) => u.leaguedata !== null && u.leaguedata.soloq !== undefined);
+    const unranked = users.filter((u) => u.leaguedata === null || u.leaguedata.soloq === undefined);
+    
+    const sorted = ranked.sort((a, b) => {
+        const asoloq = a.leaguedata!.soloq!
+        const bsoloq = b.leaguedata!.soloq!
+        const aTierIndexOf = TiersSorted.indexOf(asoloq.tier as Tiers)
+        const bTierIndexOf = TiersSorted.indexOf(bsoloq.tier as Tiers)
+        if (aTierIndexOf !== bTierIndexOf) {
+            return bTierIndexOf > aTierIndexOf ? 1 : -1
+        }
 
+        const aRank = romanToNumeral(asoloq.rank)
+        const bRank = romanToNumeral(bsoloq.rank)
+        console.log(`Comparing ${a.riot_gamename} (${asoloq.tier} ${asoloq.rank} ${asoloq.lp}LP) with ${b.riot_gamename} (${bsoloq.tier} ${bsoloq.rank} ${bsoloq.lp}LP)`)
 
-            const aRank = romanToNumeral(asoloq.rank)
-            const bRank = romanToNumeral(bsoloq.rank)
-            console.log(`Comparing ${a.riot_gamename} (${asoloq.tier} ${asoloq.rank} ${asoloq.lp}LP) with ${b.riot_gamename} (${bsoloq.tier} ${bsoloq.rank} ${bsoloq.lp}LP)`)
+        if (aRank !== bRank) {
+            return bRank > aRank ? -1 : 1
+        }
 
-            if (aRank !== bRank) {
-                return bRank > aRank ? -1 : 1
-            }
+        return bsoloq.lp > asoloq.lp ? 1 : -1
+    })
 
-            return bsoloq.lp > asoloq.lp ? 1 : -1
-        })
-        return sorted
-    }
+    return [...sorted, ...unranked];
+}
 
 
 }

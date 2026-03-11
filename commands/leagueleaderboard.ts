@@ -75,6 +75,8 @@ export class LeagueLeaderboardCommand extends Command {
 
     public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
 
+        await interaction.deferReply();
+
         const leaderboard = await LeagueTable.leaderboard();
 
         if (leaderboard.length === 0) {
@@ -101,18 +103,22 @@ export class LeagueLeaderboardCommand extends Command {
                         (textDisplay) =>
                             textDisplay.setContent(
                                 leaderboard
-                                    .map((l, i) => `${i + 1}. **${l.riot_gamename}#${l.riot_tagline}** ${treat_soloq(l.leaguedata!.soloq!)}`)
+                                    .map((l, i) => {
+                                    const rank = l.leaguedata?.soloq
+                                    ? treat_soloq(l.leaguedata.soloq)
+                                    : "Unranked";
+                                    return `${i + 1}. **${l.riot_gamename}#${l.riot_tagline}** ${rank}`;
+})
                                     .join("\n"),
                             ),
                     )
                     .setThumbnailAccessory((thumbnail) => thumbnail.setURL(iconURL))
             );
 
-        await interaction.reply({
-            components: [container],
-            flags: MessageFlags.IsComponentsV2,
-        });
-
+       await interaction.editReply({  
+        components: [container],
+        flags: MessageFlags.IsComponentsV2,
+    });
     }
 }
 
