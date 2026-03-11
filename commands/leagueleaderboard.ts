@@ -80,9 +80,8 @@ export class LeagueLeaderboardCommand extends Command {
         const leaderboard = await LeagueTable.leaderboard();
 
         if (leaderboard.length === 0) {
-            await interaction.reply({
+            await interaction.editReply({
                 content: "There are no accounts added",
-                flags: MessageFlags.Ephemeral
             });
             return;
         }
