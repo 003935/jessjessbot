@@ -1,4 +1,4 @@
-import { jsonb, pgTable, primaryKey, text, timestamp, varchar, pgEnum } from "drizzle-orm/pg-core";
+import { jsonb, pgTable, primaryKey, text, timestamp, varchar, pgEnum, integer } from "drizzle-orm/pg-core";
 import { Regions, Tiers } from "twisted/dist/constants";
 
 
@@ -35,4 +35,12 @@ export const leagueTable = pgTable("league_Table", {
   }>(),
 }, (table) => [
   primaryKey({ columns: [table.discordId, table.riot_puuid] }),
+]);
+
+export const eventsTable = pgTable("events_Table", {
+  channelId: varchar({ length: 20 }).notNull(),
+  messageId: varchar({ length: 20 }).notNull(),
+  scheduledTime: integer().notNull()
+}, (table) => [
+  primaryKey({ columns: [table.messageId] }),
 ]);
