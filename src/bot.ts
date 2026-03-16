@@ -1,5 +1,5 @@
 import { GatewayIntentBits, GuildMember, Role } from 'discord.js';
-import { WORDLE_BOT_ID, GUILD_ID, WORDLE_ROLE_ID, BOT_TOKEN } from './environment';
+import { WORDLE_BOT_ID, GUILD_ID, WORDLE_ROLE_ID, CHANNEL_ID, BOT_TOKEN } from './environment';
 import { Parse_Wordle_Message } from './wordle';
 import { SapphireClient } from '@sapphire/framework';
 import { WinnersTable } from './db/wordle';
@@ -38,6 +38,7 @@ client.on('messageCreate', async (message) => {
   if (!message.inGuild()) return;
   const guild = message.guild;
   if (guild.id !== GUILD_ID) return; // Ignore other guilds
+  if (message.channel.id !== CHANNEL_ID) return; // Only respond in general channel
   if (message.author.id !== WORDLE_BOT_ID) return; // Ignore non-Wordle bot messages
 
   console.log(`📨 Message received:
