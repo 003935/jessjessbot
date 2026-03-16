@@ -25,8 +25,9 @@ export class CustomsCommand extends Command {
                         .setRequired(true)
                         .addChoices(
                             { name: 'League', value: 'league'},
-                            { name: 'Valorant', value: 'val'},
+                            { name: 'Valorant', value: 'valorant'},
                             { name: 'Deadlock', value: 'deadlock'},
+                            { name: 'TFT', value: 'tft'},
                         )
                 )
                     
@@ -53,36 +54,42 @@ export class CustomsCommand extends Command {
         const scheduledTime = Math.floor(scheduledDate.getTime() / 1000);
 
         const gameEmoji: Record<string, string> = {
-            league: '⚔️',
-            valorant: '🔫',
-            deadlock: '🔒',
+            league: '<:league:1483123245250117763>',
+            valorant: '<:val:1483123363634352293>',
+            deadlock: '<:deadlock:1483123050152198264>',
+            tft: '<:tft:1483123304385482804>'
         };
 
-        const message = await interaction.reply({
-            content: `## ${gameEmoji[game]} ${game.charAt(0).toUpperCase() + game.slice(1)} - <t:${scheduledTime}:t>\nReact with 🔥 to sign up!`,
-            fetchReply: true,
-            allowedMentions: { parse: [] }
+        const response = await interaction.reply({
+        content: `## ${gameEmoji[game]} ${game.charAt(0).toUpperCase() + game.slice(1)} - <t:${scheduledTime}:t>\nReact with ✅ to sign up!`,
+        withResponse: true,
+        allowedMentions: { parse: [] }
         });
-        await message.react('🔥');
 
-        // save to DB
+        const message = response.resource!.message!;
+
+        await message.react('✅');
+
         await EventsTable.insert({
-            messageId: message.id,
-            channelId: interaction.channelId,
-            scheduledTime,
+        messageId: message.id,
+        channelId: interaction.channelId,
+        scheduledTime,
         });
 
-        // schedule the ping
         const delay = scheduledDate.getTime() - Date.now();
         setTimeout(() => pingReacted(message.id, interaction.channelId, interaction.client, game), delay);
+
     }
+
 }
+    
+
 
 async function pingReacted(messageId: string, channelId: string, client: any, game: string) {
     try {
         const channel = await client.channels.fetch(channelId) as any;
         const message = await channel.messages.fetch(messageId);
-        const reaction = message.reactions.cache.get('🔥');
+        const reaction = message.reactions.cache.get('✅');
         const users = await reaction?.users.fetch();
         
         const mentions = users
@@ -92,7 +99,7 @@ async function pingReacted(messageId: string, channelId: string, client: any, ga
 
         if (mentions) {
             await channel.send({
-                content: `## Time to play ${game}! ${mentions}`,
+                content: ` ${game} customs time! ${mentions}`,
                 allowedMentions: { parse: ['users'] }
             });
         }
