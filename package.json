@@ -5,7 +5,8 @@
     "main": "bot.js",
     "scripts": {
         "start": "bun run src/bot.ts",
-        "deploy": "bun run deploy-commands.js"
+        "migrate": "bunx drizzle-kit migrate",
+        "generate": "bunx drizzle-kit generate"
     },
     "dependencies": {
         "@libsql/client": "^0.17.0",

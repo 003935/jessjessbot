@@ -1,0 +1,170 @@
+{
+  "id": "5381664c-3946-400b-a86e-02d921ec7fc7",
+  "prevId": "6609b472-9184-40e7-9149-66a4abc0e0cc",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.events_Table": {
+      "name": "events_Table",
+      "schema": "",
+      "columns": {
+        "channelId": {
+          "name": "channelId",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "messageId": {
+          "name": "messageId",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scheduledTime": {
+          "name": "scheduledTime",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "events_Table_messageId_channelId_pk": {
+          "name": "events_Table_messageId_channelId_pk",
+          "columns": [
+            "messageId",
+            "channelId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.league_Table": {
+      "name": "league_Table",
+      "schema": "",
+      "columns": {
+        "discordId": {
+          "name": "discordId",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "riot_puuid": {
+          "name": "riot_puuid",
+          "type": "varchar(78)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "riot_gamename": {
+          "name": "riot_gamename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "riot_tagline": {
+          "name": "riot_tagline",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "region": {
+          "name": "region",
+          "type": "region",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "leaguedata": {
+          "name": "leaguedata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tftdata": {
+          "name": "tftdata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.winners_Table": {
+      "name": "winners_Table",
+      "schema": "",
+      "columns": {
+        "discordId": {
+          "name": "discordId",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "messageId": {
+          "name": "messageId",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "winners_Table_discordId_messageId_pk": {
+          "name": "winners_Table_discordId_messageId_pk",
+          "columns": [
+            "discordId",
+            "messageId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.region": {
+      "name": "region",
+      "schema": "public",
+      "values": [
+        "BR1",
+        "EUN1",
+        "EUW1",
+        "KR",
+        "LA1",
+        "LA2",
+        "NA1",
+        "OC1",
+        "TR1",
+        "RU",
+        "JP1",
+        "VN2",
+        "TW2",
+        "SG2",
+        "ME1",
+        "PBE1"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

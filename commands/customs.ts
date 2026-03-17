@@ -1,6 +1,6 @@
 import { Command, Option } from '@sapphire/framework';
 import { EventsTable } from '../src/db/event';
-import { ContainerBuilder, MessageFlags } from 'discord.js';
+import { Client, ContainerBuilder, MessageFlags } from 'discord.js';
 
 export class CustomsCommand extends Command {
     public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -35,6 +35,11 @@ export class CustomsCommand extends Command {
     }
 
     public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
+        if (!interaction.inGuild()) {
+            await interaction.reply({ content: 'Run this command in a guild' });
+            return;
+        }
+
         const time = interaction.options.getString('time', true);
         const game = interaction.options.getString('game', true);
 
@@ -47,7 +52,7 @@ export class CustomsCommand extends Command {
         const scheduledDate = new Date();
         scheduledDate.setHours(hours, minutes, 0, 0);
 
-        if (scheduledDate.getTime() < Date.now()) {
+        if (scheduledDate.getTime() < interaction.createdTimestamp) {
             scheduledDate.setDate(scheduledDate.getDate() + 1);
         }
 
@@ -60,32 +65,39 @@ export class CustomsCommand extends Command {
             tft: '<:tft:1483123304385482804>'
         };
 
+        const gameRoles: Record<string, string> = {
+            league: '<@&1483567229965697286>',
+            valorant: '<@&1466541647318876393>',
+            deadlock: '',
+            tft: ''
+        };
+
+        const upperCaseGame = game.charAt(0).toUpperCase() + game.slice(1);
+
         const response = await interaction.reply({
-        content: `## ${gameEmoji[game]} ${game.charAt(0).toUpperCase() + game.slice(1)} - <t:${scheduledTime}:t>\nReact with ✅ to sign up!`,
+        content: `## ${gameEmoji[game]} ${gameRoles[game]} ${upperCaseGame} - <t:${scheduledTime}:t>\nReact with ✅ to sign up!`,
         withResponse: true,
-        allowedMentions: { parse: [] }
+        allowedMentions: { roles: ['1483567229965697286', '1466541647318876393'] }
         });
 
         const message = response.resource!.message!;
 
-        await message.react('✅');
-
         await EventsTable.insert({
-        messageId: message.id,
-        channelId: interaction.channelId,
-        scheduledTime,
-        });
+            guildId: interaction.guildId,
+            channelId: interaction.channelId,
+            messageId: message.id,
+            game: upperCaseGame,
+            scheduledTime: scheduledDate
+        })
 
-        const delay = scheduledDate.getTime() - Date.now();
-        setTimeout(() => pingReacted(message.id, interaction.channelId, interaction.client, game), delay);
-
+        await message.react('✅');
     }
 
 }
     
 
 
-async function pingReacted(messageId: string, channelId: string, client: any, game: string) {
+async function pingReacted(messageId: string, channelId: string, client: Client<true>, game: string) {
     try {
         const channel = await client.channels.fetch(channelId) as any;
         const message = await channel.messages.fetch(messageId);
@@ -104,7 +116,6 @@ async function pingReacted(messageId: string, channelId: string, client: any, ga
             });
         }
 
-        await EventsTable.delete(messageId);
     } catch (e) {
         console.error('Failed to ping reacted users:', e);
     }
