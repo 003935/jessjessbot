@@ -21,6 +21,7 @@ COPY --chown=bun:bun --from=builder /app/commands commands/
 COPY --chown=bun:bun --from=builder /app/package.json package.json
 COPY --chown=bun:bun --from=builder /app/bun.lock* bun.lock*
 COPY --chown=bun:bun --from=builder /app/node_modules node_modules/
+COPY --chown=bun:bun --from=builder /app/tsconfig.json tsconfig.json
 
 COPY --chown=bun:bun --from=builder /app/drizzle drizzle/
 COPY --chown=bun:bun --from=builder /app/drizzle.config.ts drizzle.config.ts
