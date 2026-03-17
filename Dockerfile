@@ -1,37 +1,32 @@
-# use the official Bun image
-# see all versions at https://hub.docker.com/r/oven/bun/tags
-FROM oven/bun:1 AS base
-WORKDIR /usr/src/app
+FROM oven/bun:debian AS builder
 
-# install dependencies into temp directory
-# this will cache them and speed up future builds
-FROM base AS install
-RUN mkdir -p /temp/dev
-COPY package.json bun.lock /temp/dev/
-RUN cd /temp/dev && bun install --frozen-lockfile
+WORKDIR /app
 
-# install with --production (exclude devDependencies)
-RUN mkdir -p /temp/prod
-COPY package.json bun.lock /temp/prod/
-RUN cd /temp/prod && bun install --frozen-lockfile --production
+# Copy package files and install ALL dependencies (including dev) for building
+COPY package.json bun.lock* ./
+RUN bun install --frozen-lockfile
 
-# copy node_modules from temp directory
-# then copy all (non-ignored) project files into the image
-FROM base AS prerelease
-COPY --from=install /temp/dev/node_modules node_modules
+# Copy source code and build
 COPY . .
 
-# [optional] tests & build
 ENV NODE_ENV=production
 
-# copy production dependencies and source code into final image
-FROM base AS release
-COPY --from=install /temp/prod/node_modules node_modules
-COPY --from=prerelease /usr/src/app/src ./src
-COPY --from=prerelease /usr/src/app/commands ./commands
-COPY --from=prerelease /usr/src/app/package.json .
-COPY --from=prerelease /usr/src/app/drizzle.config.ts .
+# Production stage
+FROM oven/bun:alpine AS runner
 
-# run the app
+WORKDIR /app
+
+COPY --chown=bun:bun --from=builder /app/src src/
+COPY --chown=bun:bun --from=builder /app/commands commands/
+COPY --chown=bun:bun --from=builder /app/package.json package.json
+COPY --chown=bun:bun --from=builder /app/bun.lock* bun.lock*
+COPY --chown=bun:bun --from=builder /app/node_modules node_modules/
+
+COPY --chown=bun:bun --from=builder /app/drizzle drizzle/
+COPY --chown=bun:bun --from=builder /app/drizzle.config.ts drizzle.config.ts
+
+COPY --chown=bun:bun --from=builder /app/entrypoint.sh entrypoint.sh
+
 USER bun
-ENTRYPOINT [ "bun", "run", "start" ]
+
+CMD ["/entrypoint.sh"]

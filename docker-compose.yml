@@ -12,6 +12,7 @@ services:
       - BOT_ID=${BOT_ID}
       - ROLE_ID=${ROLE_ID}
       - GUILD_ID=${GUILD_ID}
+      - CHANNEL_ID=${CHANNEL_ID}
       - NODE_ENV=production
       - RIOT_API_KEY=${RIOT_API_KEY}
       - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
