@@ -73,7 +73,6 @@ export class AddLeagueAccountCommand extends Command {
 
             const leagueData = await lolApi.League.byPUUID(account.response.puuid, region as Regions)
             //FIXME NO API KEY const tftData = await tftApi.League.getByPUUID(account.response.puuid, Constants.Regions.EU_WEST)
-
             const league_soloq = leagueData.response.find((league_data) => league_data.queueType === "RANKED_SOLO_5x5");
 
 

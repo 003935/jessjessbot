@@ -13,10 +13,10 @@ export const regionEnum = pgEnum('region', Object.values(Regions) as [string, ..
 
 export const leagueTable = pgTable("league_Table", {
   discordId: varchar({ length: 20 }).notNull(),
-  riot_puuid: varchar({ length: 78 }).notNull(),
+  riot_puuid: varchar({ length: 78 }).notNull().primaryKey(),
   riot_gamename: text(),
   riot_tagline: text(),
-  region: regionEnum(),
+  region: regionEnum().notNull(),
   leaguedata: jsonb().$type<{
     soloq?: {
       wins: number
@@ -33,9 +33,7 @@ export const leagueTable = pgTable("league_Table", {
       lp: number
     }
   }>(),
-}, (table) => [
-  primaryKey({ columns: [table.discordId, table.riot_puuid] }),
-]);
+});
 
 export const eventsTable = pgTable("events_Table", {
   channelId: varchar({ length: 20 }).notNull(),
