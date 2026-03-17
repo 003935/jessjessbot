@@ -1,4 +1,3 @@
-
 const WORDLE_BOT_ID = process.env.BOT_ID!;
 const WORDLE_ROLE_ID = process.env.ROLE_ID!;
 const GUILD_ID = process.env.GUILD_ID!;
@@ -18,7 +17,6 @@ if (
 )
   throw new Error("Set your environment variables");
 
-
 export {
   WORDLE_BOT_ID,
   WORDLE_ROLE_ID,
@@ -26,5 +24,5 @@ export {
   CHANNEL_ID,
   BOT_TOKEN,
   CLIENT_ID,
-  RIOT_API_KEY
-}
+  RIOT_API_KEY,
+};

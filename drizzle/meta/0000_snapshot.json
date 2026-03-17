@@ -32,9 +32,7 @@
       "compositePrimaryKeys": {
         "events_Table_messageId_pk": {
           "name": "events_Table_messageId_pk",
-          "columns": [
-            "messageId"
-          ]
+          "columns": ["messageId"]
         }
       },
       "uniqueConstraints": {},
@@ -95,10 +93,7 @@
       "compositePrimaryKeys": {
         "league_Table_discordId_riot_puuid_pk": {
           "name": "league_Table_discordId_riot_puuid_pk",
-          "columns": [
-            "discordId",
-            "riot_puuid"
-          ]
+          "columns": ["discordId", "riot_puuid"]
         }
       },
       "uniqueConstraints": {},
@@ -128,10 +123,7 @@
       "compositePrimaryKeys": {
         "winners_Table_discordId_messageId_pk": {
           "name": "winners_Table_discordId_messageId_pk",
-          "columns": [
-            "discordId",
-            "messageId"
-          ]
+          "columns": ["discordId", "messageId"]
         }
       },
       "uniqueConstraints": {},

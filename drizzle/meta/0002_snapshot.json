@@ -32,9 +32,7 @@
       "compositePrimaryKeys": {
         "events_Table_messageId_pk": {
           "name": "events_Table_messageId_pk",
-          "columns": [
-            "messageId"
-          ]
+          "columns": ["messageId"]
         }
       },
       "uniqueConstraints": {},
@@ -120,10 +118,7 @@
       "compositePrimaryKeys": {
         "winners_Table_discordId_messageId_pk": {
           "name": "winners_Table_discordId_messageId_pk",
-          "columns": [
-            "discordId",
-            "messageId"
-          ]
+          "columns": ["discordId", "messageId"]
         }
       },
       "uniqueConstraints": {},
