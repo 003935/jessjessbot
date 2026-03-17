@@ -1,5 +1,5 @@
 import { Client } from "discord.js";
-import { EventsTable, Event } from "../db/event";
+import { EventsTable, type Event } from "@/db/event";
 
 async function send_alert(client: Client<true>, event: Event) {
   console.log(`Sending alert for event ${event.id}`);

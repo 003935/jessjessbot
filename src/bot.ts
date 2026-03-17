@@ -1,9 +1,9 @@
 import { GatewayIntentBits } from "discord.js";
-import { BOT_TOKEN } from "./environment";
+import { BOT_TOKEN } from "@/environment";
 import { SapphireClient } from "@sapphire/framework";
-import { wordle_module } from "./modules/wordle";
-import { start_background_rank_update } from "./modules/league";
-import { start_background_event_checker } from "./modules/events";
+import { wordle_module } from "@/modules/wordle";
+import { start_background_rank_update } from "@/modules/league";
+import { start_background_event_checker } from "@/modules/events";
 
 const client = new SapphireClient({
   intents: [
@@ -23,5 +23,6 @@ client.on("clientReady", (client) => {
 });
 
 client.on("messageCreate", wordle_module);
+
 
 client.login(BOT_TOKEN);

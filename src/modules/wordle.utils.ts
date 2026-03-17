@@ -1,13 +1,13 @@
-import { Collection, GuildMember, Message, Snowflake } from "discord.js";
+import { Collection, GuildMember, type Snowflake } from "discord.js";
 
 export function Parse_Wordle_Message(
   message: string,
 ):
   | {
-      winner_ids: Set<string>;
-      failed_mentions: Set<string>;
-      winningScore: string;
-    }
+    winner_ids: Set<string>;
+    failed_mentions: Set<string>;
+    winningScore: string;
+  }
   | undefined {
   if (!message.includes("Here are yesterday's results:")) return;
 
@@ -17,14 +17,14 @@ export function Parse_Wordle_Message(
   if (!crownLine) return;
 
   const scoreMatch = crownLine.match(/(\d+)\/6/);
-  if (!scoreMatch) return;
+  if (!scoreMatch || scoreMatch.length !== 2) return;
 
-  const winningScore = scoreMatch[1];
+  const winningScore = scoreMatch[1]!;
   const crownIndex = crownLine.indexOf("👑");
   const afterCrown = crownLine.substring(crownIndex);
 
   const winner_ids = new Set(
-    [...afterCrown.matchAll(/<@!?(\d+)>/g)].map((match) => match[1]),
+    [...afterCrown.matchAll(/<@!?(\d+)>/g)].map((match) => match[1]).filter((id) => id !== undefined),
   );
 
   const failed_mentions = new Set<string>();
@@ -58,8 +58,8 @@ export function get_users_from_failed_mentions(
 ): { winners: GuildMember[]; failed_mentions: Set<string> } {
   const winners = new Array<GuildMember>();
   const members = Array.from(users.values());
-  for (let i = 0; i < members.length; i++) {
-    const member = members[i];
+
+  for (const member of members) {
     if (failed_mentions.has(member.displayName)) {
       winners.push(member);
       failed_mentions.delete(member.displayName);

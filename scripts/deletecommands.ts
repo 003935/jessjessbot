@@ -1,5 +1,5 @@
 import { parseArgs } from "util";
-import { BOT_TOKEN, CLIENT_ID, GUILD_ID } from "../src/environment";
+import { BOT_TOKEN, CLIENT_ID, GUILD_ID } from "@/environment";
 import { REST, Routes } from "discord.js";
 
 const rest = new REST().setToken(BOT_TOKEN);
@@ -25,8 +25,7 @@ if (values.commandId === undefined) {
         name: string;
         description: string;
       }[];
-      for (let i = 0; i < commands.length; i++) {
-        const command = commands[i];
+      for (const command of commands) {
         console.log(command.id, command.name, command.description);
       }
     })
@@ -41,8 +40,7 @@ if (values.commandId === undefined) {
         name: string;
         description: string;
       }[];
-      for (let i = 0; i < commands.length; i++) {
-        const command = commands[i];
+      for (const command of commands) {
         console.log(command.id, command.name, command.description);
       }
     })

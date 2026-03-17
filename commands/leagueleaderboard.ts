@@ -1,9 +1,8 @@
 import { Command } from "@sapphire/framework";
-import { WinnersTable } from "../src/db/wordle";
-import { GUILD_ID, RIOT_API_KEY } from "../src/environment";
+import { RIOT_API_KEY } from "@/environment";
 import { ContainerBuilder, MessageFlags } from "discord.js";
-import { LeagueTable } from "../src/db/league";
-import { Constants, LolApi, RiotApi, TftApi } from "twisted";
+import { LeagueTable } from "@/db/league";
+import { Constants, LolApi, RiotApi } from "twisted";
 import { Tiers } from "twisted/dist/constants";
 
 const riotApi = new RiotApi({ key: RIOT_API_KEY });
@@ -85,7 +84,7 @@ export class LeagueLeaderboardCommand extends Command {
       return;
     }
 
-    const rankone = leaderboard[0].riot_puuid;
+    const rankone = leaderboard[0]!.riot_puuid;
     const summoner = await lolApi.Summoner.getByPUUID(
       rankone,
       Constants.Regions.EU_WEST,

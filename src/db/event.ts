@@ -1,14 +1,12 @@
 import {
-  InferSelectModel,
-  eq,
-  desc,
-  InferInsertModel,
+  type InferSelectModel,
+  type InferInsertModel,
   gte,
   lt,
   inArray,
 } from "drizzle-orm";
-import { eventsTable } from "./schema";
-import { db } from ".";
+import { eventsTable } from "@/db/schema";
+import { db } from "@/db";
 
 export type Event = InferSelectModel<typeof eventsTable>;
 type InsertEvent = InferInsertModel<typeof eventsTable>;

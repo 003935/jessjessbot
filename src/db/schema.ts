@@ -6,7 +6,6 @@ import {
   timestamp,
   varchar,
   pgEnum,
-  integer,
   serial,
 } from "drizzle-orm/pg-core";
 import { Regions, Tiers } from "twisted/dist/constants";

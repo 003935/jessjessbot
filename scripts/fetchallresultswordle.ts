@@ -1,9 +1,9 @@
 import { REST, Routes } from "discord.js";
 
-import { Parse_Wordle_Message } from "../src/wordle";
-import { WinnersTable } from "../src/db/wordle";
+import { Parse_Wordle_Message } from "@/modules/wordle.utils";
+import { WinnersTable } from "@/db/wordle";
 import { parseArgs } from "util";
-import { BOT_TOKEN, GUILD_ID, WORDLE_BOT_ID } from "../src/environment";
+import { BOT_TOKEN, GUILD_ID, WORDLE_BOT_ID } from "@/environment";
 import { exit } from "process";
 import { URLSearchParams } from "url";
 

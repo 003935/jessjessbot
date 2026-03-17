@@ -1,14 +1,13 @@
 import { LolApi } from "twisted";
-import { LeagueTable } from "../db/league";
-import { RIOT_API_KEY } from "../environment";
+import { LeagueTable } from "@/db/league";
+import { RIOT_API_KEY } from "@/environment";
 import { Regions, Tiers } from "twisted/dist/constants";
 
 const lolApi = new LolApi({ key: RIOT_API_KEY });
 
 async function rank_update() {
   const accounts = await LeagueTable.getAllAccounts();
-  for (let i = 0; i < accounts.length; i++) {
-    const account = accounts[i];
+  for (const account of accounts) {
     const leagueData = await lolApi.League.byPUUID(
       account.riot_puuid,
       account.region as Regions,
@@ -20,13 +19,13 @@ async function rank_update() {
       account.riot_puuid,
       league_soloq
         ? {
-            soloq: {
-              lp: league_soloq.leaguePoints,
-              wins: league_soloq.wins,
-              rank: league_soloq.rank,
-              tier: league_soloq.tier as Tiers,
-            },
-          }
+          soloq: {
+            lp: league_soloq.leaguePoints,
+            wins: league_soloq.wins,
+            rank: league_soloq.rank,
+            tier: league_soloq.tier as Tiers,
+          },
+        }
         : null,
     );
     await new Promise((resolve, reject) => setTimeout(resolve, 5000));

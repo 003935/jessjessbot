@@ -1,6 +1,6 @@
-import { InferSelectModel, eq, desc, InferInsertModel } from "drizzle-orm";
-import { leagueTable } from "./schema";
-import { db } from ".";
+import { type InferSelectModel, eq, type InferInsertModel } from "drizzle-orm";
+import { leagueTable } from "@/db/schema";
+import { db } from "@/db";
 import { Constants } from "twisted";
 import { type Tiers } from "twisted/dist/constants";
 

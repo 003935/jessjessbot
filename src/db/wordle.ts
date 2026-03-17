@@ -1,6 +1,6 @@
-import { InferSelectModel, eq, desc, and } from "drizzle-orm";
-import { winnersTable } from "./schema";
-import { db } from ".";
+import { eq, and } from "drizzle-orm";
+import { winnersTable } from "@/db/schema";
+import { db } from "@/db";
 
 type User = {
   id: string;

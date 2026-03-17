@@ -1,6 +1,6 @@
-import { Command, Option } from "@sapphire/framework";
-import { EventsTable } from "../src/db/event";
-import { Client, ContainerBuilder, MessageFlags } from "discord.js";
+import { Command } from "@sapphire/framework";
+import { EventsTable } from "@/db/event";
+import { Client } from "discord.js";
 
 export class CustomsCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -45,7 +45,7 @@ export class CustomsCommand extends Command {
     const game = interaction.options.getString("game", true);
 
     const [hours, minutes] = time.split(":").map(Number);
-    if (isNaN(hours) || isNaN(minutes)) {
+    if (hours === undefined || minutes === undefined || isNaN(hours) || isNaN(minutes)) {
       await interaction.reply({
         content: "Invalid time format. Use HH:MM e.g. `21:00`",
         flags: 64,

@@ -1,5 +1,5 @@
 import { Command } from "@sapphire/framework";
-import { WinnersTable } from "../src/db/wordle";
+import { WinnersTable } from "@/db/wordle";
 import { ContainerBuilder, MessageFlags } from "discord.js";
 
 export class KingCommand extends Command {
@@ -46,7 +46,7 @@ export class KingCommand extends Command {
       }),
     );
 
-    const king = await guild.members.fetch(firstfive[0].id);
+    const king = await guild.members.fetch(firstfive[0]!.id);
     const king_avatar = king.displayAvatarURL() || king.user.displayAvatarURL();
 
     const container = new ContainerBuilder()

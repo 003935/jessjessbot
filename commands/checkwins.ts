@@ -1,5 +1,5 @@
 import { Command } from "@sapphire/framework";
-import { WinnersTable } from "../src/db/wordle";
+import { WinnersTable } from "@/db/wordle";
 import { MessageFlags } from "discord.js";
 
 export class WinsCommand extends Command {

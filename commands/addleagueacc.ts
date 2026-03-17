@@ -1,7 +1,7 @@
 import { Command } from "@sapphire/framework";
-import { RIOT_API_KEY } from "../src/environment";
+import { RIOT_API_KEY } from "@/environment";
 import { MessageFlags } from "discord.js";
-import { LeagueTable } from "../src/db/league";
+import { LeagueTable } from "@/db/league";
 import { LolApi, RiotApi, TftApi } from "twisted";
 import {
   Regions,
@@ -58,8 +58,8 @@ export class AddLeagueAccountCommand extends Command {
 
     if (
       splitted.length !== 2 ||
-      splitted[0].length === 0 ||
-      splitted[1].length === 0
+      splitted[0]!.length === 0 ||
+      splitted[1]!.length === 0
     ) {
       await interaction.reply({
         content: "fk off idiot",
@@ -72,8 +72,8 @@ export class AddLeagueAccountCommand extends Command {
     const [gamename, tagline] = splitted;
     try {
       const account = await riotApi.Account.getByRiotId(
-        gamename,
-        tagline,
+        gamename!,
+        tagline!,
         regionToRegionGroupForAccountAPI(region as Regions),
       );
       const dbAccounts = await LeagueTable.getAccounts(interaction.user.id);
@@ -110,11 +110,11 @@ export class AddLeagueAccountCommand extends Command {
           soloq:
             league_soloq !== undefined
               ? {
-                  lp: league_soloq.leaguePoints,
-                  rank: league_soloq.rank,
-                  tier: league_soloq.tier as Tiers,
-                  wins: league_soloq.wins,
-                }
+                lp: league_soloq.leaguePoints,
+                rank: league_soloq.rank,
+                tier: league_soloq.tier as Tiers,
+                wins: league_soloq.wins,
+              }
               : undefined,
         },
       });
