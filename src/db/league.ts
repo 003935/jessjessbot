@@ -28,13 +28,23 @@ export class LeagueTable {
         return await db.$count(leagueTable);
     }
 
-    static async getAccounts(id: string): Promise<User[] | null> {
+    static async getAccounts(id: string): Promise<User[]> {
         const users = await db.select().from(leagueTable).where(eq(leagueTable.discordId, id));
         return users
     }
 
+    static async getAllAccounts(): Promise<User[]> {
+        const users = await db.select().from(leagueTable);
+        return users
+
+    }
+
     static async insertAccount(account: InsertUser) {
         await db.insert(leagueTable).values(account)
+    }
+
+    static async updateAccount(id: string, league_data: InsertUser['leaguedata']): Promise<void> {
+        await db.update(leagueTable).set({leaguedata: league_data}).where(eq(leagueTable.riot_puuid, id))
     }
 
     static async leaderboard(limit: number = 7) {
@@ -62,7 +72,7 @@ export class LeagueTable {
         return bsoloq.lp > asoloq.lp ? 1 : -1
     })
 
-    return [...sorted, ...unranked];
+    return [...sorted, ...unranked].slice(0, limit);
 }
 
 
