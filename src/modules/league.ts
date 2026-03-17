@@ -18,7 +18,7 @@ async function rank_update() {
                     rank: league_soloq.rank,
                     tier: league_soloq.tier as Tiers
                 }
-            }: undefined)
+            }: null)
             await new Promise((resolve, reject) => setTimeout(resolve, 5000))
         }
 }
