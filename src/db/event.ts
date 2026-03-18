@@ -4,6 +4,7 @@ import {
   gte,
   lt,
   inArray,
+  notInArray,
 } from "drizzle-orm";
 import { eventsTable } from "@/db/schema";
 import { db } from "@/db";
@@ -16,18 +17,11 @@ export class EventsTable {
     await db.insert(eventsTable).values(event);
   }
 
-  static async getFutureEvents() {
-    return await db
-      .select()
-      .from(eventsTable)
-      .where(gte(eventsTable.scheduledTime, new Date()));
-  }
-
-  static async getPastEvents() {
-    return await db
-      .select()
-      .from(eventsTable)
-      .where(lt(eventsTable.scheduledTime, new Date()));
+  static async getEvents(ignore_ids: number[] = []) {
+    if (ignore_ids.length === 0) {
+      return await db.select().from(eventsTable);
+    }
+    return await db.select().from(eventsTable).where(notInArray(eventsTable.id, ignore_ids));
   }
 
   static async deleteEvents(event_ids: number[]) {
