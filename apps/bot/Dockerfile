@@ -25,6 +25,4 @@ COPY --chown=bun:bun --from=builder /app .
 
 USER bun
 
-ENV TURBO_TELEMETRY_DISABLED=1
-
 CMD ["apps/bot/entrypoint.sh"]
