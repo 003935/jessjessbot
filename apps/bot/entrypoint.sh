@@ -1,9 +1,10 @@
 #!/bin/sh
 set -e
 
-# migrate
-#bunx drizzle-kit migrate --config ./packages/db/drizzle.config.ts
-bun run migrate
 
-# run the app
-bun run bot
+# migrate
+echo "Running migrations..."
+bun run --cwd packages/db db:migrate
+
+echo "Starting bot..."
+bun run turbo bot:start

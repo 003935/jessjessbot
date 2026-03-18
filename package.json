@@ -1,21 +1,17 @@
 {
   "name": "jessjessbot",
-  "private": true,
-  "scripts": {
-    "format": "prettier --write .",
-    "check-types": "turbo run check-types",
-    "generate": "turbo run db:generate",
-    "migrate": "turbo run db:migrate",
-    "bot": "turbo run bot:start"
-  },
   "devDependencies": {
     "prettier": "^3.8.1",
     "prettier-plugin-svelte": "^3.5.1",
     "turbo": "2.8.17"
   },
+  "packageManager": "bun@1.3.11",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write ."
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
-  ],
-  "packageManager": "bun@1.3.11"
+  ]
 }
