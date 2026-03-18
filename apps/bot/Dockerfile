@@ -4,7 +4,7 @@ FROM base AS prepare
 WORKDIR /app
 
 COPY . .
-RUN bun run turbo prune bot --docker
+RUN bunx turbo prune bot --docker
 
 FROM base AS builder
 WORKDIR /app
