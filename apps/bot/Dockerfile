@@ -13,6 +13,8 @@ WORKDIR /app
 COPY --from=prepare /app/out/json/ .
 RUN bun install
 
+COPY --from=prepare /app/out/full/ .
+
 FROM oven/bun:alpine AS runner
 WORKDIR /app
 
@@ -20,4 +22,4 @@ COPY --chown=bun:bun --from=builder /app .
 
 USER bun
 
-CMD ["full/apps/bot/entrypoint.sh"]
+CMD ["apps/bot/entrypoint.sh"]
