@@ -20,4 +20,4 @@ COPY --chown=bun:bun --from=builder /app .
 
 USER bun
 
-CMD ["/entrypoint.sh"]
+CMD ["full/apps/bot/entrypoint.sh"]
