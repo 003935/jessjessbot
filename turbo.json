@@ -14,6 +14,23 @@
     },
     "bot:start": {
       "cache": false
+    },
+    "dash:dev": {
+      "cache": false,
+      "persistent": true,
+    },
+    "dash:build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
+      "outputs": [
+        ".svelte-kit/**",
+        ".vercel/**"
+      ]
     }
   }
 }

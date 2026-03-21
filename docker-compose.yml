@@ -11,6 +11,20 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  dashboard:
+    container_name: dashboard
+    build:
+      context: .
+      dockerfile: ./apps/dashboard/Dockerfile
+    env_file:
+      - ./apps/dashboard/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
   db:
     image: postgres
     restart: always

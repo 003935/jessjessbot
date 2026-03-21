@@ -50,6 +50,13 @@
       "when": 1773786450231,
       "tag": "0006_wet_william_stryker",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1774079312483,
+      "tag": "0007_fuzzy_dracula",
+      "breakpoints": true
     }
   ]
 }

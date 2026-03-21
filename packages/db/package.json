@@ -2,7 +2,7 @@
   "name": "@repo/database",
   "private": true,
   "exports": {
-    ".": "./src/tables/index.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "db:migrate": "bun run drizzle-kit migrate",

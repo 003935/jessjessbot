@@ -1,0 +1,10 @@
+{
+	"extends": ["@repo/typescript-config/base.json", "./.svelte-kit/tsconfig.json"],
+	"compilerOptions": {
+		"rewriteRelativeImportExtensions": true,
+		"allowJs": true,
+		"checkJs": true,
+		"resolveJsonModule": true,
+		"sourceMap": true
+	}
+}
