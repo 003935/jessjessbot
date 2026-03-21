@@ -2,9 +2,7 @@
   "$schema": "https://turborepo.dev/schema.json",
   "tasks": {
     "check-types": {
-      "dependsOn": [
-        "^check-types"
-      ]
+      "dependsOn": ["^check-types"]
     },
     "db:migrate": {
       "cache": false
@@ -17,20 +15,15 @@
     },
     "dash:dev": {
       "cache": false,
-      "persistent": true,
+      "persistent": true
+    },
+    "dash:prepare": {
+      "cache": false
     },
     "dash:build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        ".env*"
-      ],
-      "outputs": [
-        ".svelte-kit/**",
-        ".vercel/**"
-      ]
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".svelte-kit/**", ".vercel/**"]
     }
   }
 }
