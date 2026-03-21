@@ -2,6 +2,8 @@ import { Command } from '@sapphire/framework';
 import { EventsTable } from '@repo/database';
 import { Client } from 'discord.js';
 
+const timestampRegex = new RegExp(/<t:(\d+):\w>/);
+
 export class CustomsCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
     super(context, { ...options });
@@ -39,17 +41,27 @@ export class CustomsCommand extends Command {
     const time = interaction.options.getString('time', true);
     const game = interaction.options.getString('game', true);
 
-    const [hours, minutes] = time.split(':').map(Number);
-    if (hours === undefined || minutes === undefined || isNaN(hours) || isNaN(minutes)) {
+    const whatever = timestampRegex.exec(time);
+
+    if (whatever === null) {
       await interaction.reply({
-        content: 'Invalid time format. Use HH:MM e.g. `21:00`',
+        content: 'Invalid time format. Use timestamps (@time)',
         flags: 64
       });
       return;
     }
 
-    const scheduledDate = new Date();
-    scheduledDate.setHours(hours, minutes, 0, 0);
+    const unixtimestampstring = whatever[1];
+    const unixnumber = parseInt(unixtimestampstring);
+
+    if (isNaN(unixnumber)) {
+      await interaction.reply({
+        content: 'Invalid time format. Use timestamps (@time)',
+        flags: 64
+      });
+      return;
+    }
+    const scheduledDate = new Date(unixnumber * 1000);
 
     if (scheduledDate.getTime() < interaction.createdTimestamp) {
       scheduledDate.setDate(scheduledDate.getDate() + 1);
