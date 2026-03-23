@@ -1,9 +1,9 @@
 import { Command } from '@sapphire/framework';
 import { RIOT_API_KEY } from '@/environment';
 import { ContainerBuilder, MessageFlags } from 'discord.js';
-import { LeagueTable } from '@repo/database';
 import { Constants, LolApi, RiotApi } from 'twisted';
 import { Tiers } from 'twisted/dist/constants';
+import { db } from '@/db';
 
 const riotApi = new RiotApi({ key: RIOT_API_KEY });
 const lolApi = new LolApi({ key: RIOT_API_KEY });
@@ -69,7 +69,7 @@ export class LeagueLeaderboardCommand extends Command {
   public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
     await interaction.deferReply();
 
-    const leaderboard = await LeagueTable.leaderboard();
+    const leaderboard = await db.league_table.leaderboard();
 
     if (leaderboard.length === 0) {
       await interaction.editReply({

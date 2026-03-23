@@ -1,9 +1,9 @@
 import { Command } from '@sapphire/framework';
 import { RIOT_API_KEY } from '@/environment';
 import { MessageFlags } from 'discord.js';
-import { LeagueTable } from '@repo/database';
 import { LolApi, RiotApi, TftApi } from 'twisted';
 import { Regions, regionToRegionGroupForAccountAPI, Tiers } from 'twisted/dist/constants';
+import { db } from '@/db';
 
 const riotApi = new RiotApi({ key: RIOT_API_KEY });
 const lolApi = new LolApi({ key: RIOT_API_KEY });
@@ -61,7 +61,7 @@ export class AddLeagueAccountCommand extends Command {
         tagline!,
         regionToRegionGroupForAccountAPI(region as Regions)
       );
-      const dbAccounts = await LeagueTable.getAccounts(interaction.user.id);
+      const dbAccounts = await db.league_table.getAccounts(interaction.user.id);
 
       const alreadyAdded = dbAccounts?.some((acc) => acc.riot_puuid === account.response.puuid);
 
@@ -80,7 +80,7 @@ export class AddLeagueAccountCommand extends Command {
         (league_data) => league_data.queueType === 'RANKED_SOLO_5x5'
       );
 
-      await LeagueTable.insertAccount({
+      await db.league_table.insertAccount({
         discordId: interaction.user.id,
         riot_puuid: account.response.puuid,
         riot_gamename: account.response.gameName,

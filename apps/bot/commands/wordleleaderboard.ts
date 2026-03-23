@@ -1,6 +1,6 @@
 import { Command } from '@sapphire/framework';
-import { WinnersTable } from '@repo/database';
 import { ContainerBuilder, MessageFlags } from 'discord.js';
+import { db } from '@/db';
 
 export class KingCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -24,7 +24,7 @@ export class KingCommand extends Command {
       return;
     }
 
-    const sorted = await WinnersTable.getSortedWinners(5);
+    const sorted = await db.wordle_table.getSortedWinners(5);
 
     if (sorted.length === 0) {
       await interaction.reply({

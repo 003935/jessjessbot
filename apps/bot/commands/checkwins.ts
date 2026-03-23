@@ -1,6 +1,6 @@
 import { Command } from '@sapphire/framework';
-import { WinnersTable } from '@repo/database';
 import { MessageFlags } from 'discord.js';
+import { db } from '@/db';
 
 export class WinsCommand extends Command {
   public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -21,7 +21,7 @@ export class WinsCommand extends Command {
 
     const optionuser = interaction.options.getUser('user');
 
-    const user = await WinnersTable.getUser(optionuser === null ? userID : optionuser.id);
+    const user = await db.wordle_table.getUser(optionuser === null ? userID : optionuser.id);
 
     if (user === null) {
       await interaction.reply({

@@ -1,11 +1,11 @@
 import { REST, Routes } from 'discord.js';
 
 import { Parse_Wordle_Message } from '@/modules/wordle.utils';
-import { WinnersTable } from '@repo/database';
 import { parseArgs } from 'util';
 import { BOT_TOKEN, GUILD_ID, WORDLE_BOT_ID } from '@/environment';
 import { exit } from 'process';
 import { URLSearchParams } from 'url';
+import { db } from '@/db';
 
 const { values } = parseArgs({
   args: Bun.argv,
@@ -93,7 +93,7 @@ async function main() {
       }
 
       for (const winner_id of winner_ids) {
-        const added = await WinnersTable.addWin(winner_id, message.id);
+        const added = await db.wordle_table.addWin(winner_id, message.id);
       }
       messages_parsed_successfully += 1;
     }

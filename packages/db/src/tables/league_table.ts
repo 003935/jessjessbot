@@ -1,8 +1,8 @@
 import { type InferSelectModel, eq, type InferInsertModel } from 'drizzle-orm';
-import { leagueTable } from '../schema';
-import { db } from '../client';
 import { Constants } from 'twisted';
 import { type Tiers } from 'twisted/dist/constants';
+import { leagueTable } from '../schema';
+import { DatabaseConnection } from '../connection';
 
 export function romanToNumeral(roman: string) {
   let accumulator = 0;
@@ -31,34 +31,38 @@ const TiersSorted = [
   Constants.Tiers.CHALLENGER
 ];
 
-export class LeagueTable {
-  static async size(): Promise<number> {
-    return await db.$count(leagueTable);
+export class LeagueTable extends DatabaseConnection {
+  constructor(db_conn: DatabaseConnection) {
+    super(db_conn);
   }
 
-  static async getAccounts(id: string): Promise<User[]> {
-    const users = await db.select().from(leagueTable).where(eq(leagueTable.discordId, id));
+  async size(): Promise<number> {
+    return await this._db.$count(leagueTable);
+  }
+
+  async getAccounts(id: string): Promise<User[]> {
+    const users = await this._db.select().from(leagueTable).where(eq(leagueTable.discordId, id));
     return users;
   }
 
-  static async getAllAccounts(): Promise<User[]> {
-    const users = await db.select().from(leagueTable);
+  async getAllAccounts(): Promise<User[]> {
+    const users = await this._db.select().from(leagueTable);
     return users;
   }
 
-  static async insertAccount(account: InsertUser) {
-    await db.insert(leagueTable).values(account);
+  async insertAccount(account: InsertUser) {
+    await this._db.insert(leagueTable).values(account);
   }
 
-  static async updateAccount(id: string, league_data: InsertUser['leaguedata']): Promise<void> {
-    await db
+  async updateAccount(id: string, league_data: InsertUser['leaguedata']): Promise<void> {
+    await this._db
       .update(leagueTable)
       .set({ leaguedata: league_data })
       .where(eq(leagueTable.riot_puuid, id));
   }
 
-  static async leaderboard(limit: number = 7) {
-    const users = await db.select().from(leagueTable);
+  async leaderboard(limit: number = 7) {
+    const users = await this._db.select().from(leagueTable);
     const ranked = users.filter((u) => u.leaguedata !== null && u.leaguedata.soloq !== undefined);
     const unranked = users.filter((u) => u.leaguedata === null || u.leaguedata.soloq === undefined);
 

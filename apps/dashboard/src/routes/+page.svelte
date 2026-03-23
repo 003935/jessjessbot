@@ -1,19 +1,13 @@
 <script lang="ts">
+	import { refreshAll } from '$app/navigation';
+	import { authClient } from '$lib/auth-client';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 </script>
 
-{#if data !== null}
-	<p>Logged in</p>
-	<button
-		onclick={() => {
-			authClient.signOut();
-		}}
-	>
-		Logout
-	</button>
-	{#if data.eventGames.length === 0}
+{#if data.user !== null}
+	{#if data.eventGames === undefined || data.eventGames.length === 0}
 		<div>No games added</div>
 	{/if}
 	{#each data.eventGames as eventGame (eventGame.guildId + eventGame.roleId)}
@@ -49,15 +43,4 @@
 			</form>
 		</div>
 	</div>
-{:else}
-	<p>Not logged in</p>
-	<button
-		onclick={() => {
-			authClient.signIn.social({
-				provider: 'discord'
-			});
-		}}
-	>
-		Login
-	</button>
 {/if}

@@ -57,6 +57,13 @@
       "when": 1774079312483,
       "tag": "0007_fuzzy_dracula",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1774244568738,
+      "tag": "0008_lovely_naoko",
+      "breakpoints": true
     }
   ]
 }

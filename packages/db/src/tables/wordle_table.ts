@@ -1,19 +1,23 @@
-import { eq, and } from 'drizzle-orm';
+import { DatabaseConnection } from '../connection';
 import { winnersTable } from '../schema';
-import { db } from '../client';
+import { eq, and } from 'drizzle-orm';
 
 type User = {
   id: string;
   wins: number;
 };
 
-export class WinnersTable {
-  static async size(): Promise<number> {
-    return await db.$count(winnersTable);
+export class WordleTable extends DatabaseConnection {
+  constructor(db_conn: DatabaseConnection) {
+    super(db_conn);
   }
 
-  static async getSortedWinners(limit: number = 5): Promise<User[]> {
-    const win_entries = await db.select().from(winnersTable);
+  async size(): Promise<number> {
+    return await this._db.$count(winnersTable);
+  }
+
+  async getSortedWinners(limit: number = 5): Promise<User[]> {
+    const win_entries = await this._db.select().from(winnersTable);
     const users = new Map<string, number>();
     for (const win_entry of win_entries) {
       users.set(win_entry.discordId, (users.get(win_entry.discordId) || 0) + 1);
@@ -24,16 +28,16 @@ export class WinnersTable {
     return sorted_users.map(([id, wins]) => ({ id, wins }));
   }
 
-  static async getUser(id: string): Promise<User | null> {
-    const win_entries = await db.select().from(winnersTable).where(eq(winnersTable.discordId, id));
+  async getUser(id: string): Promise<User | null> {
+    const win_entries = await this._db.select().from(winnersTable).where(eq(winnersTable.discordId, id));
     return {
       id,
       wins: win_entries.length
     };
   }
 
-  static async addWin(userId: string, messageId: string) {
-    await db.transaction(async (tx) => {
+  async addWin(userId: string, messageId: string) {
+    await this._db.transaction(async (tx) => {
       const win_entry = await tx
         .select()
         .from(winnersTable)

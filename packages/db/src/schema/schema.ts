@@ -63,5 +63,3 @@ export const eventsGameTable = pgTable(
   },
   (table) => [primaryKey({ columns: [table.guildId, table.roleId] })]
 );
-
-export * from './auth_schema';

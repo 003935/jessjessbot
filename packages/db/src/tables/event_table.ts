@@ -1,23 +1,27 @@
 import { type InferSelectModel, type InferInsertModel, inArray, notInArray } from 'drizzle-orm';
+import { DatabaseConnection } from '../connection';
 import { eventsTable } from '../schema';
-import { db } from '../client';
 
 export type Event = InferSelectModel<typeof eventsTable>;
 type InsertEvent = InferInsertModel<typeof eventsTable>;
 
-export class EventsTable {
-  static async insert(event: InsertEvent) {
-    await db.insert(eventsTable).values(event);
+export class EventsTable extends DatabaseConnection {
+  constructor(db_conn: DatabaseConnection) {
+    super(db_conn);
   }
 
-  static async getEvents(ignore_ids: number[] = []) {
+  async insert(event: InsertEvent) {
+    await this._db.insert(eventsTable).values(event);
+  }
+
+  async getEvents(ignore_ids: number[] = []) {
     if (ignore_ids.length === 0) {
-      return await db.select().from(eventsTable);
+      return await this._db.select().from(eventsTable);
     }
-    return await db.select().from(eventsTable).where(notInArray(eventsTable.id, ignore_ids));
+    return await this._db.select().from(eventsTable).where(notInArray(eventsTable.id, ignore_ids));
   }
 
-  static async deleteEvents(event_ids: number[]) {
-    await db.delete(eventsTable).where(inArray(eventsTable.id, event_ids));
+  async deleteEvents(event_ids: number[]) {
+    await this._db.delete(eventsTable).where(inArray(eventsTable.id, event_ids));
   }
 }

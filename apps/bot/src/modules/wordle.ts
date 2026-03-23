@@ -1,7 +1,7 @@
 import { GuildMember, Role, Message } from 'discord.js';
 import { WORDLE_BOT_ID, GUILD_ID, WORDLE_ROLE_ID, CHANNEL_ID } from '@/environment';
 import { Parse_Wordle_Message } from '@/modules/wordle.utils';
-import { WinnersTable } from '@repo/database';
+import { db } from '@/db';
 
 async function sync_wordle_role(winners: Array<GuildMember>, role: Role) {
   const consecutive_winners = new Map<string, GuildMember>(
@@ -105,12 +105,12 @@ export async function wordle_module(message: Message<boolean>) {
   }
 
   for (const winner of winners_array) {
-    await WinnersTable.addWin(winner.id, message.id);
+    await db.wordle_table.addWin(winner.id, message.id);
   }
 
   const winnerMentions = winners_array.map((winner) => `<@${winner.id}>`);
   if (winners_array.length === 1) {
-    const dbUser = await WinnersTable.getUser(winners_array[0]!.id);
+    const dbUser = await db.wordle_table.getUser(winners_array[0]!.id);
     await message.channel.send(
       `Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${dbUser?.wins ?? 1})`
     );

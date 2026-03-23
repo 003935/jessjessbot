@@ -1,5 +1,14 @@
+import { db } from '@/db';
 import { Client, User } from 'discord.js';
-import { EventsTable, type Event } from '@repo/database';
+
+type Event = {
+  id: number;
+  guildId: string;
+  channelId: string;
+  messageId: string;
+  scheduledTime: Date;
+  game: string;
+}
 
 async function send_alert(client: Client<true>, event: Event) {
   try {
@@ -85,7 +94,7 @@ export class EventManager {
     const ids = events.map((e) => e.id);
     if (ids.length === 0) return;
 
-    await EventsTable.deleteEvents(ids);
+    await db.event_table.deleteEvents(ids);
     for (const id of ids) {
       this.managed_events.delete(id);
     }
@@ -146,7 +155,7 @@ export class EventManager {
 
     this.is_processing = true;
     try {
-      const events = await EventsTable.getEvents(Array.from(this.managed_events.keys()));
+      const events = await db.event_table.getEvents(Array.from(this.managed_events.keys()));
       await this.processEvents(events);
     } catch (error) {
       EventManager.error('Error during fetch and process cycle:', error);

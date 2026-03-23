@@ -1,18 +1,18 @@
 import { LolApi } from 'twisted';
-import { LeagueTable } from '@repo/database';
 import { RIOT_API_KEY } from '@/environment';
 import { Regions, Tiers } from 'twisted/dist/constants';
+import { db } from '@/db';
 
 const lolApi = new LolApi({ key: RIOT_API_KEY });
 
 async function rank_update() {
-  const accounts = await LeagueTable.getAllAccounts();
+  const accounts = await db.league_table.getAllAccounts();
   for (const account of accounts) {
     const leagueData = await lolApi.League.byPUUID(account.riot_puuid, account.region as Regions);
     const league_soloq = leagueData.response.find(
       (league_data) => league_data.queueType === 'RANKED_SOLO_5x5'
     );
-    LeagueTable.updateAccount(
+    db.league_table.updateAccount(
       account.riot_puuid,
       league_soloq
         ? {

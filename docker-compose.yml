@@ -8,6 +8,8 @@ services:
       dockerfile: ./apps/bot/Dockerfile
     env_file:
       - ./apps/bot/.env
+    environment:
+      - DATABASE_URL=postgres://postgres:mypassword@db:5432/postgres
     depends_on:
       db:
         condition: service_healthy
@@ -19,6 +21,8 @@ services:
       dockerfile: ./apps/dashboard/Dockerfile
     env_file:
       - ./apps/dashboard/.env
+    environment:
+      - DATABASE_URL=postgres://postgres:mypassword@db:5432/postgres
     depends_on:
       db:
         condition: service_healthy

@@ -1,18 +1,19 @@
 import { betterAuth } from 'better-auth/minimal';
-import { drizzleAdapter } from '@better-auth/drizzle-adapter';
+import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
-//import { env } from '$env/dynamic/private';
+import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
-import { db } from '@repo/database';
+import { db } from './db';
+
 
 export const auth = betterAuth({
-  baseURL: process.env.BETTER_AUTH_URL,
-  secret: process.env.BETTER_AUTH_SECRET,
-  database: drizzleAdapter(db, { provider: 'pg' }),
+  baseURL: env.BETTER_AUTH_URL,
+  secret: env.BETTER_AUTH_SECRET,
+  database: drizzleAdapter(db._db, { provider: 'pg' }),
   socialProviders: {
     discord: {
-      clientId: process.env.DISCORD_CLIENT_ID!,
-      clientSecret: process.env.DISCORD_CLIENT_SECRET!
+      clientId: env.DISCORD_CLIENT_ID,
+      clientSecret: env.DISCORD_CLIENT_SECRET
     }
   },
   plugins: [sveltekitCookies(getRequestEvent)]

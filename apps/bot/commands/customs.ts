@@ -1,6 +1,5 @@
 import { Command } from '@sapphire/framework';
-import { EventsTable } from '@repo/database';
-import { Client } from 'discord.js';
+import { db } from '@/db';
 
 const timestampRegex = new RegExp(/<t:(\d+):\w>/);
 
@@ -95,7 +94,7 @@ export class CustomsCommand extends Command {
 
     const message = response.resource!.message!;
 
-    await EventsTable.insert({
+    await db.event_table.insert({
       guildId: interaction.guildId,
       channelId: interaction.channelId,
       messageId: message.id,
@@ -104,33 +103,5 @@ export class CustomsCommand extends Command {
     });
 
     await message.react('✅');
-  }
-}
-
-async function pingReacted(
-  messageId: string,
-  channelId: string,
-  client: Client<true>,
-  game: string
-) {
-  try {
-    const channel = (await client.channels.fetch(channelId)) as any;
-    const message = await channel.messages.fetch(messageId);
-    const reaction = message.reactions.cache.get('✅');
-    const users = await reaction?.users.fetch();
-
-    const mentions = users
-      ?.filter((u: any) => !u.bot)
-      .map((u: any) => `<@${u.id}>`)
-      .join(' ');
-
-    if (mentions) {
-      await channel.send({
-        content: ` ${game} customs time! ${mentions}`,
-        allowedMentions: { parse: ['users'] }
-      });
-    }
-  } catch (e) {
-    console.error('Failed to ping reacted users:', e);
   }
 }
