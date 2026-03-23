@@ -5,6 +5,7 @@ const CHANNEL_ID = process.env.CHANNEL_ID!;
 const BOT_TOKEN = process.env.BOT_TOKEN!;
 const CLIENT_ID = process.env.CLIENT_ID!;
 const RIOT_API_KEY = process.env.RIOT_API_KEY!;
+const YUM_CHANNEL_ID = process.env.YUM_CHANNEL_ID;
 
 if (
 	WORDLE_BOT_ID === undefined ||
@@ -17,4 +18,13 @@ if (
 )
 	throw new Error('Set your environment variables');
 
-export { WORDLE_BOT_ID, WORDLE_ROLE_ID, GUILD_ID, CHANNEL_ID, BOT_TOKEN, CLIENT_ID, RIOT_API_KEY };
+export {
+	WORDLE_BOT_ID,
+	WORDLE_ROLE_ID,
+	GUILD_ID,
+	CHANNEL_ID,
+	BOT_TOKEN,
+	CLIENT_ID,
+	RIOT_API_KEY,
+	YUM_CHANNEL_ID,
+};

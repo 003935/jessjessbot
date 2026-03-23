@@ -1,9 +1,10 @@
-import { GatewayIntentBits } from 'discord.js';
+import { GatewayIntentBits, Message } from 'discord.js';
 import { BOT_TOKEN } from '@/environment';
 import { SapphireClient } from '@sapphire/framework';
 import { wordle_module } from '@/modules/wordle';
 import { start_background_rank_update } from '@/modules/league';
 import { start_background_event_checker } from '@/modules/events';
+import { Check_Attachments } from '@/modules/reaction';
 
 const client = new SapphireClient({
 	intents: [
@@ -22,6 +23,12 @@ client.on('clientReady', (client) => {
 	start_background_event_checker(client);
 });
 
-client.on('messageCreate', wordle_module);
+function messageparser(message: Message<boolean>) {
+	if (message.inGuild() === false) return;
+	wordle_module(message);
+	Check_Attachments(message);
+}
+
+client.on('messageCreate', messageparser);
 
 client.login(BOT_TOKEN);
