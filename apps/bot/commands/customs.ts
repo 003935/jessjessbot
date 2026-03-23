@@ -1,5 +1,7 @@
 import { Command } from '@sapphire/framework';
 import { db } from '@/db';
+import { schema } from '@repo/database';
+import { and, eq } from 'drizzle-orm';
 
 const timestampRegex = new RegExp(/<t:(\d+):\w>/);
 
@@ -8,7 +10,9 @@ export class CustomsCommand extends Command {
 		super(context, { ...options });
 	}
 
-	public override registerApplicationCommands(registry: Command.Registry) {
+	public override async registerApplicationCommands(registry: Command.Registry) {
+		const games = await db._db.select().from(schema.eventGameTable);
+
 		registry.registerChatInputCommand((builder) =>
 			builder
 				.setName('customs')
@@ -21,12 +25,7 @@ export class CustomsCommand extends Command {
 						.setName('game')
 						.setDescription('Game to play')
 						.setRequired(true)
-						.addChoices(
-							{ name: 'League', value: 'league' },
-							{ name: 'Valorant', value: 'valorant' },
-							{ name: 'Deadlock', value: 'deadlock' },
-							{ name: 'TFT', value: 'tft' }
-						)
+						.addChoices(...games.map((game) => ({ name: game.name, value: game.name })))
 				)
 		);
 	}
@@ -68,6 +67,7 @@ export class CustomsCommand extends Command {
 
 		const scheduledTime = Math.floor(scheduledDate.getTime() / 1000);
 
+		//TODO: get this from the database (game table)
 		const gameEmoji: Record<string, string> = {
 			league: '<:league:1483123245250117763>',
 			valorant: '<:val:1483123363634352293>',
@@ -75,20 +75,25 @@ export class CustomsCommand extends Command {
 			tft: '<:tft:1483123304385482804>',
 		};
 
-		const gameRoles: Record<string, string> = {
-			league: '<@&1483567229965697286>',
-			valorant: '<@&1466541647318876393>',
-			deadlock: '',
-			tft: '',
-		};
-
 		const upperCaseGame = game.charAt(0).toUpperCase() + game.slice(1);
 
+		const roles = await db._db
+			.select()
+			.from(schema.gameRoleTable)
+			.where(
+				and(
+					eq(schema.gameRoleTable.guildId, interaction.guildId),
+					eq(schema.gameRoleTable.gameName, upperCaseGame)
+				)
+			);
+
+		const role = roles[0]?.roleId as string | undefined;
+
 		const response = await interaction.reply({
-			content: `## ${gameEmoji[game]} ${gameRoles[game]} ${upperCaseGame} - <t:${scheduledTime}:t>\nReact with ✅ to sign up!`,
+			content: `## ${gameEmoji[game]} ${role ? `<@&${role}>` : ''} ${upperCaseGame} - <t:${scheduledTime}:t>\nReact with ✅ to sign up!`,
 			withResponse: true,
 			allowedMentions: {
-				roles: ['1483567229965697286', '1466541647318876393'],
+				roles: role ? [role] : [],
 			},
 		});
 
@@ -98,7 +103,7 @@ export class CustomsCommand extends Command {
 			guildId: interaction.guildId,
 			channelId: interaction.channelId,
 			messageId: message.id,
-			game: upperCaseGame,
+			gameName: upperCaseGame,
 			scheduledTime: scheduledDate,
 		});
 

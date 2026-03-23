@@ -64,6 +64,20 @@
       "when": 1774244568738,
       "tag": "0008_lovely_naoko",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1774263990091,
+      "tag": "0009_mature_blur",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1774266576549,
+      "tag": "0010_bored_harpoon",
+      "breakpoints": true
     }
   ]
 }

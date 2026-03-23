@@ -2,6 +2,7 @@
 	"name": "dashboard",
 	"version": "0.0.1",
 	"devDependencies": {
+		"@discordjs/rest": "^2.6.1",
 		"@eslint/compat": "^2.0.2",
 		"@eslint/js": "^9.39.2",
 		"@repo/database": "workspace:*",
@@ -14,7 +15,8 @@
 		"auth": "^1.5.6",
 		"better-auth": "^1.5.6",
 		"daisyui": "^5.5.19",
-		"discord.js": "^14.25.1",
+		"discord-api-types": "^0.38.42",
+		"drizzle-orm": "^0.45.1",
 		"eslint": "^9.39.2",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.14.0",

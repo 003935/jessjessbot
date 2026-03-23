@@ -7,7 +7,7 @@ type Event = {
 	channelId: string;
 	messageId: string;
 	scheduledTime: Date;
-	game: string;
+	gameName: string;
 };
 
 async function send_alert(client: Client<true>, event: Event) {
@@ -51,7 +51,7 @@ async function send_alert(client: Client<true>, event: Event) {
 		}
 
 		await channel.send({
-			content: `${event.game} customs time! ${mentions}`,
+			content: `${event.gameName} customs time! ${mentions}`,
 			allowedMentions: { parse: ['users'] },
 		});
 	} catch (error) {

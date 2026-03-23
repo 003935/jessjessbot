@@ -11,10 +11,10 @@
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
 <div class="navbar bg-base-200 shadow-sm">
-	<div class="flex-1">
-		<a href="/" class="btn text-xl btn-ghost">jessjessbot</a>
+	<div class="flex-1 px-2">
+		<a href="/" class="text-xl">jessjessbot</a>
 	</div>
-	<div class="flex-none">
+	<div class="flex-none px-2">
 		{#if data.user}
 			<div class="dropdown dropdown-end">
 				<div tabindex="0" role="button" class="btn btn-ghost">

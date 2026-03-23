@@ -1,11 +1,10 @@
-import { schema } from '@repo/database';
 import type { PageServerLoad } from './$types';
-import type { Actions } from './$types';
-import * as v from 'valibot';
-import { discordApi } from '$lib/server/discord';
-import { Routes } from 'discord.js';
-import { error } from '@sveltejs/kit';
+import { REST } from '@discordjs/rest';
 import { db } from '$lib/server/db';
+import { schema } from '@repo/database';
+import { and, eq } from 'drizzle-orm';
+import { Routes, type RESTGetAPICurrentUserGuildsResult } from 'discord-api-types/v10';
+import { discordApi } from '$lib/server/discord';
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const data = await parent();
@@ -13,50 +12,47 @@ export const load: PageServerLoad = async ({ parent }) => {
 	if (!data.user)
 		return {
 			servers: [],
-			eventGames: [],
 			user: null,
 		};
 
-	const guilds = await discordApi.get(Routes.userGuilds());
+	const discordAccounts = await db._db
+		.select()
+		.from(schema.account)
+		.where(and(eq(schema.account.userId, data.user.id), eq(schema.account.providerId, 'discord')));
+
+	const discordAccount = discordAccounts[0];
+
+	if (!discordAccount || !discordAccount.accessToken) {
+		return {
+			servers: [],
+			user: data.user,
+		};
+	}
+
+	const user_discordApi = new REST({ authPrefix: 'Bearer' }).setToken(discordAccount.accessToken);
+
+	const user_guilds = (await user_discordApi.get(
+		Routes.userGuilds()
+	)) as RESTGetAPICurrentUserGuildsResult;
+
+	const bot_guilds = (await discordApi.get(
+		Routes.userGuilds()
+	)) as RESTGetAPICurrentUserGuildsResult;
+
+	const joined_guilds = user_guilds.filter((guild) =>
+		bot_guilds.some((bot_guild) => bot_guild.id === guild.id)
+	);
 
 	return {
-		servers: (
-			guilds as {
-				id: string;
-				name: string;
-				icon: string;
-			}[]
-		).map((guild) => ({
+		servers: joined_guilds.map((guild) => ({
 			id: guild.id,
 			name: guild.name,
-			icon: `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=80&quality=lossless`,
+			icon: guild.icon
+				? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=80&quality=lossless`
+				: null,
+			owner: guild.owner,
+			permissions: guild.permissions,
 		})),
-		eventGames: await db._db.select().from(schema.eventsGameTable),
 		user: data.user,
 	};
 };
-
-const addEventGame_Schema = v.object({
-	guildId: v.string(),
-	gameId: v.string(),
-	roleId: v.string(),
-});
-
-export const actions = {
-	addEventGame: async (event) => {
-		const data = await event.request.formData();
-		try {
-			const parsed = v.parse(addEventGame_Schema, Object.fromEntries(data.entries()));
-			await discordApi.get(Routes.guildRole(parsed.guildId, parsed.roleId));
-
-			await db._db.insert(schema.eventsGameTable).values({
-				name: parsed.gameId,
-				roleId: parsed.roleId,
-				guildId: parsed.guildId,
-			});
-		} catch (e) {
-			console.log(e);
-			error(400);
-		}
-	},
-} satisfies Actions;
