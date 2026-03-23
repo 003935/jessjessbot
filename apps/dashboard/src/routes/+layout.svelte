@@ -21,7 +21,7 @@
 					<div>{data.user.name}</div>
 					<div class="avatar">
 						<div class="w-10 rounded-full">
-							<img src={data.user.image} />
+							<img src={data.user.image} alt="" />
 						</div>
 					</div>
 				</div>
