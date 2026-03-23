@@ -36,10 +36,10 @@
 									fetchOptions: {
 										onSuccess: () => {
 											goto('/', {
-												invalidateAll: true
+												invalidateAll: true,
 											});
-										}
-									}
+										},
+									},
 								})}
 						>
 							Logout
@@ -52,9 +52,11 @@
 				class="btn btn-primary"
 				onclick={() =>
 					authClient.signIn.social({
-						provider: 'discord'
-					})}>Login</button
+						provider: 'discord',
+					})}
 			>
+				Login
+			</button>
 		{/if}
 	</div>
 </div>

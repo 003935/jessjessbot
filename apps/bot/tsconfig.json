@@ -1,8 +1,8 @@
 {
-  "extends": "@repo/typescript-config/standalone.json",
-  "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
+	"extends": "@repo/typescript-config/standalone.json",
+	"compilerOptions": {
+		"paths": {
+			"@/*": ["./src/*"]
+		}
+	}
 }

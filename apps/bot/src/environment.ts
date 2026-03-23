@@ -7,14 +7,14 @@ const CLIENT_ID = process.env.CLIENT_ID!;
 const RIOT_API_KEY = process.env.RIOT_API_KEY!;
 
 if (
-  WORDLE_BOT_ID === undefined ||
-  WORDLE_ROLE_ID === undefined ||
-  GUILD_ID === undefined ||
-  CHANNEL_ID === undefined ||
-  BOT_TOKEN === undefined ||
-  CLIENT_ID === undefined ||
-  RIOT_API_KEY === undefined
+	WORDLE_BOT_ID === undefined ||
+	WORDLE_ROLE_ID === undefined ||
+	GUILD_ID === undefined ||
+	CHANNEL_ID === undefined ||
+	BOT_TOKEN === undefined ||
+	CLIENT_ID === undefined ||
+	RIOT_API_KEY === undefined
 )
-  throw new Error('Set your environment variables');
+	throw new Error('Set your environment variables');
 
 export { WORDLE_BOT_ID, WORDLE_ROLE_ID, GUILD_ID, CHANNEL_ID, BOT_TOKEN, CLIENT_ID, RIOT_API_KEY };

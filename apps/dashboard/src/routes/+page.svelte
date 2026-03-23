@@ -19,11 +19,8 @@
 			<h2 class="card-title">Add a New Game</h2>
 			<form method="POST" action="?/addEventGame">
 				<fieldset class="fieldset">
-					<legend class="fieldset-legend">Server</legend><select
-						class="select"
-						name="guildId"
-						aria-placeholder="test"
-					>
+					<legend class="fieldset-legend">Server</legend>
+					<select class="select" name="guildId" aria-placeholder="test">
 						{#each data.servers as server (server.id)}
 							<option value={server.id}>{server.name}</option>
 						{/each}

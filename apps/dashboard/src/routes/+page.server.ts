@@ -10,11 +10,12 @@ import { db } from '$lib/server/db';
 export const load: PageServerLoad = async ({ parent }) => {
 	const data = await parent();
 
-	if (!data.user) return {
-		servers: [],
-		eventGames: [],
-		user: null
-	};
+	if (!data.user)
+		return {
+			servers: [],
+			eventGames: [],
+			user: null,
+		};
 
 	const guilds = await discordApi.get(Routes.userGuilds());
 
@@ -28,17 +29,17 @@ export const load: PageServerLoad = async ({ parent }) => {
 		).map((guild) => ({
 			id: guild.id,
 			name: guild.name,
-			icon: `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=80&quality=lossless`
+			icon: `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=80&quality=lossless`,
 		})),
 		eventGames: await db._db.select().from(schema.eventsGameTable),
-		user: data.user
+		user: data.user,
 	};
 };
 
 const addEventGame_Schema = v.object({
 	guildId: v.string(),
 	gameId: v.string(),
-	roleId: v.string()
+	roleId: v.string(),
 });
 
 export const actions = {
@@ -51,12 +52,11 @@ export const actions = {
 			await db._db.insert(schema.eventsGameTable).values({
 				name: parsed.gameId,
 				roleId: parsed.roleId,
-				guildId: parsed.guildId
+				guildId: parsed.guildId,
 			});
-
 		} catch (e) {
 			console.log(e);
 			error(400);
 		}
-	}
+	},
 } satisfies Actions;
