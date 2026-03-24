@@ -10,6 +10,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 	if (!data.user)
 		return {
 			servers: [],
+			emojis: [],
 			user: null,
 		};
 
@@ -23,13 +24,15 @@ export const load: PageServerLoad = async ({ parent }) => {
 	if (!discordAccount || !discordAccount.accessToken) {
 		return {
 			servers: [],
+			emojis: [],
 			user: data.user,
 		};
 	}
 
 	const user_guilds_promise = discordApi.getUserGuilds(data.user.id, discordAccount.accessToken);
-
 	const bot_guilds_promise = discordApi.getBotGuilds();
+
+	const emojis_promise = discordApi.getEmojis();
 
 	const [user_guilds, bot_guilds] = await Promise.all([user_guilds_promise, bot_guilds_promise]);
 
@@ -42,11 +45,12 @@ export const load: PageServerLoad = async ({ parent }) => {
 			id: guild.id,
 			name: guild.name,
 			icon: guild.icon
-				? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=80&quality=lossless`
+				? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=96&quality=lossless`
 				: null,
 			owner: guild.owner,
 			permissions: guild.permissions,
 		})),
+		emojis: await emojis_promise,
 		user: data.user,
 	};
 };

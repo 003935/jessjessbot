@@ -75,7 +75,22 @@ export class CustomsCommand extends Command {
 			tft: '<:tft:1483123304385482804>',
 		};
 
-		const upperCaseGame = game.charAt(0).toUpperCase() + game.slice(1);
+		const game_info_arr = await db._db
+			.select()
+			.from(schema.eventGameTable)
+			.where(eq(schema.eventGameTable.name, game));
+
+		const game_info = game_info_arr[0];
+		const emoji_id = game_info?.icon;
+
+		let emoji_str = '';
+
+		if (emoji_id) {
+			const app = interaction.client.application;
+			const emoji_cached = app.emojis.cache.get(emoji_id);
+			const emoji = emoji_cached ?? (await app.emojis.fetch(emoji_id));
+			emoji_str = emoji ? `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>` : '';
+		}
 
 		const roles = await db._db
 			.select()
@@ -83,14 +98,16 @@ export class CustomsCommand extends Command {
 			.where(
 				and(
 					eq(schema.gameRoleTable.guildId, interaction.guildId),
-					eq(schema.gameRoleTable.gameName, upperCaseGame)
+					eq(schema.gameRoleTable.gameName, game)
 				)
 			);
 
 		const role = roles[0]?.roleId as string | undefined;
 
+		const upperCaseGame = game.charAt(0).toUpperCase() + game.slice(1);
+
 		const response = await interaction.reply({
-			content: `## ${gameEmoji[game]} ${role ? `<@&${role}>` : ''} ${upperCaseGame} - <t:${scheduledTime}:t>\nReact with ✅ to sign up!`,
+			content: `## ${emoji_str} ${role ? `<@&${role}>` : ''} ${upperCaseGame} - <t:${scheduledTime}:t>\nReact with ✅ to sign up!`,
 			withResponse: true,
 			allowedMentions: {
 				roles: role ? [role] : [],
@@ -103,7 +120,7 @@ export class CustomsCommand extends Command {
 			guildId: interaction.guildId,
 			channelId: interaction.channelId,
 			messageId: message.id,
-			gameName: upperCaseGame,
+			gameName: game,
 			scheduledTime: scheduledDate,
 		});
 

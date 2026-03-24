@@ -71,10 +71,16 @@
 							</thead>
 							<tbody>
 								{#each query.current as game (game.name)}
+									{@const emoji = game.icon
+										? data.emojis.find((e) => e.id === game.icon)
+										: undefined}
 									<tr>
 										<td>
-											{#if game.icon}
-												<img src={game.icon} alt="" />
+											{#if emoji}
+												<img
+													src={`https://cdn.discordapp.com/emojis/${emoji.id}.webp?size=96&quality=lossless${emoji.animated ? '&animated=true' : ''}`}
+													alt=""
+												/>
 											{:else}
 												<div class="text-neutral">No icon</div>
 											{/if}
