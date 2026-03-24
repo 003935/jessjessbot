@@ -67,14 +67,6 @@ export class CustomsCommand extends Command {
 
 		const scheduledTime = Math.floor(scheduledDate.getTime() / 1000);
 
-		//TODO: get this from the database (game table)
-		const gameEmoji: Record<string, string> = {
-			league: '<:league:1483123245250117763>',
-			valorant: '<:val:1483123363634352293>',
-			deadlock: '<:deadlock:1483123050152198264>',
-			tft: '<:tft:1483123304385482804>',
-		};
-
 		const game_info_arr = await db._db
 			.select()
 			.from(schema.eventGameTable)
