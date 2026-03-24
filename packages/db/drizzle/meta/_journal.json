@@ -78,6 +78,20 @@
       "when": 1774266576549,
       "tag": "0010_bored_harpoon",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1774315543599,
+      "tag": "0011_brave_lifeguard",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1774354745144,
+      "tag": "0012_solid_betty_ross",
+      "breakpoints": true
     }
   ]
 }

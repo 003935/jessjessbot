@@ -2,13 +2,11 @@ import { schema } from '@repo/database';
 import { discordApi } from '$lib/server/discord';
 import { db } from '$lib/server/db';
 import { and, eq } from 'drizzle-orm';
-import {
-	Routes,
-	type RESTGetAPIGuildMemberResult,
-	type RESTGetAPIGuildResult,
-} from 'discord-api-types/v10';
 
-export async function isGuildAdmin(userId: string, guild: RESTGetAPIGuildResult) {
+export async function isGuildAdmin(
+	userId: string,
+	guild_promise: Awaitable<Awaited<ReturnType<typeof discordApi.getGuild>>>
+) {
 	const discordAccounts = await db._db
 		.select()
 		.from(schema.account)
@@ -18,15 +16,15 @@ export async function isGuildAdmin(userId: string, guild: RESTGetAPIGuildResult)
 
 	if (!discordAccount) throw new Error('Couldnt find discord account');
 
+	const guild = await guild_promise;
+
 	if (guild.owner_id === discordAccount.accountId) return true;
+
+	const member = discordApi.getGuildMember(guild.id, discordAccount.accountId);
 
 	const adminRoles = guild.roles.filter((role) => (BigInt(role.permissions) & 0x8n) === 0x8n);
 
-	const member = (await discordApi.get(
-		Routes.guildMember(guild.id, discordAccount.accountId)
-	)) as RESTGetAPIGuildMemberResult;
-
-	const hasAdminRole = member.roles.some((role) =>
+	const hasAdminRole = (await member).roles.some((role) =>
 		adminRoles.some((adminRole) => adminRole.id === role)
 	);
 

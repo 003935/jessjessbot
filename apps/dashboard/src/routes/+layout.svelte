@@ -2,7 +2,7 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import type { LayoutProps } from './$types';
-	import { authClient } from '$lib/auth-client';
+	import { authClient } from '$lib/auth.client';
 	import { goto } from '$app/navigation';
 
 	let { data, children }: LayoutProps = $props();

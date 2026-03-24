@@ -1,6 +1,7 @@
 {
   "name": "jessjessbot",
   "devDependencies": {
+    "@types/bun": "^1.3.11",
     "prettier": "^3.8.1",
     "prettier-plugin-svelte": "^3.5.1",
     "turbo": "2.8.17"
@@ -8,7 +9,15 @@
   "packageManager": "bun@1.3.11",
   "private": true,
   "scripts": {
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "check": "bunx turbo run check-types",
+    "db:generate": "bun run --cwd ./packages/db drizzle-kit generate",
+    "db:migrate": "bun run --cwd ./packages/db drizzle-kit migrate",
+    "dash:dev": "bun run --cwd ./apps/dashboard dash:dev",
+    "dash:prepare": "bun run --cwd ./apps/dashboard dash:prepare",
+    "dash:build": "bun run --cwd ./apps/dashboard dash:build",
+    "dash:preview": "bun run --cwd ./apps/dashboard dash:preview",
+    "bot:start": "bun run --cwd ./apps/bot bot:start"
   },
   "workspaces": [
     "apps/*",

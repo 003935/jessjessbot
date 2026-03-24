@@ -53,11 +53,12 @@ export const eventsTable = pgTable('events_Table', {
 	scheduledTime: timestamp().notNull(),
 	gameName: text()
 		.notNull()
-		.references(() => eventGameTable.name),
+		.references(() => eventGameTable.name, { onDelete: 'cascade', onUpdate: 'cascade' }),
 });
 
 export const eventGameTable = pgTable('event_Game_Table', {
 	name: text().primaryKey(),
+	icon: text(),
 });
 
 export const gameRoleTable = pgTable(
@@ -66,7 +67,7 @@ export const gameRoleTable = pgTable(
 		guildId: varchar({ length: 20 }).notNull(),
 		gameName: text()
 			.notNull()
-			.references(() => eventGameTable.name),
+			.references(() => eventGameTable.name, { onDelete: 'cascade', onUpdate: 'cascade' }),
 		roleId: varchar({ length: 20 }).notNull(),
 	},
 	(table) => [primaryKey({ columns: [table.guildId, table.roleId] })]

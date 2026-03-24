@@ -1,9 +1,7 @@
 import type { PageServerLoad } from './$types';
-import { REST } from '@discordjs/rest';
 import { db } from '$lib/server/db';
 import { schema } from '@repo/database';
 import { and, eq } from 'drizzle-orm';
-import { Routes, type RESTGetAPICurrentUserGuildsResult } from 'discord-api-types/v10';
 import { discordApi } from '$lib/server/discord';
 
 export const load: PageServerLoad = async ({ parent }) => {
@@ -29,15 +27,11 @@ export const load: PageServerLoad = async ({ parent }) => {
 		};
 	}
 
-	const user_discordApi = new REST({ authPrefix: 'Bearer' }).setToken(discordAccount.accessToken);
+	const user_guilds_promise = discordApi.getUserGuilds(data.user.id, discordAccount.accessToken);
 
-	const user_guilds = (await user_discordApi.get(
-		Routes.userGuilds()
-	)) as RESTGetAPICurrentUserGuildsResult;
+	const bot_guilds_promise = discordApi.getBotGuilds();
 
-	const bot_guilds = (await discordApi.get(
-		Routes.userGuilds()
-	)) as RESTGetAPICurrentUserGuildsResult;
+	const [user_guilds, bot_guilds] = await Promise.all([user_guilds_promise, bot_guilds_promise]);
 
 	const joined_guilds = user_guilds.filter((guild) =>
 		bot_guilds.some((bot_guild) => bot_guild.id === guild.id)

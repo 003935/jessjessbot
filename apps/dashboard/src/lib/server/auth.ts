@@ -4,9 +4,11 @@ import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import { db } from './db';
+import { admin as adminPlugin } from 'better-auth/plugins';
+import { ac, admin, user } from '../auth.permissions';
 
 export const auth = betterAuth({
-	baseURL: env.BETTER_AUTH_URL,
+	baseURL: env.ORIGIN,
 	secret: env.BETTER_AUTH_SECRET,
 	database: drizzleAdapter(db._db, { provider: 'pg' }),
 	socialProviders: {
@@ -16,5 +18,14 @@ export const auth = betterAuth({
 			scope: ['identify', 'email', 'guilds'],
 		},
 	},
-	plugins: [sveltekitCookies(getRequestEvent)],
+	plugins: [
+		adminPlugin({
+			ac,
+			roles: {
+				admin,
+				user,
+			},
+		}),
+		sveltekitCookies(getRequestEvent),
+	],
 });

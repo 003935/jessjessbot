@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	import { addEventGame, getEventGames, removeEventGame } from './page.remote';
+	import { addGameRole, getGameRoles, removeGameRole } from '$lib/gameRole.remote';
 
 	let { data }: PageProps = $props();
 
@@ -9,7 +9,7 @@
 	let gameName_input = $state('');
 	let roleId_input = $state('');
 
-	const query = getEventGames(data.guild.id);
+	const query = $derived(getGameRoles(data.guild.id));
 </script>
 
 <div class="container mx-auto flex flex-col gap-6 py-12">
@@ -25,13 +25,13 @@
 	</div>
 	<div class="card w-96 bg-base-200 shadow-sm">
 		<div class="card-body">
-			<h2 class="card-title">Event Games</h2>
+			<h2 class="card-title">Game Roles</h2>
 			{#if query.error}
-				<p class="text-error">Failed to load event games</p>
+				<p class="text-error">Failed to load game roles</p>
 			{:else if query.loading}
 				<span class="loading loading-lg self-center loading-ring py-12"></span>
 			{:else if query.current?.length === 0}
-				<p>No event games added</p>
+				<p>No game roles added</p>
 			{:else}
 				<div class="overflow-x-auto">
 					<table class="table">
@@ -59,11 +59,11 @@
 												);
 												if (!confirm) return;
 												try {
-													await removeEventGame({
+													await removeGameRole({
 														guildId: data.guild.id,
 														roleId: game.roleId,
 													}).updates(
-														getEventGames(data.guild.id).withOverride((arr) => {
+														getGameRoles(data.guild.id).withOverride((arr) => {
 															arr.filter((ge) => ge.roleId !== game.roleId);
 															return arr;
 														})
@@ -89,7 +89,7 @@
 
 <dialog bind:this={dialog} class="modal">
 	<div class="modal-box">
-		<h3 class="text-lg font-bold">Add Event Game</h3>
+		<h3 class="text-lg font-bold">Add Game Role</h3>
 		<fieldset class="fieldset">
 			<legend class="fieldset-legend">Game Name</legend>
 			<select class="select" bind:value={gameName_input}>
@@ -112,12 +112,12 @@
 					class="btn"
 					onclick={async () => {
 						try {
-							await addEventGame({
+							await addGameRole({
 								guildId: data.guild.id,
 								gameName: gameName_input,
 								roleId: roleId_input,
 							}).updates(
-								getEventGames(data.guild.id).withOverride((arr) => {
+								getGameRoles(data.guild.id).withOverride((arr) => {
 									arr.push({
 										guildId: data.guild.id,
 										gameName: gameName_input,

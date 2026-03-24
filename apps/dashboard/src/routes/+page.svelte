@@ -1,17 +1,35 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import type { PageProps } from './$types';
-	import { addGame, getGames, removeGame } from './page.remote';
+	import { getEventGames, removeEventGame } from '$lib/eventGame.remote';
+	import { authClient } from '$lib/auth.client';
+	import NewEventGame from '$lib/components/newEventGame.svelte';
 
 	let { data }: PageProps = $props();
 
-	const query = getGames();
+	const canListGames = $derived(
+		data.user === null
+			? false
+			: authClient.admin.checkRolePermission({
+					permissions: {
+						game: ['list'],
+					},
+					role: data.user.role,
+				})
+	);
 
-	let dialog: HTMLDialogElement;
+	const canManageGames = $derived(
+		data.user === null
+			? false
+			: authClient.admin.checkRolePermission({
+					permissions: {
+						game: ['manage'],
+					},
+					role: data.user.role,
+				})
+	);
 
-	let gameName_input = $state('');
-	let submitting = $state(false);
-	let error = $state('');
+	const query = $derived(canListGames ? getEventGames() : null);
 </script>
 
 <div class="container mx-auto flex flex-col gap-6 py-12">
@@ -29,117 +47,73 @@
 			{/each}
 		</div>
 	{/if}
-
-	<div class="card w-96 bg-base-200 shadow-sm">
-		<div class="card-body">
-			<h2 class="card-title">Event Games</h2>
-			{#if query.error}
-				<p class="text-error">Failed to load event games</p>
-			{:else if query.loading}
-				<span class="loading loading-lg self-center loading-ring py-12"></span>
-			{:else if query.current?.length === 0}
-				<p>No event games added</p>
-			{:else}
-				<div class="overflow-x-auto">
-					<table class="table">
-						<thead>
-							<tr>
-								<th>Name</th>
-								<th></th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each query.current as game (game.name)}
+	{#if canListGames && query}
+		<div class="card w-96 bg-base-200 shadow-sm">
+			<div class="card-body">
+				<h2 class="card-title">Event Games</h2>
+				{#if query.error}
+					<p class="text-error">Failed to load event games</p>
+				{:else if query.loading}
+					<span class="loading loading-lg self-center loading-ring py-12"></span>
+				{:else if query.current?.length === 0}
+					<p>No event games added</p>
+				{:else}
+					<div class="overflow-x-auto">
+						<table class="table">
+							<thead>
 								<tr>
-									<td>{game.name}</td>
-									<td>
-										<button
-											class="btn btn-sm btn-error"
-											onclick={async () => {
-												const confirm = window.confirm(
-													'Are you sure you want to remove this game?'
-												);
-												if (!confirm) return;
-												try {
-													await removeGame(game.name).updates(
-														getGames().withOverride((arr) =>
-															arr.filter((g) => g.name !== game.name)
-														)
-													);
-												} catch (error) {
-													console.log(error);
-												}
-											}}
-										>
-											Remove
-										</button>
-									</td>
+									<th>Icon</th>
+									<th>Name</th>
+									{#if canManageGames}
+										<th></th>
+									{/if}
 								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{/if}
-			<button
-				class="btn btn-primary"
-				onclick={() => {
-					dialog.showModal();
-				}}
-			>
-				Add Game
-			</button>
-		</div>
-	</div>
-</div>
-
-<dialog bind:this={dialog} class="modal">
-	<div class="modal-box">
-		<h3 class="text-lg font-bold">Add Event Game</h3>
-		<fieldset class="fieldset">
-			<legend class="fieldset-legend">Game Name</legend>
-			<input
-				required
-				disabled={submitting}
-				type="text"
-				bind:value={gameName_input}
-				class="input"
-				placeholder="Game Name"
-			/>
-		</fieldset>
-		{#if error.length > 0}
-			<p class="text-error">{error}</p>
-		{/if}
-		<div class="modal-action">
-			<button
-				class="btn"
-				disabled={submitting}
-				onclick={async () => {
-					try {
-						submitting = true;
-						await addGame(gameName_input).updates(
-							getGames().withOverride((arr) => {
-								arr.push({
-									name: gameName_input,
-								});
-								return arr;
-							})
-						);
-						dialog.close();
-						gameName_input = '';
-						error = '';
-					} catch (error) {
-						console.log(error);
-						error = 'Failed to add game';
-					} finally {
-						submitting = false;
-					}
-				}}
-			>
-				{#if submitting}
-					<span class="loading loading-spinner"></span>
+							</thead>
+							<tbody>
+								{#each query.current as game (game.name)}
+									<tr>
+										<td>
+											{#if game.icon}
+												<img src={game.icon} alt="" />
+											{:else}
+												<div class="text-neutral">No icon</div>
+											{/if}
+										</td>
+										<td>{game.name}</td>
+										{#if canManageGames}
+											<td>
+												<button
+													class="btn btn-sm btn-error"
+													onclick={async () => {
+														const confirm = window.confirm(
+															'Are you sure you want to remove this game?'
+														);
+														if (!confirm) return;
+														try {
+															await removeEventGame(game.name).updates(
+																getEventGames().withOverride((arr) =>
+																	arr.filter((g) => g.name !== game.name)
+																)
+															);
+														} catch (error) {
+															console.log(error);
+														}
+													}}
+												>
+													Remove
+												</button>
+											</td>
+										{/if}
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
 				{/if}
-				Add
-			</button>
+				{#if canManageGames}
+					<NewEventGame />
+				{/if}
+			</div>
 		</div>
-	</div>
-</dialog>
+	{/if}
+</div>
