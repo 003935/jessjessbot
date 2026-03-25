@@ -4,6 +4,7 @@
 	import type { LayoutProps } from './$types';
 	import { authClient } from '$lib/auth.client';
 	import { goto } from '$app/navigation';
+	import { Toaster } from 'svelte-sonner';
 
 	let { data, children }: LayoutProps = $props();
 </script>
@@ -62,3 +63,18 @@
 </div>
 
 {@render children()}
+
+<Toaster
+	theme="dark"
+	style="font-family: inherit;"
+	toastOptions={{
+		classes: {
+			toast: 'bg-base-200! text-base-content!',
+			error: 'bg-error! text-error-content!',
+			success: 'bg-success! text-success-content!',
+			warning: 'bg-warning! text-warning-content!',
+			loader: 'animate-spin',
+			actionButton: 'bg-neutral! text-neutral-content!',
+		},
+	}}
+/>

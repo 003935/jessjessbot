@@ -2,3 +2,8 @@
 @plugin 'daisyui' {
 	themes: dracula --default;
 }
+@import '@fontsource-variable/geist/wght.css';
+
+body {
+	font-family: 'Geist Variable', sans-serif;
+}

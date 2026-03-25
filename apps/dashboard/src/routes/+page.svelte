@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import type { PageProps } from './$types';
-	import { getEventGames, removeEventGame } from '$lib/eventGame.remote';
+	import { getEventGames } from '$lib/eventGame.remote';
 	import { authClient } from '$lib/auth.client';
-	import NewEventGame from '$lib/components/newEventGame.svelte';
+	import EventGameDialog from '$lib/components/EventGameDialog.svelte';
 
 	let { data }: PageProps = $props();
 
@@ -28,6 +28,8 @@
 					role: data.user.role,
 				})
 	);
+
+	let eventGameDialog: EventGameDialog | undefined = $state();
 
 	const query = $derived(canListGames ? getEventGames() : null);
 </script>
@@ -80,6 +82,7 @@
 												<img
 													src={`https://cdn.discordapp.com/emojis/${emoji.id}.webp?size=96&quality=lossless${emoji.animated ? '&animated=true' : ''}`}
 													alt=""
+													class="size-8"
 												/>
 											{:else}
 												<div class="text-neutral">No icon</div>
@@ -89,24 +92,12 @@
 										{#if canManageGames}
 											<td>
 												<button
-													class="btn btn-sm btn-error"
-													onclick={async () => {
-														const confirm = window.confirm(
-															'Are you sure you want to remove this game?'
-														);
-														if (!confirm) return;
-														try {
-															await removeEventGame(game.name).updates(
-																getEventGames().withOverride((arr) =>
-																	arr.filter((g) => g.name !== game.name)
-																)
-															);
-														} catch (error) {
-															console.log(error);
-														}
+													class="btn btn-sm btn-neutral"
+													onclick={() => {
+														eventGameDialog?.open(game);
 													}}
 												>
-													Remove
+													Edit
 												</button>
 											</td>
 										{/if}
@@ -117,9 +108,20 @@
 					</div>
 				{/if}
 				{#if canManageGames}
-					<NewEventGame />
+					<button
+						class="btn btn-primary"
+						onclick={() => {
+							eventGameDialog?.open();
+						}}
+					>
+						Add Game
+					</button>
 				{/if}
 			</div>
 		</div>
 	{/if}
 </div>
+
+{#if canManageGames}
+	<EventGameDialog bind:this={eventGameDialog} />
+{/if}
