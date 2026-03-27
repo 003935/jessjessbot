@@ -1,16 +1,48 @@
-version: "3.8"
-
 services:
+  bot:
+    container_name: bot
+    build:
+      context: .
+      dockerfile: ./apps/bot/Dockerfile
+    env_file:
+      - ./apps/bot/.env
+    environment:
+      - DATABASE_URL=postgres://postgres:mypassword@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
+
+  dashboard:
+    container_name: dashboard
+    build:
+      context: .
+      dockerfile: ./apps/dashboard/Dockerfile
+    env_file:
+      - ./apps/dashboard/.env
+    environment:
+      - DATABASE_URL=postgres://postgres:mypassword@db:5432/postgres
+      - ORIGIN=http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
   db:
     image: postgres
     restart: always
     shm_size: 128mb
     ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      - '5432:5432'
+    env_file:
+      - ./packages/db/.env
     volumes:
       - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:

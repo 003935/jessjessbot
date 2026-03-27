@@ -1,0 +1,51 @@
+{
+	"name": "dashboard",
+	"version": "0.0.1",
+	"devDependencies": {
+		"@discordjs/rest": "^2.6.1",
+		"@eslint/compat": "^2.0.2",
+		"@eslint/js": "^9.39.2",
+		"@fontsource-variable/geist": "^5.2.8",
+		"@lucide/svelte": "^1.3.0",
+		"@repo/database": "workspace:*",
+		"@repo/typescript-config": "workspace:*",
+		"@sveltejs/adapter-node": "^5.5.4",
+		"@sveltejs/kit": "^2.50.2",
+		"@sveltejs/vite-plugin-svelte": "^7.0.0",
+		"@tailwindcss/vite": "^4.1.18",
+		"@types/node": "^24",
+		"auth": "^1.5.6",
+		"better-auth": "^1.5.6",
+		"daisyui": "^5.5.19",
+		"discord-api-types": "^0.38.42",
+		"drizzle-orm": "^0.45.1",
+		"eslint": "^9.39.2",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-svelte": "^3.14.0",
+		"globals": "^17.3.0",
+		"prettier": "^3.8.1",
+		"prettier-plugin-svelte": "^3.4.1",
+		"prettier-plugin-tailwindcss": "^0.7.2",
+		"svelte": "^5.51.0",
+		"svelte-check": "^4.4.2",
+		"svelte-sonner": "^1.1.0",
+		"tailwindcss": "^4.1.18",
+		"typescript-eslint": "^8.54.0",
+		"valibot": "^1.3.1",
+		"vite": "^8.0.1"
+	},
+	"private": true,
+	"scripts": {
+		"dev": "vite dev --port 3000",
+		"build": "vite build",
+		"preview": "vite preview --port 3000",
+		"prepare": "svelte-kit sync || echo ''",
+		"lint": "prettier --check . && eslint .",
+		"format": "prettier --write .",
+		"check-types": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+	},
+	"type": "module",
+	"dependencies": {
+		"@formisch/svelte": "^0.7.4"
+	}
+}

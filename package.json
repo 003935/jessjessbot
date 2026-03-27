@@ -1,25 +1,24 @@
 {
   "name": "jessjessbot",
-  "version": "1.0.0",
-  "description": "Discord bot for Wordle King role management",
-  "main": "bot.js",
-  "scripts": {
-    "start": "bun run src/bot.ts",
-    "migrate": "bunx drizzle-kit migrate",
-    "generate": "bunx drizzle-kit generate"
-  },
-  "dependencies": {
-    "@libsql/client": "^0.17.0",
-    "@sapphire/framework": "^5.5.0",
-    "discord.js": "14.x",
-    "drizzle-orm": "^0.45.1",
-    "pg": "^8.20.0",
-    "twisted": "^1.72.2"
-  },
   "devDependencies": {
-    "@types/bun": "^1.3.10",
-    "@types/pg": "^8.18.0",
-    "drizzle-kit": "^0.31.9",
-    "prettier": "3.8.1"
-  }
+    "@types/bun": "^1.3.11",
+    "prettier": "^3.8.1"
+  },
+  "packageManager": "bun@1.3.11",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write .",
+    "check": "bun run --cwd ./packages/db check-types && bun run --cwd ./apps/dashboard check-types && bun run --cwd ./apps/bot check-types",
+    "db:generate": "bun run --cwd ./packages/db db:generate",
+    "db:migrate": "bun run --cwd ./packages/db db:migrate",
+    "dash:dev": "bun run --cwd ./apps/dashboard dev",
+    "dash:prepare": "bun run --cwd ./apps/dashboard prepare",
+    "dash:build": "bun run --cwd ./apps/dashboard build",
+    "dash:preview": "bun run --cwd ./apps/dashboard preview",
+    "bot:start": "bun run --cwd ./apps/bot start"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }
