@@ -1,13 +1,12 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	import { addGameRole, getGameRoles, removeGameRole } from '$lib/gameRole.remote';
+	import { getGameRoles } from '$lib/gameRole.remote';
+	import GameRoleDialog from '$lib/components/GameRoleDialog.svelte';
+	import PencilIcon from '@lucide/svelte/icons/pencil';
 
 	let { data }: PageProps = $props();
 
-	let dialog: HTMLDialogElement;
-
-	let gameName_input = $state('');
-	let roleId_input = $state('');
+	let dialog: GameRoleDialog;
 
 	const query = $derived(getGameRoles(data.guild.id));
 </script>
@@ -44,36 +43,20 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each query.current as game (game.roleId + game.guildId + game.gameName)}
+							{#each query.current as game_role (game_role.roleId + game_role.guildId + game_role.gameName)}
 								<tr>
-									<td>{game.gameName}</td>
-									<td class:text-error={!game.role}>
-										{game.role?.name ?? `Role ${game.roleId} not found`}
+									<td>{game_role.gameName}</td>
+									<td class:text-error={!game_role.role}>
+										{game_role.role?.name ?? `Role ${game_role.roleId} not found`}
 									</td>
-									<td>
+									<td class="flex justify-end">
 										<button
-											class="btn btn-sm btn-error"
-											onclick={async () => {
-												const confirm = window.confirm(
-													'Are you sure you want to remove this game?'
-												);
-												if (!confirm) return;
-												try {
-													await removeGameRole({
-														guildId: data.guild.id,
-														roleId: game.roleId,
-													}).updates(
-														getGameRoles(data.guild.id).withOverride((arr) => {
-															arr.filter((ge) => ge.roleId !== game.roleId);
-															return arr;
-														})
-													);
-												} catch (error) {
-													console.log(error);
-												}
+											class="btn btn-ghost btn-sm"
+											onclick={() => {
+												dialog.open(game_role);
 											}}
 										>
-											Remove
+											<PencilIcon size={12} />
 										</button>
 									</td>
 								</tr>
@@ -82,59 +65,14 @@
 					</table>
 				</div>
 			{/if}
-			<button class="btn btn-primary" onclick={() => dialog.showModal()}>Add Event Game</button>
+			<button class="btn btn-primary" onclick={() => dialog.open()}>Add Event Game</button>
 		</div>
 	</div>
 </div>
 
-<dialog bind:this={dialog} class="modal">
-	<div class="modal-box">
-		<h3 class="text-lg font-bold">Add Game Role</h3>
-		<fieldset class="fieldset">
-			<legend class="fieldset-legend">Game Name</legend>
-			<select class="select" bind:value={gameName_input}>
-				{#each data.games as game}
-					<option value={game.name}>{game.name}</option>
-				{/each}
-			</select>
-		</fieldset>
-		<fieldset class="fieldset">
-			<legend class="fieldset-legend">Role Id</legend>
-			<select class="select" bind:value={roleId_input}>
-				{#each data.guild.roles as role}
-					<option value={role.id}>{role.name}</option>
-				{/each}
-			</select>
-		</fieldset>
-		<div class="modal-action">
-			<form method="dialog">
-				<button
-					class="btn"
-					onclick={async () => {
-						try {
-							await addGameRole({
-								guildId: data.guild.id,
-								gameName: gameName_input,
-								roleId: roleId_input,
-							}).updates(
-								getGameRoles(data.guild.id).withOverride((arr) => {
-									arr.push({
-										guildId: data.guild.id,
-										gameName: gameName_input,
-										roleId: roleId_input,
-										role: data.guild.roles.find((role) => role.id === roleId_input),
-									});
-									return arr;
-								})
-							);
-						} catch (error) {
-							console.log(error);
-						}
-					}}
-				>
-					Add
-				</button>
-			</form>
-		</div>
-	</div>
-</dialog>
+<GameRoleDialog
+	bind:this={dialog}
+	games={data.games}
+	roles={data.guild.roles}
+	guildId={data.guild.id}
+/>

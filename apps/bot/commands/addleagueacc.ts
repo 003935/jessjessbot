@@ -61,7 +61,7 @@ export class AddLeagueAccountCommand extends Command {
 				tagline!,
 				regionToRegionGroupForAccountAPI(region as Regions)
 			);
-			const dbAccounts = await db.league_table.getAccounts(interaction.user.id);
+			const dbAccounts = await db.league.getAccounts(interaction.user.id);
 
 			const alreadyAdded = dbAccounts?.some((acc) => acc.riot_puuid === account.response.puuid);
 
@@ -80,7 +80,7 @@ export class AddLeagueAccountCommand extends Command {
 				(league_data) => league_data.queueType === 'RANKED_SOLO_5x5'
 			);
 
-			await db.league_table.insertAccount({
+			await db.league.insertAccount({
 				discordId: interaction.user.id,
 				riot_puuid: account.response.puuid,
 				riot_gamename: account.response.gameName,

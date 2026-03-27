@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { discordApi } from '$lib/server/discord';
 import { error } from '@sveltejs/kit';
-import { isGuildAdmin } from '$lib/server/discord.utils';
+import { _isGuildAdmin } from '$lib/server/discord.utils';
 import { db } from '$lib/server/db';
 import { schema } from '@repo/database';
 
@@ -12,7 +12,7 @@ export const load: PageServerLoad = async ({ parent, params }) => {
 
 	const guild_promise = discordApi.getGuild(params.serverId);
 
-	const isAdmin = await isGuildAdmin(data.user.id, guild_promise);
+	const isAdmin = await _isGuildAdmin(data.user.id, guild_promise);
 
 	if (!isAdmin) error(403, 'Not admin');
 

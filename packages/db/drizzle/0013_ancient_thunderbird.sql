@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "game_role_table_guild_id_game_name_idx" ON "game_Role_Table" USING btree ("guildId","gameName");

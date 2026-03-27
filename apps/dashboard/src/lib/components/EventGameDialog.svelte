@@ -249,8 +249,10 @@
 		>
 			{#if form.isSubmitting}
 				<span class="loading loading-spinner"></span>
+				Saving...
+			{:else}
+				Save
 			{/if}
-			{old_state ? 'Update' : 'Add'}
 		</button>
 		<button class="btn btn-neutral" disabled={form.isSubmitting} onclick={() => dialog.close()}>
 			Cancel

@@ -1,17 +1,19 @@
 import { DatabaseConnection } from './connection';
-import { EventGameTable, EventsTable, LeagueTable, WordleTable } from './tables';
+import { GamesTable, EventsTable, LeagueTable, WordleTable, GameRolesTable } from './tables';
 
 export class Database extends DatabaseConnection {
-	readonly event_table: EventsTable;
-	readonly league_table: LeagueTable;
-	readonly wordle_table: WordleTable;
-	readonly event_game_table: EventGameTable;
+	readonly events: EventsTable;
+	readonly league: LeagueTable;
+	readonly wordle: WordleTable;
+	readonly games: GamesTable;
+	readonly game_roles: GameRolesTable;
 
 	constructor(db_url: string) {
 		super(db_url);
-		this.event_table = new EventsTable(this);
-		this.league_table = new LeagueTable(this);
-		this.wordle_table = new WordleTable(this);
-		this.event_game_table = new EventGameTable(this);
+		this.events = new EventsTable(this);
+		this.league = new LeagueTable(this);
+		this.wordle = new WordleTable(this);
+		this.games = new GamesTable(this);
+		this.game_roles = new GameRolesTable(this);
 	}
 }

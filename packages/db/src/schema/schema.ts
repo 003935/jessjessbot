@@ -7,6 +7,7 @@ import {
 	varchar,
 	pgEnum,
 	serial,
+	uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { Regions, Tiers } from 'twisted/dist/constants';
 
@@ -70,5 +71,8 @@ export const gameRoleTable = pgTable(
 			.references(() => eventGameTable.name, { onDelete: 'cascade', onUpdate: 'cascade' }),
 		roleId: varchar({ length: 20 }).notNull(),
 	},
-	(table) => [primaryKey({ columns: [table.guildId, table.roleId] })]
+	(table) => [
+		primaryKey({ columns: [table.guildId, table.roleId] }),
+		uniqueIndex('game_role_table_guild_id_game_name_idx').on(table.guildId, table.gameName),
+	]
 );

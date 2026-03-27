@@ -94,7 +94,7 @@ export class EventManager {
 		const ids = events.map((e) => e.id);
 		if (ids.length === 0) return;
 
-		await db.event_table.deleteEvents(ids);
+		await db.events.deleteEvents(ids);
 		for (const id of ids) {
 			this.managed_events.delete(id);
 		}
@@ -155,7 +155,7 @@ export class EventManager {
 
 		this.is_processing = true;
 		try {
-			const events = await db.event_table.getEvents(Array.from(this.managed_events.keys()));
+			const events = await db.events.getEvents(Array.from(this.managed_events.keys()));
 			await this.processEvents(events);
 		} catch (error) {
 			EventManager.error('Error during fetch and process cycle:', error);

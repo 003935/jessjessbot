@@ -92,6 +92,13 @@
       "when": 1774354745144,
       "tag": "0012_solid_betty_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1774609232209,
+      "tag": "0013_ancient_thunderbird",
+      "breakpoints": true
     }
   ]
 }

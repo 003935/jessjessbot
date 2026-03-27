@@ -93,7 +93,7 @@ async function main() {
 			}
 
 			for (const winner_id of winner_ids) {
-				const added = await db.wordle_table.addWin(winner_id, message.id);
+				const added = await db.wordle.addWin(winner_id, message.id);
 			}
 			messages_parsed_successfully += 1;
 		}

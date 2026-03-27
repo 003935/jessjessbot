@@ -4,6 +4,7 @@
 	import { getEventGames } from '$lib/eventGame.remote';
 	import { authClient } from '$lib/auth.client';
 	import EventGameDialog from '$lib/components/EventGameDialog.svelte';
+	import PencilIcon from '@lucide/svelte/icons/pencil';
 
 	let { data }: PageProps = $props();
 
@@ -90,14 +91,14 @@
 										</td>
 										<td>{game.name}</td>
 										{#if canManageGames}
-											<td>
+											<td class="flex justify-end">
 												<button
-													class="btn btn-sm btn-neutral"
+													class="btn btn-ghost btn-sm"
 													onclick={() => {
 														eventGameDialog?.open(game);
 													}}
 												>
-													Edit
+													<PencilIcon size={12} />
 												</button>
 											</td>
 										{/if}

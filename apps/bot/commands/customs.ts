@@ -108,7 +108,7 @@ export class CustomsCommand extends Command {
 
 		const message = response.resource!.message!;
 
-		await db.event_table.insert({
+		await db.events.insert({
 			guildId: interaction.guildId,
 			channelId: interaction.channelId,
 			messageId: message.id,

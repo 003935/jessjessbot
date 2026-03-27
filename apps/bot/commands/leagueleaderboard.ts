@@ -69,7 +69,7 @@ export class LeagueLeaderboardCommand extends Command {
 	public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
 		await interaction.deferReply();
 
-		const leaderboard = await db.league_table.leaderboard();
+		const leaderboard = await db.league.leaderboard();
 
 		if (leaderboard.length === 0) {
 			await interaction.editReply({

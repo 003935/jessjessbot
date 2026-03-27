@@ -3,7 +3,7 @@ import { discordApi } from '$lib/server/discord';
 import { db } from '$lib/server/db';
 import { and, eq } from 'drizzle-orm';
 
-export async function isGuildAdmin(
+export async function _isGuildAdmin(
 	userId: string,
 	guild_promise: Awaitable<Awaited<ReturnType<typeof discordApi.getGuild>>>
 ) {

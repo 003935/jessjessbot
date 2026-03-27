@@ -21,7 +21,7 @@ export class WinsCommand extends Command {
 
 		const optionuser = interaction.options.getUser('user');
 
-		const user = await db.wordle_table.getUser(optionuser === null ? userID : optionuser.id);
+		const user = await db.wordle.getUser(optionuser === null ? userID : optionuser.id);
 
 		if (user === null) {
 			await interaction.reply({

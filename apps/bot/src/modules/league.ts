@@ -6,13 +6,13 @@ import { db } from '@/db';
 const lolApi = new LolApi({ key: RIOT_API_KEY });
 
 async function rank_update() {
-	const accounts = await db.league_table.getAllAccounts();
+	const accounts = await db.league.getAllAccounts();
 	for (const account of accounts) {
 		const leagueData = await lolApi.League.byPUUID(account.riot_puuid, account.region as Regions);
 		const league_soloq = leagueData.response.find(
 			(league_data) => league_data.queueType === 'RANKED_SOLO_5x5'
 		);
-		db.league_table.updateAccount(
+		db.league.updateAccount(
 			account.riot_puuid,
 			league_soloq
 				? {

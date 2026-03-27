@@ -3,8 +3,6 @@ import { query, command, getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
 import { auth } from '$lib/server/auth';
 import { error } from '@sveltejs/kit';
-import { schema } from '@repo/database';
-import { eq } from 'drizzle-orm';
 import { EventGame_Schema } from './components/EventGameDialog.svelte';
 
 export const getEventGames = query(async () => {
@@ -22,7 +20,7 @@ export const getEventGames = query(async () => {
 
 	if (!can_list_games.success) return error(403, 'Not authorized');
 
-	const eventGames = await db._db.select().from(schema.eventGameTable);
+	const eventGames = await db.games.getAll();
 
 	return eventGames;
 });
@@ -42,7 +40,7 @@ export const removeEventGame = command(v.string(), async (gameName) => {
 
 	if (!can_manage_games.success) error(403, 'Not authorized');
 
-	await db._db.delete(schema.eventGameTable).where(eq(schema.eventGameTable.name, gameName));
+	await db.games.deleteGame(gameName);
 });
 
 const addEventGame_Schema = v.object({
@@ -68,11 +66,11 @@ export const addEventGame = command(addEventGame_Schema, async (game) => {
 
 	if (!can_manage_games.success) error(403, 'Not authorized');
 
-	const exists = await db.event_game_table.exists(game.name);
+	const exists = await db.games.exists(game.name);
 
 	if (exists) error(400, 'Game name already exists');
 
-	await db._db.insert(schema.eventGameTable).values({
+	await db.games.insert({
 		name: game.name,
 		icon: game.icon,
 	});
@@ -99,15 +97,12 @@ export const updateEventGame = command(updateEventGame_Schema, async (game) => {
 	if (!can_manage_games.success) error(403, 'Not authorized');
 
 	if (game.oldName !== game.name) {
-		const exists = await db.event_game_table.exists(game.name);
+		const exists = await db.games.exists(game.name);
 		if (exists) error(400, 'Game name already exists');
 	}
 
-	await db._db
-		.update(schema.eventGameTable)
-		.set({
-			name: game.name,
-			icon: game.icon,
-		})
-		.where(eq(schema.eventGameTable.name, game.oldName));
+	await db.games.update(game.oldName, {
+		name: game.name,
+		icon: game.icon,
+	});
 });
