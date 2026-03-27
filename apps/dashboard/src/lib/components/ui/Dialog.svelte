@@ -22,6 +22,18 @@
 		actions: Snippet<[]>;
 		onclose?: () => void;
 	} = $props();
+
+	$effect(() => {
+		const handleKeydown = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') {
+				dialog.close();
+			}
+		};
+		document.addEventListener('keydown', handleKeydown);
+		return () => {
+			document.removeEventListener('keydown', handleKeydown);
+		};
+	});
 </script>
 
 <dialog
