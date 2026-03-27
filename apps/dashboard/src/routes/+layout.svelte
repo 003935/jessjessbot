@@ -75,6 +75,7 @@
 			warning: 'bg-warning! text-warning-content!',
 			loader: 'animate-spin',
 			actionButton: 'bg-neutral! text-neutral-content!',
+			description: 'text-neutral!',
 		},
 	}}
 />

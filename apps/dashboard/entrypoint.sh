@@ -2,7 +2,10 @@
 set -e
 
 echo "Running migrations..."
-bun run --cwd packages/db db:migrate
+cd db
+bun install drizzle-orm drizzle-kit pg
+bun run drizzle-kit migrate
+cd ..
 
 echo "Starting dashboard..."
-bun run --cwd apps/dashboard build/index.js
+bun run build/index.js

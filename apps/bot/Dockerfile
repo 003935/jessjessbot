@@ -1,21 +1,18 @@
 FROM oven/bun:debian AS base
 
-ENV TURBO_TELEMETRY_DISABLED=1
-
-FROM base AS prepare
-WORKDIR /app
-
-RUN bun add -g turbo
-COPY . .
-RUN turbo prune bot --docker
-
 FROM base AS builder
 WORKDIR /app
 
-COPY --from=prepare /app/out/json/ .
-RUN bun install
+COPY package.json bun.lock* ./
+COPY packages/config-typescript/package.json ./packages/config-typescript/
+COPY packages/db/package.json ./packages/db/
+COPY apps/bot/package.json ./apps/bot/
 
-COPY --from=prepare /app/out/full/ .
+RUN bun install --filter './apps/bot' --filter './packages/db'
+
+COPY apps/bot ./apps/bot/
+COPY packages/db ./packages/db/
+COPY packages/config-typescript ./packages/config-typescript/
 
 FROM oven/bun:alpine AS runner
 WORKDIR /app

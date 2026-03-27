@@ -2,7 +2,10 @@
 set -e
 
 echo "Running migrations..."
-bun run --cwd packages/db db:migrate
+cd packages/db
+bunx drizzle-kit migrate
+cd ../..
 
 echo "Starting bot..."
-bun run --cwd apps/bot bot:start
+cd apps/bot
+bun run src/index.ts

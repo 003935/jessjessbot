@@ -21,6 +21,7 @@ services:
       - ./apps/dashboard/.env
     environment:
       - DATABASE_URL=postgres://postgres:mypassword@db:5432/postgres
+      - ORIGIN=http://localhost:3000
     depends_on:
       db:
         condition: service_healthy

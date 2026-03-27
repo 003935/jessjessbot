@@ -5,6 +5,7 @@ import { auth } from '$lib/server/auth';
 import { error } from '@sveltejs/kit';
 import { schema } from '@repo/database';
 import { eq } from 'drizzle-orm';
+import { EventGame_Schema } from './components/EventGameDialog.svelte';
 
 export const getEventGames = query(async () => {
 	const { locals } = getRequestEvent();
@@ -45,10 +46,10 @@ export const removeEventGame = command(v.string(), async (gameName) => {
 });
 
 const addEventGame_Schema = v.object({
-	gameName: v.string(),
+	...EventGame_Schema.entries,
 	icon: v.pipe(
 		v.nullable(v.string()),
-		v.transform((value) => (value === '' ? null : value))
+		v.transform((value) => (value?.length === 0 ? null : value))
 	),
 });
 
@@ -67,20 +68,20 @@ export const addEventGame = command(addEventGame_Schema, async (game) => {
 
 	if (!can_manage_games.success) error(403, 'Not authorized');
 
+	const exists = await db.event_game_table.exists(game.name);
+
+	if (exists) error(400, 'Game name already exists');
+
 	await db._db.insert(schema.eventGameTable).values({
-		name: game.gameName,
+		name: game.name,
 		icon: game.icon,
 	});
 });
 
-const updateEventGame_Schema = v.object({
-	oldName: v.string(),
-	gameName: v.string(),
-	icon: v.pipe(
-		v.nullable(v.string()),
-		v.transform((value) => (value === '' ? null : value))
-	),
-});
+const updateEventGame_Schema = v.intersect([
+	addEventGame_Schema,
+	v.object({ oldName: v.string() }),
+]);
 
 export const updateEventGame = command(updateEventGame_Schema, async (game) => {
 	const { locals } = getRequestEvent();
@@ -97,10 +98,15 @@ export const updateEventGame = command(updateEventGame_Schema, async (game) => {
 
 	if (!can_manage_games.success) error(403, 'Not authorized');
 
+	if (game.oldName !== game.name) {
+		const exists = await db.event_game_table.exists(game.name);
+		if (exists) error(400, 'Game name already exists');
+	}
+
 	await db._db
 		.update(schema.eventGameTable)
 		.set({
-			name: game.gameName,
+			name: game.name,
 			icon: game.icon,
 		})
 		.where(eq(schema.eventGameTable.name, game.oldName));

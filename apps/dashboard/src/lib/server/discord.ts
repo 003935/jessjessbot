@@ -1,4 +1,5 @@
-import { DISCORD_BOT_TOKEN } from '$env/static/private';
+import { building } from '$app/environment';
+import { env } from '$env/dynamic/private';
 import { AsyncCache, MapAsyncCache } from '$lib/utils';
 import { REST } from '@discordjs/rest';
 import {
@@ -112,10 +113,16 @@ class DiscordApi {
 	}
 }
 
-const api = new REST({
-	version: '10',
-}).setToken(DISCORD_BOT_TOKEN);
-const application = (await api.get(Routes.currentApplication())) as RESTGetCurrentApplicationResult;
-const discordApi = new DiscordApi(api, application);
+let discordApi: DiscordApi;
+
+if (!building) {
+	const api = new REST({
+		version: '10',
+	}).setToken(env.DISCORD_BOT_TOKEN);
+	const application = (await api.get(
+		Routes.currentApplication()
+	)) as RESTGetCurrentApplicationResult;
+	discordApi = new DiscordApi(api, application);
+}
 
 export { discordApi };

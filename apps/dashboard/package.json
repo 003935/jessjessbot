@@ -35,13 +35,16 @@
 	},
 	"private": true,
 	"scripts": {
-		"dash:dev": "vite dev --port 3000",
-		"dash:build": "vite build",
-		"dash:preview": "vite preview --port 3000",
-		"dash:prepare": "svelte-kit sync || echo ''",
-		"dash:lint": "prettier --check . && eslint .",
-		"dash:format": "prettier --write .",
+		"dev": "vite dev --port 3000",
+		"build": "vite build",
+		"preview": "vite preview --port 3000",
+		"prepare": "svelte-kit sync || echo ''",
+		"lint": "prettier --check . && eslint .",
+		"format": "prettier --write .",
 		"check-types": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
 	},
-	"type": "module"
+	"type": "module",
+	"dependencies": {
+		"@formisch/svelte": "^0.7.4"
+	}
 }
