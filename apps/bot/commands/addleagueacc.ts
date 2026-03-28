@@ -1,13 +1,14 @@
 import { Command } from '@sapphire/framework';
 import { RIOT_API_KEY } from '@/environment';
 import { MessageFlags } from 'discord.js';
-import { LolApi, RiotApi, TftApi } from 'twisted';
+import { LolApi, RiotApi } from 'twisted';
 import { Regions, regionToRegionGroupForAccountAPI, Tiers } from 'twisted/dist/constants';
 import { db } from '@/db';
+import { Logger } from '@/utils';
 
+const logger = new Logger('AddLeagueAccount');
 const riotApi = new RiotApi({ key: RIOT_API_KEY });
 const lolApi = new LolApi({ key: RIOT_API_KEY });
-const tftApi = new TftApi({ key: RIOT_API_KEY });
 
 export class AddLeagueAccountCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -105,7 +106,7 @@ export class AddLeagueAccountCommand extends Command {
 				flags: MessageFlags.Ephemeral,
 			});
 		} catch (e) {
-			console.error(e);
+			logger.error('Failed to get acc info', e);
 			await interaction.reply({
 				content: 'failed to get acc info',
 				withResponse: true,

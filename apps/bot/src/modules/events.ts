@@ -1,5 +1,8 @@
 import { db } from '@/db';
 import { Client, User } from 'discord.js';
+import { Logger } from '@/utils';
+
+const logger = new Logger('Events');
 
 type Event = {
 	id: number;
@@ -16,25 +19,25 @@ async function send_alert(client: Client<true>, event: Event) {
 		const channel = await guild.channels.fetch(event.channelId);
 
 		if (!channel) {
-			EventManager.error(`Channel ${event.channelId} not found in guild ${event.guildId}`);
+			logger.error(`Channel ${event.channelId} not found in guild ${event.guildId}`);
 			return;
 		}
 
 		if (!channel.isTextBased()) {
-			EventManager.error(`Channel ${event.channelId} is not text based`);
+			logger.error(`Channel ${event.channelId} is not text based`);
 			return;
 		}
 
 		const message = await channel.messages.fetch(event.messageId).catch(() => null);
 		if (!message) {
-			EventManager.error(`Message ${event.messageId} not found in channel ${event.channelId}`);
+			logger.error(`Message ${event.messageId} not found in channel ${event.channelId}`);
 			return;
 		}
 
 		const reaction = message.reactions.resolve('✅');
 
 		if (!reaction) {
-			EventManager.error(`Checkmark reaction not found on message ${event.messageId}`);
+			logger.error(`Checkmark reaction not found on message ${event.messageId}`);
 			return;
 		}
 
@@ -46,7 +49,7 @@ async function send_alert(client: Client<true>, event: Event) {
 			.join(' ');
 
 		if (!mentions) {
-			EventManager.warn(`No human reactions for event ${event.id}, skipping alert`);
+			logger.warn(`No human reactions for event ${event.id}, skipping alert`);
 			return;
 		}
 
@@ -55,7 +58,7 @@ async function send_alert(client: Client<true>, event: Event) {
 			allowedMentions: { parse: ['users'] },
 		});
 	} catch (error) {
-		EventManager.error(`Failed to send alert for event ${event.id}:`, error);
+		logger.error(`Failed to send alert for event ${event.id}`, error);
 	}
 }
 
@@ -66,7 +69,6 @@ export enum EventStatus {
 }
 
 export class EventManager {
-	private static readonly LOG_PREFIX = '[Event Manager]';
 	private static readonly TIME_DISPARITY_MS = 5 * 60 * 1000;
 	private managed_events = new Map<number, Event>();
 	private client: Client<true>;
@@ -141,7 +143,7 @@ export class EventManager {
 		};
 
 		if (changes.deleted > 0 || changes.alerted > 0 || changes.added > 0) {
-			EventManager.log(
+			logger.info(
 				`Summary: ${changes.deleted} deleted, ${changes.alerted} alerted, ${changes.added} added`
 			);
 		}
@@ -149,7 +151,7 @@ export class EventManager {
 
 	async fetch_and_process_events() {
 		if (this.is_processing) {
-			EventManager.warn('Task already in progress, skipping interval');
+			logger.warn('Task already in progress, skipping interval');
 			return;
 		}
 
@@ -158,27 +160,15 @@ export class EventManager {
 			const events = await db.events.getEvents(Array.from(this.managed_events.keys()));
 			await this.processEvents(events);
 		} catch (error) {
-			EventManager.error('Error during fetch and process cycle:', error);
+			logger.error('Error during fetch and process cycle', error);
 		} finally {
 			this.is_processing = false;
 		}
 	}
-
-	static log(...data: any[]) {
-		console.log(EventManager.LOG_PREFIX, ...data);
-	}
-
-	static warn(...data: any[]) {
-		console.warn(EventManager.LOG_PREFIX, ...data);
-	}
-
-	static error(...data: any[]) {
-		console.error(EventManager.LOG_PREFIX, ...data);
-	}
 }
 
 export async function start_background_event_checker(client: Client<true>) {
-	EventManager.log('Starting background event checker');
+	logger.info('Starting background event checker');
 	const event_manager = new EventManager(client);
 
 	// Initial run

@@ -56,8 +56,13 @@ export const addGameRole = command(addGameRole_Schema, async (gameRole) => {
 			guildId: gameRole.guildId,
 		});
 	} catch (e) {
-		console.log(e);
-		error(400);
+		const errorMessage = e instanceof Error ? e.message : 'Unknown database error';
+		console.error(`[GameRole] Failed to add game role: ${errorMessage}`, {
+			guildId: gameRole.guildId,
+			roleId: gameRole.roleId,
+			gameName: gameRole.gameName,
+		});
+		error(500, 'Failed to add game role');
 	}
 });
 
@@ -95,8 +100,14 @@ export const updateGameRole = command(updateGameRole_Schema, async (gameRole) =>
 			gameName: gameRole.gameName,
 		});
 	} catch (e) {
-		console.log(e);
-		error(400);
+		const errorMessage = e instanceof Error ? e.message : 'Unknown database error';
+		console.error(`[GameRole] Failed to update game role: ${errorMessage}`, {
+			guildId: gameRole.old.guildId,
+			oldRoleId: gameRole.old.roleId,
+			newRoleId: gameRole.roleId,
+			gameName: gameRole.gameName,
+		});
+		error(500, 'Failed to update game role');
 	}
 });
 
@@ -114,7 +125,11 @@ export const removeGameRole = command(removeGameRole_Schema, async (gameRole) =>
 	try {
 		await db.game_roles.delete(gameRole.guildId, gameRole.roleId);
 	} catch (e) {
-		console.log(e);
-		error(400);
+		const errorMessage = e instanceof Error ? e.message : 'Unknown database error';
+		console.error(`[GameRole] Failed to remove game role: ${errorMessage}`, {
+			guildId: gameRole.guildId,
+			roleId: gameRole.roleId,
+		});
+		error(500, 'Failed to remove game role');
 	}
 });

@@ -77,9 +77,6 @@ export class LeagueTable extends DatabaseConnection {
 
 			const aRank = romanToNumeral(asoloq.rank);
 			const bRank = romanToNumeral(bsoloq.rank);
-			console.log(
-				`Comparing ${a.riot_gamename} (${asoloq.tier} ${asoloq.rank} ${asoloq.lp}LP) with ${b.riot_gamename} (${bsoloq.tier} ${bsoloq.rank} ${bsoloq.lp}LP)`
-			);
 
 			if (aRank !== bRank) {
 				return bRank > aRank ? -1 : 1;
