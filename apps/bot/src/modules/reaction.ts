@@ -1,4 +1,4 @@
-import { Collection, GuildMember, Message, type Snowflake } from 'discord.js';
+import { Message } from 'discord.js';
 import { YUM_CHANNEL_ID } from '@/environment';
 
 export async function Check_Attachments(message: Message<true>) {

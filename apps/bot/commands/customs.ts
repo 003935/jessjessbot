@@ -5,14 +5,27 @@ import { and, eq } from 'drizzle-orm';
 
 const timestampRegex = new RegExp(/<t:(\d+):\w>/);
 
+// Cache for event games - refreshed every 5 minutes
+let gamesCache: { name: string; icon: string | null }[] = [];
+let cacheTimestamp = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function getGamesFromCache() {
+	const now = Date.now();
+	if (now - cacheTimestamp < CACHE_TTL && gamesCache.length > 0) {
+		return gamesCache;
+	}
+	gamesCache = await db._db.select().from(schema.eventGameTable);
+	cacheTimestamp = now;
+	return gamesCache;
+}
+
 export class CustomsCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
 		super(context, { ...options });
 	}
 
 	public override async registerApplicationCommands(registry: Command.Registry) {
-		const games = await db._db.select().from(schema.eventGameTable);
-
 		registry.registerChatInputCommand((builder) =>
 			builder
 				.setName('customs')
@@ -25,8 +38,22 @@ export class CustomsCommand extends Command {
 						.setName('game')
 						.setDescription('Game to play')
 						.setRequired(true)
-						.addChoices(...games.map((game) => ({ name: game.name, value: game.name })))
+						.setAutocomplete(true)
 				)
+		);
+	}
+
+	public override async autocompleteRun(interaction: Command.AutocompleteInteraction) {
+		const focusedValue = interaction.options.getFocused();
+
+		const games = await getGamesFromCache();
+
+		const filtered = focusedValue
+			? games.filter((game) => game.name.toLowerCase().includes(focusedValue.toLowerCase()))
+			: games;
+
+		await interaction.respond(
+			filtered.slice(0, 25).map((game) => ({ name: game.name, value: game.name }))
 		);
 	}
 
