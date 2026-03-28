@@ -10,49 +10,65 @@ const lolApi = new LolApi({ key: RIOT_API_KEY });
 const DELAY_BETWEEN_ACCOUNTS_MS = 5000;
 const RANK_UPDATE_INTERVAL_MS = 1000 * 60 * 60; // 1 hour
 
+let is_updating = false;
+
 async function rank_update() {
-	const accounts = await db.league.getAllAccounts();
-	logger.info(`Starting rank update for ${accounts.length} accounts`);
-
-	let successCount = 0;
-	let failCount = 0;
-
-	for (const account of accounts) {
-		try {
-			const leagueData = await lolApi.League.byPUUID(account.riot_puuid, account.region as Regions);
-
-			if (!leagueData) {
-				throw new Error('No league data found');
-			}
-
-			const league_soloq = leagueData.response.find(
-				(league_data) => league_data.queueType === 'RANKED_SOLO_5x5'
-			);
-
-			await db.league.updateAccount(
-				account.riot_puuid,
-				league_soloq
-					? {
-							soloq: {
-								lp: league_soloq.leaguePoints,
-								wins: league_soloq.wins,
-								rank: league_soloq.rank,
-								tier: league_soloq.tier as Tiers,
-							},
-						}
-					: null
-			);
-
-			successCount++;
-		} catch (error) {
-			failCount++;
-			logger.error(`Unexpected error updating ${account.riot_puuid}`, error);
-		} finally {
-			await sleep(DELAY_BETWEEN_ACCOUNTS_MS);
-		}
+	if (is_updating) {
+		logger.info('Rank update already in progress');
+		return;
 	}
 
-	logger.info(`Rank update complete. Success: ${successCount}, Failed: ${failCount}`);
+	is_updating = true;
+
+	try {
+		const accounts = await db.league.getAllAccounts();
+		logger.info(`Starting rank update for ${accounts.length} accounts`);
+
+		let successCount = 0;
+		let failCount = 0;
+
+		for (const account of accounts) {
+			try {
+				const leagueData = await lolApi.League.byPUUID(
+					account.riot_puuid,
+					account.region as Regions
+				);
+
+				if (!leagueData) {
+					throw new Error('No league data found');
+				}
+
+				const league_soloq = leagueData.response.find(
+					(league_data) => league_data.queueType === 'RANKED_SOLO_5x5'
+				);
+
+				await db.league.updateAccount(
+					account.riot_puuid,
+					league_soloq
+						? {
+								soloq: {
+									lp: league_soloq.leaguePoints,
+									wins: league_soloq.wins,
+									rank: league_soloq.rank,
+									tier: league_soloq.tier as Tiers,
+								},
+							}
+						: null
+				);
+
+				successCount++;
+			} catch (error) {
+				failCount++;
+				logger.error(`Unexpected error updating ${account.riot_puuid}`, error);
+			} finally {
+				await sleep(DELAY_BETWEEN_ACCOUNTS_MS);
+			}
+		}
+
+		logger.info(`Rank update complete. Success: ${successCount}, Failed: ${failCount}`);
+	} finally {
+		is_updating = false;
+	}
 }
 
 export function start_background_rank_update() {

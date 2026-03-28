@@ -107,18 +107,26 @@ export async function wordle_module(message: Message<boolean>) {
 	}
 
 	for (const winner of winners_array) {
-		await db.wordle.addWin(winner.id, message.id);
+		try {
+			await db.wordle.addWin(winner.id, message.id);
+		} catch (error) {
+			logger.error(`Failed to record win for ${winner.displayName}:`, error);
+		}
 	}
 
 	const winnerMentions = winners_array.map((winner) => `<@${winner.id}>`);
-	if (winners_array.length === 1) {
-		const dbUser = await db.wordle.getUser(winners_array[0]!.id);
-		await message.channel.send(
-			`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${dbUser?.wins ?? 1})`
-		);
-	} else {
-		await message.channel.send(
-			`Congratulations ${winnerMentions.join(', ')}! You are the new Wordle Kings! 👑 (Tied with ${winningScore}/6)`
-		);
+	try {
+		if (winners_array.length === 1) {
+			const dbUser = await db.wordle.getUser(winners_array[0]!.id);
+			await message.channel.send(
+				`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${dbUser?.wins ?? 1})`
+			);
+		} else {
+			await message.channel.send(
+				`Congratulations ${winnerMentions.join(', ')}! You are the new Wordle Kings! 👑 (Tied with ${winningScore}/6)`
+			);
+		}
+	} catch (error) {
+		logger.error('Failed to send announcement message:', error);
 	}
 }

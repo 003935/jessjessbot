@@ -32,12 +32,34 @@ process.on('uncaughtException', (error) => {
 	logger.error('Uncaught Exception:', error);
 });
 
-start_background_rank_update();
-
 client.on('clientReady', (client) => {
 	logger.info(`${client.user?.tag} is online!`);
 	start_background_event_checker(client);
 });
+
+let isShuttingDown = false;
+
+async function gracefulShutdown(signal: string) {
+	if (isShuttingDown) return;
+	isShuttingDown = true;
+
+	logger.info(`${signal} received. Shutting down gracefully...`);
+
+	try {
+		await client.destroy();
+		logger.info('Discord client destroyed');
+	} catch (error) {
+		logger.error('Error destroying Discord client:', error);
+	}
+
+	logger.info('Shutdown complete');
+	process.exit(0);
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+start_background_rank_update();
 
 function messageparser(message: Message<boolean>) {
 	if (message.inGuild() === false) return;
@@ -47,17 +69,7 @@ function messageparser(message: Message<boolean>) {
 
 client.on('messageCreate', messageparser);
 
-client.login(BOT_TOKEN);
-
-// Handle graceful shutdown
-process.on('SIGINT', () => {
-	logger.info('Received SIGINT, shutting down...');
-	client.destroy();
-	process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-	logger.info('Received SIGTERM, shutting down...');
-	client.destroy();
-	process.exit(0);
+client.login(BOT_TOKEN).catch((error) => {
+	logger.fatal('Failed to login:', error);
+	process.exit(1);
 });
