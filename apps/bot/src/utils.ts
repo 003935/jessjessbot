@@ -76,7 +76,7 @@ export class Logger implements ILogger {
 				return _exhaustive;
 		}
 
-		return `${timestamp} ${prefix} ${coloredLevel} ${message}`;
+		return `${colors.reset}${timestamp} ${prefix} ${coloredLevel} ${message}`;
 	}
 
 	has(level: LogLevel): boolean {

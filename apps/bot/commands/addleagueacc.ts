@@ -48,7 +48,7 @@ export class AddLeagueAccountCommand extends Command {
 
 		if (splitted.length !== 2 || splitted[0]!.length === 0 || splitted[1]!.length === 0) {
 			await interaction.reply({
-				content: 'fk off idiot',
+				content: 'Provide a valid game ID in the format "gamename#tagline"',
 				withResponse: true,
 				flags: MessageFlags.Ephemeral,
 			});
@@ -76,7 +76,8 @@ export class AddLeagueAccountCommand extends Command {
 			}
 
 			const leagueData = await lolApi.League.byPUUID(account.response.puuid, region as Regions);
-			//FIXME NO API KEY const tftData = await tftApi.League.getByPUUID(account.response.puuid, Constants.Regions.EU_WEST)
+			// TODO: Add TFT API integration when available
+			// const tftData = await tftApi.League.getByPUUID(account.response.puuid, Constants.Regions.EU_WEST)
 			const league_soloq = leagueData.response.find(
 				(league_data) => league_data.queueType === 'RANKED_SOLO_5x5'
 			);
@@ -108,7 +109,7 @@ export class AddLeagueAccountCommand extends Command {
 		} catch (e) {
 			logger.error('Failed to get acc info', e);
 			await interaction.reply({
-				content: 'failed to get acc info',
+				content: 'Failed to get account info. Please ensure the summoner name and tag are correct.',
 				withResponse: true,
 				flags: MessageFlags.Ephemeral,
 			});

@@ -23,6 +23,15 @@ const client = new SapphireClient({
 	enableLoaderTraceLoggings: false,
 });
 
+// Global error handlers to prevent crashes
+process.on('unhandledRejection', (reason, promise) => {
+	logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+	logger.error('Uncaught Exception:', error);
+});
+
 start_background_rank_update();
 
 client.on('clientReady', (client) => {
@@ -39,3 +48,16 @@ function messageparser(message: Message<boolean>) {
 client.on('messageCreate', messageparser);
 
 client.login(BOT_TOKEN);
+
+// Handle graceful shutdown
+process.on('SIGINT', () => {
+	logger.info('Received SIGINT, shutting down...');
+	client.destroy();
+	process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+	logger.info('Received SIGTERM, shutting down...');
+	client.destroy();
+	process.exit(0);
+});

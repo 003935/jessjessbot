@@ -8,15 +8,15 @@ const RIOT_API_KEY = process.env.RIOT_API_KEY!;
 const YUM_CHANNEL_ID = process.env.YUM_CHANNEL_ID;
 
 if (
-	WORDLE_BOT_ID === undefined ||
-	WORDLE_ROLE_ID === undefined ||
-	GUILD_ID === undefined ||
-	CHANNEL_ID === undefined ||
-	BOT_TOKEN === undefined ||
-	CLIENT_ID === undefined ||
-	RIOT_API_KEY === undefined
+	!process.env.BOT_ID ||
+	!process.env.ROLE_ID ||
+	!process.env.GUILD_ID ||
+	!process.env.CHANNEL_ID ||
+	!process.env.BOT_TOKEN ||
+	!process.env.CLIENT_ID ||
+	!process.env.RIOT_API_KEY
 )
-	throw new Error('Set your environment variables');
+	throw new Error('Missing or empty environment variables: Set all required environment variables');
 
 export {
 	WORDLE_BOT_ID,
