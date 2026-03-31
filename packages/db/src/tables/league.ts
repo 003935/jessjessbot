@@ -63,12 +63,24 @@ export class LeagueTable extends DatabaseConnection {
 
 	async leaderboard(limit: number = 7) {
 		const users = await this._db.select().from(leagueTable);
-		const ranked = users.filter((u) => u.leaguedata !== null && u.leaguedata.soloq !== undefined);
-		const unranked = users.filter((u) => u.leaguedata === null || u.leaguedata.soloq === undefined);
+		const [ranked, unranked] = users.reduce<[User[], User[]]>(
+			([ranked, unranked], user) => {
+				if (user.leaguedata !== null && user.leaguedata.soloq !== undefined) {
+					ranked.push(user);
+				} else {
+					unranked.push(user);
+				}
+				return [ranked, unranked];
+			},
+			[[], []]
+		);
 
 		const sorted = ranked.sort((a, b) => {
-			const asoloq = a.leaguedata!.soloq!;
-			const bsoloq = b.leaguedata!.soloq!;
+			const asoloq = a.leaguedata?.soloq;
+			const bsoloq = b.leaguedata?.soloq;
+
+			if (!asoloq || !bsoloq) return 0; // should never happen
+
 			const aTierIndexOf = TiersSorted.indexOf(asoloq.tier as Tiers);
 			const bTierIndexOf = TiersSorted.indexOf(bsoloq.tier as Tiers);
 			if (aTierIndexOf !== bTierIndexOf) {

@@ -5,6 +5,7 @@
 	import { authClient } from '$lib/auth.client';
 	import EventGameDialog from '$lib/components/EventGameDialog.svelte';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
+	import { onDestroy, onMount } from 'svelte';
 
 	let { data }: PageProps = $props();
 
@@ -33,11 +34,35 @@
 	let eventGameDialog: EventGameDialog | undefined = $state();
 
 	const query = $derived(canListGames ? getEventGames() : null);
+
+	let now = $state(Date.now());
+
+	let interval = $state<ReturnType<typeof setInterval>>();
+
+	onMount(() => {
+		interval = setInterval(() => {
+			now = Date.now();
+		}, 1000);
+	});
+
+	onDestroy(() => clearInterval(interval));
+
+	function formatCountdown(targetTime: Date) {
+		const diff = targetTime.getTime() - now;
+		if (diff <= -5000) return null;
+		else if (diff <= 0) return 'Now';
+
+		const h = Math.floor(diff / 3_600_000);
+		const m = Math.floor((diff % 3_600_000) / 60_000);
+		const s = Math.floor((diff % 60_000) / 1_000);
+
+		return [h, m, s];
+	}
 </script>
 
-<div class="container mx-auto flex flex-col gap-6 py-12">
+<div class="container mx-auto grid grid-cols-1 gap-6 py-12 lg:grid-cols-2">
 	{#if data.servers}
-		<div class="flex flex-col gap-2">
+		<div class="flex flex-row gap-2 lg:col-span-2">
 			{#each data.servers as server (server.id)}
 				<button class="btn w-max btn-neutral" onclick={() => goto(`/server/${server.id}`)}>
 					<div class="avatar">
@@ -51,7 +76,7 @@
 		</div>
 	{/if}
 	{#if canListGames && query}
-		<div class="card w-96 bg-base-200 shadow-sm">
+		<div class="card min-w-96 bg-base-200 shadow-sm">
 			<div class="card-body">
 				<h2 class="card-title">Event Games</h2>
 				{#if query.error}
@@ -121,6 +146,56 @@
 			</div>
 		</div>
 	{/if}
+	<div class="card min-w-96 bg-base-200 shadow-sm">
+		<div class="card-body">
+			<h2 class="card-title">Customs</h2>
+			<div class="overflow-x-auto">
+				<table class="table">
+					<thead>
+						<tr>
+							<th>Server</th>
+							<th>Game</th>
+							<th>Time</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#if !data.customs || data.customs.length === 0}
+							<tr>
+								<td class="text-center" colspan="3">No customs</td>
+							</tr>
+						{/if}
+						{#each data.customs as custom (custom.id)}
+							{@const timer = formatCountdown(custom.scheduledTime)}
+							{@const server = data.servers.find((s) => s.id === custom.guildId)}
+							{#if timer !== null}
+								<tr>
+									<td>{server?.name || custom.guildId}</td>
+									<td>{custom.gameName}</td>
+									<td class="min-w-48">
+										<div class="tooltip" data-tip={custom.scheduledTime.toLocaleString()}>
+											{#if timer instanceof Array}
+												{@const [h, m, s] = timer}
+												<span class="countdown font-mono text-xl">
+													<span style="--value:{h};" aria-live="polite">{h}</span>
+													h
+													<span style="--value:{m};" aria-live="polite">{m}</span>
+													m
+													<span style="--value:{s};" aria-live="polite">{s}</span>
+													s
+												</span>
+											{:else if timer === 'Now'}
+												<span class="text-error">Now</span>
+											{/if}
+										</div>
+									</td>
+								</tr>
+							{/if}
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
 </div>
 
 {#if canManageGames}

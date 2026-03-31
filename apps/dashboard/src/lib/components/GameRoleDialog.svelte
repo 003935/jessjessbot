@@ -106,7 +106,6 @@
 
 			dialog.close();
 		} catch (error) {
-			console.error(error);
 			toast.error(old_state ? 'Failed to update game role' : 'Failed to add game role', {
 				id: submission_id,
 				description: isHttpError(error) ? error.body.message : 'Unknown Error',

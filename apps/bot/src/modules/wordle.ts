@@ -117,7 +117,7 @@ export async function wordle_module(message: Message<boolean>) {
 	const winnerMentions = winners_array.map((winner) => `<@${winner.id}>`);
 	try {
 		if (winners_array.length === 1) {
-			const dbUser = await db.wordle.getUser(winners_array[0]!.id);
+			const dbUser = await db.wordle.getUser(winners_array[0]?.id);
 			await message.channel.send(
 				`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${dbUser?.wins ?? 1})`
 			);

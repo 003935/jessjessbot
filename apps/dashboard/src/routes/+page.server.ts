@@ -40,6 +40,8 @@ export const load: PageServerLoad = async ({ parent }) => {
 		bot_guilds.some((bot_guild) => bot_guild.id === guild.id)
 	);
 
+	const customs = await db.events.getEventsByGuildIds(joined_guilds.map((guild) => guild.id));
+
 	return {
 		servers: joined_guilds.map((guild) => ({
 			id: guild.id,
@@ -52,5 +54,6 @@ export const load: PageServerLoad = async ({ parent }) => {
 		})),
 		emojis: await emojis_promise,
 		user: data.user,
+		customs,
 	};
 };

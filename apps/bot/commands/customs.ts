@@ -133,7 +133,11 @@ export class CustomsCommand extends Command {
 			},
 		});
 
-		const message = response.resource!.message!;
+		const message = response.resource?.message;
+		if (!message) {
+			await interaction.editReply({ content: 'Failed to create event message' });
+			return;
+		}
 
 		await db.events.insert({
 			guildId: interaction.guildId,

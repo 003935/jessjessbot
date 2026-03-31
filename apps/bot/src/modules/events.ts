@@ -15,8 +15,13 @@ type Event = {
 
 async function send_alert(client: Client<true>, event: Event) {
 	try {
-		const guild = await client.guilds.fetch(event.guildId);
-		const channel = await guild.channels.fetch(event.channelId);
+		const guild = await client.guilds.fetch(event.guildId).catch(() => null);
+		if (!guild) {
+			logger.error(`Guild ${event.guildId} not found`);
+			return;
+		}
+
+		const channel = await guild.channels.fetch(event.channelId).catch(() => null);
 
 		if (!channel) {
 			logger.error(`Channel ${event.channelId} not found in guild ${event.guildId}`);

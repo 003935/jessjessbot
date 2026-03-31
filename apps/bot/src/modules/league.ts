@@ -11,10 +11,12 @@ const DELAY_BETWEEN_ACCOUNTS_MS = 5000;
 const RANK_UPDATE_INTERVAL_MS = 1000 * 60 * 60; // 1 hour
 
 let is_updating = false;
+let pending_update = false;
 
 async function rank_update() {
 	if (is_updating) {
-		logger.info('Rank update already in progress');
+		pending_update = true;
+		logger.info('Rank update in progress, queued pending update');
 		return;
 	}
 
@@ -68,6 +70,12 @@ async function rank_update() {
 		logger.info(`Rank update complete. Success: ${successCount}, Failed: ${failCount}`);
 	} finally {
 		is_updating = false;
+
+		if (pending_update) {
+			pending_update = false;
+			logger.info('Running pending rank update');
+			setImmediate(() => rank_update());
+		}
 	}
 }
 

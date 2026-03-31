@@ -44,7 +44,14 @@ export class KingCommand extends Command {
 			})
 		);
 
-		const king = await guild.members.fetch(firstfive[0]!.id);
+		const king = await guild.members.fetch(firstfive[0]?.id);
+		if (!king) {
+			await interaction.reply({
+				content: 'Failed to fetch winner data',
+				flags: MessageFlags.Ephemeral,
+			});
+			return;
+		}
 		const king_avatar = king.displayAvatarURL() || king.user.displayAvatarURL();
 
 		const container = new ContainerBuilder()
