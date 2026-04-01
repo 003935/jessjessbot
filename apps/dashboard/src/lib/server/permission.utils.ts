@@ -19,11 +19,11 @@ export async function isGuildAdmin(
 	} else {
 		awaitable_guild = guild_resolvable;
 	}
-	const guild = await awaitable_guild;
-	const isAdmin = await _isGuildAdmin(user.id, guild);
+	const { isAdmin, discordAccount, guild } = await _isGuildAdmin(user.id, awaitable_guild);
 	if (!isAdmin) error(403, 'Not admin');
 	return {
 		guild,
 		isAdmin,
+		discordAccount,
 	};
 }

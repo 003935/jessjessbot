@@ -1,25 +1,3 @@
-import { Collection, GuildMember, type Snowflake } from 'discord.js';
-
-export function get_users_from_failed_mentions(
-	failed_mentions: Set<string>,
-	users: Collection<Snowflake, GuildMember>
-): { winners: GuildMember[]; failed_mentions: Set<string> } {
-	const winners = new Array<GuildMember>();
-	const members = Array.from(users.values());
-
-	for (const member of members) {
-		if (failed_mentions.has(member.displayName)) {
-			winners.push(member);
-			failed_mentions.delete(member.displayName);
-		}
-	}
-
-	return {
-		winners,
-		failed_mentions,
-	};
-}
-
 const failed_mention_regex = /\s@([^@<]+?)(?=\s*@|\s*<|$)/g;
 const mention_regex = /<@!?(\d+)>/g;
 const score_regex = /(\d|X)\/6:/;

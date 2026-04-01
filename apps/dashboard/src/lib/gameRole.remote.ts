@@ -10,14 +10,16 @@ export const getGameRoles = query(v.string(), async (guildId) => {
 
 	const user = isLoggedIn(locals);
 
-	const [roles, gameRoles] = await Promise.all([
+	const [roles, gameRoles, games] = await Promise.all([
 		isGuildAdmin(user, guildId).then(({ guild }) => guild.roles),
 		db.game_roles.get_by_guild_id(guildId),
+		db.games.getAll(),
 	]);
 
 	return gameRoles.map((game) => ({
 		...game,
 		role: roles.find((role) => role.id === game.roleId),
+		gameIcon: games.find((g) => g.name === game.gameName)?.icon ?? null,
 	}));
 });
 

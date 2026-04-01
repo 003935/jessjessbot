@@ -1,8 +1,10 @@
 import { GuildMember, Role, Message } from 'discord.js';
 import { WORDLE_BOT_ID, GUILD_ID, WORDLE_ROLE_ID, CHANNEL_ID } from '@/environment';
-import { Parse_Wordle_Message } from '@/modules/wordle.utils';
+import { parse_wordle_message_v2 } from '@/modules/wordle.utils';
 import { db } from '@/db';
 import { Logger } from '@/utils';
+import { schema } from '@repo/database';
+import { InferEnum } from 'drizzle-orm';
 
 const logger = new Logger('Wordle');
 
@@ -40,22 +42,62 @@ export async function wordle_module(message: Message<boolean>) {
 
 	logger.info(`Message received:\n${message.content.split('\n').join('\n  ')}`);
 
-	const parse_result = Parse_Wordle_Message(message.content);
+	const parse_result = parse_wordle_message_v2(message.content);
 	if (parse_result === undefined) {
 		logger.debug('No valid Wordle result found in the message.');
 		return;
 	}
 
-	const winners = new Map<string, GuildMember>();
-	const ids_to_fetch = new Set<string>();
+	const fetched_members = new Map<string, GuildMember>();
 
-	for (const parsed_winner_id of parse_result.winner_ids) {
-		const mentioned_member = message.mentions.members.get(parsed_winner_id);
-		if (mentioned_member !== undefined) winners.set(parsed_winner_id, mentioned_member);
-		else ids_to_fetch.add(parsed_winner_id);
+	let winningScore: string = '';
+
+	const winner_ids = new Set<string>();
+
+	for (const [tries, parsed_line] of Object.entries(parse_result)) {
+		const line_userIds = new Set<string>(parsed_line.mentions);
+
+		if (parsed_line.failed_mentions.size > 0) {
+			for (const failed_mention of parsed_line.failed_mentions) {
+				const users = await guild.members.fetch({
+					query: failed_mention,
+					limit: 1,
+				});
+				const user = users.filter((member) => member.displayName === failed_mention).first();
+				if (user) {
+					fetched_members.set(user.id, user);
+					line_userIds.add(user.id);
+					logger.info(
+						`Parsed failed mention: ${failed_mention} -> ${user.displayName} (@${user.user.tag})`
+					);
+				} else {
+					logger.warn(`No user found for failed mention: ${failed_mention}`);
+				}
+			}
+		}
+
+		if (parsed_line.winners) {
+			winningScore = tries;
+			for (const userId of line_userIds) {
+				winner_ids.add(userId);
+			}
+		}
+
+		for (const user_id of line_userIds) {
+			await db.wordle.addWin({
+				channelId: message.channelId,
+				discordId: user_id,
+				message_timestamp: new Date(message.createdTimestamp),
+				messageId: message.id,
+				score: tries === 'X' ? 'DNF' : (tries as InferEnum<typeof schema.scoreEnum>),
+				winner: parsed_line.winners,
+			});
+		}
 	}
 
-	if (ids_to_fetch.size > 0) {
+	const ids_to_fetch = [...winner_ids].filter((id) => !fetched_members.has(id));
+
+	if (ids_to_fetch.length > 0) {
 		const membersMentioned = await guild.members.fetch({
 			user: Array.from(ids_to_fetch),
 		});
@@ -65,29 +107,9 @@ export async function wordle_module(message: Message<boolean>) {
 				logger.debug(`Failed to fetch user Id: ${id}`);
 				continue;
 			}
-			winners.set(id, member);
+			fetched_members.set(id, member);
 		}
 	}
-
-	if (parse_result.failed_mentions.size > 0) {
-		for (const failed_mention of parse_result.failed_mentions) {
-			const users = await guild.members.fetch({
-				query: failed_mention,
-				limit: 1,
-			});
-			const user = users.filter((member) => member.displayName === failed_mention).first();
-			if (user) {
-				winners.set(user.id, user);
-				logger.info(
-					`Parsed failed mention: ${failed_mention} -> ${user.displayName} (@${user.user.tag})`
-				);
-			} else {
-				logger.warn(`No user found for failed mention: ${failed_mention}`);
-			}
-		}
-	}
-
-	const { winningScore } = parse_result;
 
 	const wordleKingRole = await guild.roles.fetch(WORDLE_ROLE_ID);
 	if (wordleKingRole === null) {
@@ -95,7 +117,7 @@ export async function wordle_module(message: Message<boolean>) {
 		return;
 	}
 
-	const winners_array = Array.from(winners.values());
+	const winners_array = [...winner_ids].map((id) => fetched_members.get(id)!);
 
 	await sync_wordle_role(winners_array, wordleKingRole);
 
@@ -104,14 +126,6 @@ export async function wordle_module(message: Message<boolean>) {
 		return;
 	} else {
 		logger.info(`Winners: ${winners_array.map((winner) => winner.displayName).join(', ')}`);
-	}
-
-	for (const winner of winners_array) {
-		try {
-			await db.wordle.addWin(winner.id, message.id);
-		} catch (error) {
-			logger.error(`Failed to record win for ${winner.displayName}:`, error);
-		}
 	}
 
 	const winnerMentions = winners_array.map((winner) => `<@${winner.id}>`);
@@ -123,7 +137,7 @@ export async function wordle_module(message: Message<boolean>) {
 			);
 		} else {
 			await message.channel.send(
-				`Congratulations ${winnerMentions.join(', ')}! You are the new Wordle Kings! 👑 (Tied with ${winningScore}/6)`
+				`Congratulations ${winnerMentions.join(', ')}! You are the new Wordle Kings! 👑 (Tied with ${winningScore ?? '?'}/6)`
 			);
 		}
 	} catch (error) {

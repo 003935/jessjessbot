@@ -1,4 +1,4 @@
 node_modules/
 .DS_Store
-scripts/
-AGENTS.md
+QWEN.md
+.qwen/

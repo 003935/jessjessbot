@@ -35,6 +35,9 @@
 		type SubmitEventHandler,
 	} from '@formisch/svelte';
 	import { isHttpError } from '@sveltejs/kit';
+	import Gamepad2 from '@lucide/svelte/icons/gamepad-2';
+	import Image from '@lucide/svelte/icons/image';
+	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 
 	let dialog: Dialog;
 
@@ -183,24 +186,35 @@
 		old_state = null;
 	}}
 >
+	{#snippet icon()}
+		<Gamepad2 size={24} class="text-primary" />
+	{/snippet}
 	{#snippet title()}
-		{old_state ? 'Edit' : 'Add'} Event Game
-		{#if old_state}<span class="text-sm text-neutral">({old_state.name})</span>{/if}
+		{#if old_state}Edit Event Game{:else}Add Event Game{/if}
+	{/snippet}
+	{#snippet subtitle()}
+		{#if old_state}{old_state?.name}{/if}
 	{/snippet}
 	<Form of={form} onsubmit={handleSubmit}>
 		<Field of={form} path={['name']}>
 			{#snippet children(field)}
-				<fieldset class="fieldset">
-					<legend class="fieldset-legend">Game Name</legend>
+				<fieldset class="fieldset rounded-xl">
+					<legend class="fieldset-legend flex items-center gap-2 text-sm font-semibold">
+						<Gamepad2 size={16} class="text-base-content/60" />
+						Game Name
+					</legend>
 					<input
 						{...field.props}
 						value={field.input}
 						type="text"
-						class="input"
-						placeholder="Game Name"
+						class="input input-bordered w-full bg-base-200 rounded-xl"
+						placeholder="Enter game name"
 					/>
 					{#if field.errors}
-						<div class="text-error">{field.errors[0]}</div>
+						<div class="text-error text-sm mt-1 flex items-center gap-1">
+							<AlertCircle size={16} />
+							{field.errors[0]}
+						</div>
 					{/if}
 				</fieldset>
 			{/snippet}
@@ -208,23 +222,31 @@
 
 		<Field of={form} path={['icon']}>
 			{#snippet children(field)}
-				<fieldset class="fieldset">
-					<legend class="fieldset-legend">Icon</legend>
-					<select {...field.props} value={field.input} class="select">
-						<option value="">Select Icon</option>
-						{#each await getEmojis() as emoji}
+				<fieldset class="fieldset rounded-xl">
+					<legend class="fieldset-legend flex items-center gap-2 text-sm font-semibold">
+						<Image size={16} class="text-base-content/60" />
+						Icon Emoji
+					</legend>
+					<select {...field.props} value={field.input} class="select select-bordered w-full bg-base-200 rounded-xl">
+						<option value="">Select an emoji icon</option>
+						{#each await getEmojis() as emoji (emoji.id)}
 							<option value={emoji.id}>
-								<img
-									src={`https://cdn.discordapp.com/emojis/${emoji.id}.webp?size=96&quality=lossless${emoji.animated ? '&animated=true' : ''}`}
-									alt=""
-									class="w-8"
-								/>
-								{emoji.name}
+								<div class="flex items-center gap-2">
+									<img
+										src={`https://cdn.discordapp.com/emojis/${emoji.id}.webp?size=96&quality=lossless${emoji.animated ? '&animated=true' : ''}`}
+										alt=""
+										class="w-6 h-6"
+									/>
+									{emoji.name}
+								</div>
 							</option>
 						{/each}
 					</select>
 					{#if field.errors}
-						<div class="text-error">{field.errors[0]}</div>
+						<div class="text-error text-sm mt-1 flex items-center gap-1">
+							<AlertCircle size={16} />
+							{field.errors[0]}
+						</div>
 					{/if}
 				</fieldset>
 			{/snippet}
@@ -233,7 +255,7 @@
 	{#snippet actions()}
 		{#if old_state !== null}
 			<button
-				class="btn mr-auto btn-error"
+				class="btn mr-auto btn-error rounded-xl"
 				disabled={form.isSubmitting}
 				onclick={() => {
 					handleDelete();
@@ -243,7 +265,7 @@
 			</button>
 		{/if}
 		<button
-			class="btn btn-primary"
+			class="btn btn-primary rounded-xl"
 			disabled={form.isSubmitting || (old_state && !form.isDirty)}
 			onclick={() => submit(form)}
 		>
@@ -254,7 +276,7 @@
 				Save
 			{/if}
 		</button>
-		<button class="btn btn-neutral" disabled={form.isSubmitting} onclick={() => dialog.close()}>
+		<button class="btn btn-neutral rounded-xl" disabled={form.isSubmitting} onclick={() => dialog.close()}>
 			Cancel
 		</button>
 	{/snippet}

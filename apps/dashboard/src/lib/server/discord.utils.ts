@@ -18,7 +18,12 @@ export async function _isGuildAdmin(
 
 	const guild = await guild_promise;
 
-	if (guild.owner_id === discordAccount.accountId) return true;
+	if (guild.owner_id === discordAccount.accountId)
+		return {
+			isAdmin: true,
+			discordAccount,
+			guild,
+		};
 
 	const member = discordApi.getGuildMember(guild.id, discordAccount.accountId);
 
@@ -28,5 +33,9 @@ export async function _isGuildAdmin(
 		adminRoles.some((adminRole) => adminRole.id === role)
 	);
 
-	return hasAdminRole;
+	return {
+		isAdmin: hasAdminRole,
+		discordAccount,
+		guild,
+	};
 }

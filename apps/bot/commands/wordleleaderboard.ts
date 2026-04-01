@@ -1,5 +1,5 @@
 import { Command } from '@sapphire/framework';
-import { ContainerBuilder, MessageFlags } from 'discord.js';
+import { ContainerBuilder, GuildMember, MessageFlags } from 'discord.js';
 import { db } from '@/db';
 
 export class KingCommand extends Command {
@@ -36,23 +36,23 @@ export class KingCommand extends Command {
 
 		const firstfive = await Promise.all(
 			sorted.map(async (u) => {
-				const user = await guild.members.fetch(u.id);
+				const user = await guild.members
+					.fetch(u.id)
+					.catch(async () => await interaction.client.users.fetch(u.id));
+
+				const avatar =
+					user instanceof GuildMember
+						? user.displayAvatarURL() || user.user.displayAvatarURL()
+						: user.displayAvatarURL();
 				return {
 					name: user?.displayName ?? 'undefined',
+					avatar,
 					...u,
 				};
 			})
 		);
 
-		const king = await guild.members.fetch(firstfive[0]?.id);
-		if (!king) {
-			await interaction.reply({
-				content: 'Failed to fetch winner data',
-				flags: MessageFlags.Ephemeral,
-			});
-			return;
-		}
-		const king_avatar = king.displayAvatarURL() || king.user.displayAvatarURL();
+		const king = firstfive[0];
 
 		const container = new ContainerBuilder()
 			.setAccentColor(0x51c962)
@@ -70,7 +70,7 @@ export class KingCommand extends Command {
 									.join('\n')
 							)
 					)
-					.setThumbnailAccessory((thumbnail) => thumbnail.setURL(king_avatar))
+					.setThumbnailAccessory((thumbnail) => thumbnail.setURL(king.avatar ?? ''))
 			);
 
 		await interaction.reply({

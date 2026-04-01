@@ -1,5 +1,5 @@
 import { DatabaseConnection } from './connection';
-import { GamesTable, EventsTable, LeagueTable, WordleTable, GameRolesTable } from './tables';
+import { GamesTable, EventsTable, LeagueTable, WordleTable, GameRolesTable, WordleImportTable } from './tables';
 
 export class Database extends DatabaseConnection {
 	readonly events: EventsTable;
@@ -7,6 +7,7 @@ export class Database extends DatabaseConnection {
 	readonly wordle: WordleTable;
 	readonly games: GamesTable;
 	readonly game_roles: GameRolesTable;
+	readonly wordleImport: WordleImportTable;
 
 	constructor(db_url: string) {
 		super(db_url);
@@ -15,5 +16,6 @@ export class Database extends DatabaseConnection {
 		this.wordle = new WordleTable(this);
 		this.games = new GamesTable(this);
 		this.game_roles = new GameRolesTable(this);
+		this.wordleImport = new WordleImportTable(this);
 	}
 }

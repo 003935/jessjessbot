@@ -30,6 +30,9 @@
 	} from '@formisch/svelte';
 	import { isHttpError } from '@sveltejs/kit';
 	import { addGameRole, getGameRoles, removeGameRole, updateGameRole } from '$lib/gameRole.remote';
+	import Shield from '@lucide/svelte/icons/shield';
+	import Gamepad2 from '@lucide/svelte/icons/gamepad-2';
+	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 
 	const form = createForm({
 		schema: GameRole_Schema,
@@ -174,25 +177,34 @@
 		old_state = null;
 	}}
 >
+	{#snippet icon()}
+		<Shield size={24} class="text-primary" />
+	{/snippet}
 	{#snippet title()}
-		{old_state ? 'Edit' : 'Add'} Game Role
-		{#if old_state}<span class="text-sm text-neutral">({old_state.roleId})</span>{/if}
+		{#if old_state}Edit Game Role{:else}Add Game Role{/if}
+	{/snippet}
+	{#snippet subtitle()}
+		{#if old_state}{old_state?.roleId}{/if}
 	{/snippet}
 	<Form of={form} onsubmit={handleSubmit}>
 		<Field of={form} path={['gameName']}>
 			{#snippet children(field)}
-				<fieldset class="fieldset">
-					<legend class="fieldset-legend">Game Name</legend>
-					<select class="select" {...field.props} value={field.input}>
-						<option value="">Select Game</option>
-						{#each props.games as game}
-							<option value={game.name}>
-								{game.name}
-							</option>
+				<fieldset class="fieldset rounded-xl">
+					<legend class="fieldset-legend flex items-center gap-2 text-sm font-semibold">
+						<Gamepad2 size={16} class="text-base-content/60" />
+						Game Name
+					</legend>
+					<select class="select select-bordered w-full bg-base-200 rounded-xl" {...field.props} value={field.input}>
+						<option value="">Select a game</option>
+						{#each props.games as game (game.name)}
+							<option value={game.name}>{game.name}</option>
 						{/each}
 					</select>
 					{#if field.errors}
-						<div class="text-error">{field.errors[0]}</div>
+						<div class="text-error text-sm mt-1 flex items-center gap-1">
+							<AlertCircle size={16} />
+							{field.errors[0]}
+						</div>
 					{/if}
 				</fieldset>
 			{/snippet}
@@ -200,16 +212,22 @@
 
 		<Field of={form} path={['roleId']}>
 			{#snippet children(field)}
-				<fieldset class="fieldset">
-					<legend class="fieldset-legend">Role</legend>
-					<select class="select" {...field.props} value={field.input}>
-						<option value="">Select Role</option>
-						{#each props.roles as role}
+				<fieldset class="fieldset rounded-xl">
+					<legend class="fieldset-legend flex items-center gap-2 text-sm font-semibold">
+						<Shield size={16} class="text-base-content/60" />
+						Discord Role
+					</legend>
+					<select class="select select-bordered w-full bg-base-200 rounded-xl" {...field.props} value={field.input}>
+						<option value="">Select a role</option>
+						{#each props.roles as role (role.id)}
 							<option value={role.id}>{role.name}</option>
 						{/each}
 					</select>
 					{#if field.errors}
-						<div class="text-error">{field.errors[0]}</div>
+						<div class="text-error text-sm mt-1 flex items-center gap-1">
+							<AlertCircle size={16} />
+							{field.errors[0]}
+						</div>
 					{/if}
 				</fieldset>
 			{/snippet}
@@ -218,7 +236,7 @@
 	{#snippet actions()}
 		{#if old_state !== null}
 			<button
-				class="btn mr-auto btn-error"
+				class="btn mr-auto btn-error rounded-xl"
 				disabled={form.isSubmitting}
 				onclick={() => handleDelete()}
 			>
@@ -226,7 +244,7 @@
 			</button>
 		{/if}
 		<button
-			class="btn btn-primary"
+			class="btn btn-primary rounded-xl"
 			disabled={form.isSubmitting || (old_state && !form.isDirty)}
 			onclick={() => submit(form)}
 		>
@@ -237,7 +255,7 @@
 				Save
 			{/if}
 		</button>
-		<button class="btn btn-neutral" disabled={form.isSubmitting} onclick={() => dialog.close()}>
+		<button class="btn btn-neutral rounded-xl" disabled={form.isSubmitting} onclick={() => dialog.close()}>
 			Cancel
 		</button>
 	{/snippet}

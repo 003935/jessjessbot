@@ -8,16 +8,24 @@ import {
 	pgEnum,
 	serial,
 	uniqueIndex,
+	boolean,
+	integer,
 } from 'drizzle-orm/pg-core';
 import { Regions, Tiers } from 'twisted/dist/constants';
+
+export const scoreEnum = pgEnum('score', ['1', '2', '3', '4', '5', '6', 'DNF']);
 
 export const winnersTable = pgTable(
 	'winners_Table',
 	{
-		discordId: varchar({ length: 20 }).notNull(),
+		message_timestamp: timestamp().notNull(),
+		channelId: varchar({ length: 20 }).notNull(),
 		messageId: varchar({ length: 20 }).notNull(),
+		discordId: varchar({ length: 20 }).notNull(),
+		score: scoreEnum().notNull(),
+		winner: boolean().notNull(),
 	},
-	(table) => [primaryKey({ columns: [table.discordId, table.messageId] })]
+	(table) => [primaryKey({ columns: [table.discordId, table.channelId, table.messageId] })]
 );
 
 export const regionEnum = pgEnum('region', Object.values(Regions) as [string, ...string[]]);
@@ -75,4 +83,15 @@ export const gameRoleTable = pgTable(
 		primaryKey({ columns: [table.guildId, table.roleId] }),
 		uniqueIndex('game_role_table_guild_id_game_name_idx').on(table.guildId, table.gameName),
 	]
+);
+
+export const wordleImportTable = pgTable(
+	'wordle_import_Table',
+	{
+		guildId: varchar({ length: 20 }).notNull(),
+		lastImport: timestamp().notNull(),
+		importedBy: varchar({ length: 20 }).notNull(),
+		messagesImported: integer().notNull(),
+	},
+	(table) => [primaryKey({ columns: [table.guildId] }), uniqueIndex('wordle_import_table_guild_id_idx').on(table.guildId)]
 );
