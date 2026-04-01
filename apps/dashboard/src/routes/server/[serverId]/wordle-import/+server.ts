@@ -11,10 +11,6 @@ import { isGuildAdmin } from '$lib/server/permission.utils';
 import { parse_wordle_message_v2 } from '$lib/server/wordle.utils';
 import type { WordleImportMessage } from '$lib/components/WordleImport.svelte';
 
-if (!env.DISCORD_BOT_TOKEN || !env.WORDLE_BOT_ID) {
-	throw new Error('Missing required environment variables: DISCORD_BOT_TOKEN, WORDLE_BOT_ID');
-}
-
 const rest = new REST().setToken(env.DISCORD_BOT_TOKEN);
 const WORDLE_BOT_ID = env.WORDLE_BOT_ID;
 
