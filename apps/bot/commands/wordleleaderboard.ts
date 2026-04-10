@@ -38,14 +38,22 @@ export class KingCommand extends Command {
 			sorted.map(async (u) => {
 				const user = await guild.members
 					.fetch(u.id)
-					.catch(async () => await interaction.client.users.fetch(u.id));
+					.catch(async () => interaction.client.users.fetch(u.id).catch(() => null));
+
+				if (user === null) {
+					return {
+						name: u.id,
+						avatar: null,
+						...u,
+					};
+				}
 
 				const avatar =
 					user instanceof GuildMember
 						? user.displayAvatarURL() || user.user.displayAvatarURL()
 						: user.displayAvatarURL();
 				return {
-					name: user?.displayName ?? 'undefined',
+					name: user.displayName,
 					avatar,
 					...u,
 				};

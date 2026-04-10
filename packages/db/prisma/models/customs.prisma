@@ -1,0 +1,31 @@
+model Custom {
+  id            Int        @id @default(autoincrement())
+  guildId       String
+  channelId     String
+  messageId     String
+  scheduledTime DateTime
+  gameName      String
+  game          CustomGame @relation(fields: [gameName], references: [name], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("customs")
+}
+
+model CustomGame {
+  name    String     @id
+  icon    String?
+  customs Custom[]
+  roles   GameRole[]
+
+  @@map("custom_games")
+}
+
+model GameRole {
+  guildId  String
+  gameName String
+  roleId   String
+  game     CustomGame @relation(fields: [gameName], references: [name], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([guildId, roleId])
+  @@unique([guildId, gameName])
+  @@map("game_roles")
+}

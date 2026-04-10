@@ -19,7 +19,7 @@
 
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
-	import Dialog from './ui/Dialog.svelte';
+	import DialogWithConfirm from './ui/DialogWithConfirm.svelte';
 	import {
 		createForm,
 		Field,
@@ -33,6 +33,7 @@
 	import Shield from '@lucide/svelte/icons/shield';
 	import Gamepad2 from '@lucide/svelte/icons/gamepad-2';
 	import AlertCircle from '@lucide/svelte/icons/alert-circle';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 
 	const form = createForm({
 		schema: GameRole_Schema,
@@ -42,7 +43,7 @@
 		},
 	});
 
-	let dialog: Dialog;
+	let dialog: DialogWithConfirm;
 
 	let old_state = $state<GameRole | null>(null);
 
@@ -67,19 +68,27 @@
 					gameName: game.gameName,
 				},
 			});
+		} else {
+			old_state = null;
+			reset(form, {
+				initialInput: {
+					roleId: '',
+					gameName: '',
+				},
+			});
 		}
 		dialog.open();
 	}
 
-	const handleSubmit: SubmitEventHandler<typeof GameRole_Schema> = async (output, _event) => {
+	const handleSubmit: SubmitEventHandler<typeof GameRole_Schema> = async (output) => {
 		const submission_id = crypto.randomUUID();
 		try {
-			let submitPromise: Promise<void>;
+			let submit_promise: Promise<void>;
 
 			const old_object_copy = old_state ? { ...old_state } : null;
 
 			if (old_object_copy) {
-				submitPromise = updateGameRole({
+				submit_promise = updateGameRole({
 					old: {
 						gameName: old_object_copy.gameName,
 						roleId: old_object_copy.roleId,
@@ -89,43 +98,41 @@
 					gameName: output.gameName,
 				}).updates(getGameRoles(props.guildId));
 			} else {
-				submitPromise = addGameRole({
+				submit_promise = addGameRole({
 					guildId: props.guildId,
 					roleId: output.roleId,
 					gameName: output.gameName,
 				}).updates(getGameRoles(props.guildId));
 			}
 
-			toast.promise(new Promise((r) => setTimeout(r, 10000)), {
+			toast.promise(submit_promise, {
 				id: submission_id,
 				loading: old_state ? 'Updating game role...' : 'Adding game role...',
+				success: old_state ? 'Game role updated successfully' : 'Game role added successfully',
+				error: (error) => (isHttpError(error) ? error.body.message : 'Unknown error'),
 			});
 
-			await submitPromise;
-
-			toast.success(old_state ? 'Game role updated successfully' : 'Game role added successfully', {
-				id: submission_id,
-			});
+			await submit_promise;
 
 			dialog.close();
 		} catch (error) {
 			toast.error(old_state ? 'Failed to update game role' : 'Failed to add game role', {
 				id: submission_id,
-				description: isHttpError(error) ? error.body.message : 'Unknown Error',
+				description: isHttpError(error) ? error.body.message : 'Unknown error',
 			});
 		}
 	};
 
-	async function handleDelete() {
+	async function handle_delete() {
 		const deletion_id = crypto.randomUUID();
 		try {
-			const old_object_copy = old_state ? { ...old_state } : null;
+			const old_object_copy = old_state;
 
 			if (!old_object_copy) {
 				throw new Error('No game role to delete');
 			}
 
-			let deletePromise = removeGameRole({
+			let delete_promise = removeGameRole({
 				roleId: old_object_copy.roleId,
 				guildId: props.guildId,
 			}).updates(
@@ -134,38 +141,26 @@
 				)
 			);
 
-			toast.promise(new Promise((r) => setTimeout(r, 10000)), {
+			toast.promise(delete_promise, {
 				id: deletion_id,
 				loading: 'Deleting game role...',
+				success: 'Game role deleted successfully',
+				error: (error) => (isHttpError(error) ? error.body.message : 'Unknown error'),
 			});
 
-			await deletePromise;
-
-			toast.success('Game role deleted successfully', {
-				id: deletion_id,
-				action: {
-					label: 'Undo',
-					onClick: () => {
-						addGameRole({
-							guildId: props.guildId,
-							roleId: old_object_copy.roleId,
-							gameName: old_object_copy.gameName,
-						}).updates(getGameRoles(props.guildId));
-					},
-				},
-			});
+			await delete_promise;
 
 			dialog.close();
 		} catch (error) {
 			toast.error('Failed to delete game role', {
 				id: deletion_id,
-				description: isHttpError(error) ? error.body.message : 'Unknown Error',
+				description: isHttpError(error) ? error.body.message : 'Unknown error',
 			});
 		}
 	}
 </script>
 
-<Dialog
+<DialogWithConfirm
 	bind:this={dialog}
 	onclose={() => {
 		reset(form, {
@@ -176,7 +171,15 @@
 		});
 		old_state = null;
 	}}
+	confirmTitle="Confirm Delete"
+	onconfirm={handle_delete}
 >
+	{#snippet confirmMessage()}
+		Are you sure you want to delete the game role for <strong class="text-base-content">
+			{old_state?.gameName}
+		</strong>
+		?
+	{/snippet}
 	{#snippet icon()}
 		<Shield size={24} class="text-primary" />
 	{/snippet}
@@ -184,8 +187,10 @@
 		{#if old_state}Edit Game Role{:else}Add Game Role{/if}
 	{/snippet}
 	{#snippet subtitle()}
-		{#if old_state}{old_state?.roleId}{/if}
+		{#if old_state}{props.roles.find((r) => r.id === old_state?.roleId)?.name ||
+				old_state?.roleId}{/if}
 	{/snippet}
+
 	<Form of={form} onsubmit={handleSubmit}>
 		<Field of={form} path={['gameName']}>
 			{#snippet children(field)}
@@ -194,14 +199,18 @@
 						<Gamepad2 size={16} class="text-base-content/60" />
 						Game Name
 					</legend>
-					<select class="select select-bordered w-full bg-base-200 rounded-xl" {...field.props} value={field.input}>
+					<select
+						class="select-bordered select w-full rounded-xl bg-base-200"
+						{...field.props}
+						value={field.input}
+					>
 						<option value="">Select a game</option>
 						{#each props.games as game (game.name)}
 							<option value={game.name}>{game.name}</option>
 						{/each}
 					</select>
 					{#if field.errors}
-						<div class="text-error text-sm mt-1 flex items-center gap-1">
+						<div class="mt-1 flex items-center gap-1 text-sm text-error">
 							<AlertCircle size={16} />
 							{field.errors[0]}
 						</div>
@@ -217,14 +226,18 @@
 						<Shield size={16} class="text-base-content/60" />
 						Discord Role
 					</legend>
-					<select class="select select-bordered w-full bg-base-200 rounded-xl" {...field.props} value={field.input}>
+					<select
+						class="select-bordered select w-full rounded-xl bg-base-200"
+						{...field.props}
+						value={field.input}
+					>
 						<option value="">Select a role</option>
 						{#each props.roles as role (role.id)}
 							<option value={role.id}>{role.name}</option>
 						{/each}
 					</select>
 					{#if field.errors}
-						<div class="text-error text-sm mt-1 flex items-center gap-1">
+						<div class="mt-1 flex items-center gap-1 text-sm text-error">
 							<AlertCircle size={16} />
 							{field.errors[0]}
 						</div>
@@ -236,27 +249,32 @@
 	{#snippet actions()}
 		{#if old_state !== null}
 			<button
-				class="btn mr-auto btn-error rounded-xl"
+				class="btn mr-auto rounded-lg btn-ghost btn-error"
 				disabled={form.isSubmitting}
-				onclick={() => handleDelete()}
+				onclick={() => dialog.openConfirm()}
 			>
+				<Trash2 size={16} />
 				Delete
 			</button>
 		{/if}
 		<button
-			class="btn btn-primary rounded-xl"
+			class="btn rounded-lg btn-primary"
 			disabled={form.isSubmitting || (old_state && !form.isDirty)}
 			onclick={() => submit(form)}
 		>
 			{#if form.isSubmitting}
-				<span class="loading loading-spinner"></span>
+				<span class="loading loading-xs loading-spinner"></span>
 				Saving...
 			{:else}
 				Save
 			{/if}
 		</button>
-		<button class="btn btn-neutral rounded-xl" disabled={form.isSubmitting} onclick={() => dialog.close()}>
+		<button
+			class="btn rounded-lg btn-ghost"
+			disabled={form.isSubmitting}
+			onclick={() => dialog.close()}
+		>
 			Cancel
 		</button>
 	{/snippet}
-</Dialog>
+</DialogWithConfirm>

@@ -1,2 +1,0 @@
-ALTER TABLE "game_Role_Table" DROP CONSTRAINT "game_Role_Table_guildId_gameName_roleId_pk";--> statement-breakpoint
-ALTER TABLE "game_Role_Table" ADD CONSTRAINT "game_Role_Table_guildId_roleId_pk" PRIMARY KEY("guildId","roleId");

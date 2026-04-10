@@ -14,6 +14,8 @@ import {
 	type RESTGetAPIGuildMemberResult,
 	type RESTGetAPICurrentUserGuildsResult,
 	type RESTAPIPartialCurrentUserGuild,
+	type APIUser,
+	type RESTGetAPIUserResult,
 } from 'discord-api-types/v10';
 
 class DiscordApi {
@@ -34,6 +36,7 @@ class DiscordApi {
 		},
 		APIGuildMember
 	>;
+	private user_map: MapAsyncCache<string, APIUser>;
 
 	constructor(api: REST, application: APIApplication) {
 		this.api = api;
@@ -61,6 +64,11 @@ class DiscordApi {
 			1000 * 60 * 5, // 5 min TTL
 			({ accessToken }) => this.fetchUserGuilds(accessToken),
 			({ userId, accessToken }) => `${userId}-${accessToken}`
+		);
+		this.user_map = new MapAsyncCache(
+			1000 * 60 * 5, // 5 min TTL
+			(userId) => this.fetchUser(userId),
+			(userId) => userId
 		);
 	}
 
@@ -92,6 +100,10 @@ class DiscordApi {
 		return result;
 	}
 
+	private async fetchUser(userId: string) {
+		return (await this.api.get(Routes.user(userId))) as RESTGetAPIUserResult;
+	}
+
 	async getEmojis() {
 		return await this.emojis.get();
 	}
@@ -102,6 +114,10 @@ class DiscordApi {
 
 	async getGuildMember(guildId: string, userId: string) {
 		return await this.guildMembers_map.get({ guildId, userId });
+	}
+
+	async getUser(userId: string) {
+		return await this.user_map.get(userId);
 	}
 
 	async getBotGuilds() {

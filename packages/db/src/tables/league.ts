@@ -1,8 +1,8 @@
-import { type InferSelectModel, eq, type InferInsertModel } from 'drizzle-orm';
 import { Constants } from 'twisted';
 import { type Tiers } from 'twisted/dist/constants';
-import { leagueTable } from '../schema';
 import { DatabaseConnection } from '../connection';
+import type { LeagueAccount, Region } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client';
 
 export function romanToNumeral(roman: string) {
 	let accumulator = 0;
@@ -14,9 +14,6 @@ export function romanToNumeral(roman: string) {
 	}
 	return accumulator;
 }
-
-type User = InferSelectModel<typeof leagueTable>;
-type InsertUser = InferInsertModel<typeof leagueTable>;
 
 const TiersSorted = [
 	Constants.Tiers.IRON,
@@ -31,41 +28,78 @@ const TiersSorted = [
 	Constants.Tiers.CHALLENGER,
 ];
 
+type LeagueData = {
+	soloq?: {
+		wins: number;
+		rank: string;
+		tier: Tiers;
+		lp: number;
+	};
+};
+
 export class LeagueTable extends DatabaseConnection {
 	constructor(db_conn: DatabaseConnection) {
 		super(db_conn);
 	}
 
 	async size(): Promise<number> {
-		return await this._db.$count(leagueTable);
+		return await this._db.leagueAccount.count();
 	}
 
-	async getAccounts(id: string): Promise<User[]> {
-		const users = await this._db.select().from(leagueTable).where(eq(leagueTable.discordId, id));
+	async getAccounts(id: string): Promise<LeagueAccount[]> {
+		const users = await this._db.leagueAccount.findMany({
+			where: { discordId: id },
+		});
 		return users;
 	}
 
-	async getAllAccounts(): Promise<User[]> {
-		const users = await this._db.select().from(leagueTable);
+	async getAllAccounts(): Promise<LeagueAccount[]> {
+		const users = await this._db.leagueAccount.findMany();
 		return users;
 	}
 
-	async insertAccount(account: InsertUser) {
-		await this._db.insert(leagueTable).values(account);
+	async insertAccount(account: {
+		discordId: string;
+		riotPuuid: string;
+		riotGamename?: string | null;
+		riotTagline?: string | null;
+		region: Region;
+		leaguedata?: LeagueData | null;
+		tftdata?: LeagueData | null;
+	}) {
+		const data: Prisma.LeagueAccountCreateInput = {
+			discordId: account.discordId,
+			riotPuuid: account.riotPuuid,
+			region: account.region,
+		};
+
+		if (account.riotGamename !== undefined) data.riotGamename = account.riotGamename;
+		if (account.riotTagline !== undefined) data.riotTagline = account.riotTagline;
+		if (account.leaguedata !== undefined && account.leaguedata !== null)
+			data.leaguedata = account.leaguedata;
+		if (account.tftdata !== undefined && account.tftdata !== null) data.tftdata = account.tftdata;
+
+		await this._db.leagueAccount.create({ data });
 	}
 
-	async updateAccount(id: string, league_data: InsertUser['leaguedata']): Promise<void> {
-		await this._db
-			.update(leagueTable)
-			.set({ leaguedata: league_data })
-			.where(eq(leagueTable.riot_puuid, id));
+	async updateAccount(id: string, league_data: LeagueData | null): Promise<void> {
+		await this._db.leagueAccount.update({
+			where: { riotPuuid: id },
+			data: {
+				leaguedata: league_data !== null ? league_data : Prisma.DbNull,
+			},
+		});
 	}
 
 	async leaderboard(limit: number = 7) {
-		const users = await this._db.select().from(leagueTable);
-		const [ranked, unranked] = users.reduce<[User[], User[]]>(
+		const users = await this._db.leagueAccount.findMany();
+		const [ranked, unranked] = users.reduce<[LeagueAccount[], LeagueAccount[]]>(
 			([ranked, unranked], user) => {
-				if (user.leaguedata !== null && user.leaguedata.soloq !== undefined) {
+				if (
+					user.leaguedata !== null &&
+					user.leaguedata !== undefined &&
+					(user.leaguedata as any).soloq !== undefined
+				) {
 					ranked.push(user);
 				} else {
 					unranked.push(user);
@@ -76,10 +110,10 @@ export class LeagueTable extends DatabaseConnection {
 		);
 
 		const sorted = ranked.sort((a, b) => {
-			const asoloq = a.leaguedata?.soloq;
-			const bsoloq = b.leaguedata?.soloq;
+			const asoloq = (a.leaguedata as LeagueData | null)?.soloq;
+			const bsoloq = (b.leaguedata as LeagueData | null)?.soloq;
 
-			if (!asoloq || !bsoloq) return 0; // should never happen
+			if (!asoloq || !bsoloq) return 0;
 
 			const aTierIndexOf = TiersSorted.indexOf(asoloq.tier as Tiers);
 			const bTierIndexOf = TiersSorted.indexOf(bsoloq.tier as Tiers);

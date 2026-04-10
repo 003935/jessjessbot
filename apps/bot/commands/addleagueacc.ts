@@ -64,7 +64,7 @@ export class AddLeagueAccountCommand extends Command {
 			);
 			const dbAccounts = await db.league.getAccounts(interaction.user.id);
 
-			const alreadyAdded = dbAccounts?.some((acc) => acc.riot_puuid === account.response.puuid);
+			const alreadyAdded = dbAccounts?.some((acc) => acc.riotPuuid === account.response.puuid);
 
 			if (alreadyAdded) {
 				await interaction.reply({
@@ -84,10 +84,10 @@ export class AddLeagueAccountCommand extends Command {
 
 			await db.league.insertAccount({
 				discordId: interaction.user.id,
-				riot_puuid: account.response.puuid,
-				riot_gamename: account.response.gameName,
-				riot_tagline: account.response.tagLine,
-				region: region,
+				riotPuuid: account.response.puuid,
+				riotGamename: account.response.gameName,
+				riotTagline: account.response.tagLine,
+				region: region as Regions,
 				leaguedata: {
 					soloq:
 						league_soloq !== undefined

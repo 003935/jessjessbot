@@ -32,7 +32,7 @@ async function rank_update() {
 		for (const account of accounts) {
 			try {
 				const leagueData = await lolApi.League.byPUUID(
-					account.riot_puuid,
+					account.riotPuuid,
 					account.region as Regions
 				);
 
@@ -45,7 +45,7 @@ async function rank_update() {
 				);
 
 				await db.league.updateAccount(
-					account.riot_puuid,
+					account.riotPuuid,
 					league_soloq
 						? {
 								soloq: {
@@ -61,7 +61,7 @@ async function rank_update() {
 				successCount++;
 			} catch (error) {
 				failCount++;
-				logger.error(`Unexpected error updating ${account.riot_puuid}`, error);
+				logger.error(`Unexpected error updating ${account.riotPuuid}`, error);
 			} finally {
 				await sleep(DELAY_BETWEEN_ACCOUNTS_MS);
 			}

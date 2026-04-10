@@ -1,7 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { schema } from '@repo/database';
 import { isGuildAdmin } from '$lib/server/permission.utils';
 import { discordApi } from '$lib/server/discord';
 
@@ -14,7 +13,7 @@ export const load: PageServerLoad = async ({ parent, params }) => {
 
 	if (!isAdmin) error(403, 'Not admin');
 
-	const eventGames = await db._db.select().from(schema.eventGameTable);
+	const eventGames = await db.games.getAll();
 	const wordleImport = await db.wordleImport.getGuildImport(params.serverId);
 	const emojis = await discordApi.getEmojis();
 
@@ -27,6 +26,7 @@ export const load: PageServerLoad = async ({ parent, params }) => {
 		},
 		games: eventGames,
 		emojis: await emojis,
+		isAdmin,
 		user: data.user,
 		wordleImport: wordleImport
 			? {

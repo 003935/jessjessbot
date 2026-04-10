@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth/minimal';
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
@@ -10,7 +10,9 @@ import { ac, admin, user } from '../auth.permissions';
 export const auth = betterAuth({
 	baseURL: env.ORIGIN,
 	secret: env.BETTER_AUTH_SECRET,
-	database: drizzleAdapter(db._db, { provider: 'pg' }),
+	database: prismaAdapter(db._db, {
+		provider: 'postgresql',
+	}),
 	socialProviders: {
 		discord: {
 			clientId: env.DISCORD_CLIENT_ID,

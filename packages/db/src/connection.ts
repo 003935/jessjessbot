@@ -1,22 +1,18 @@
-import { drizzle, PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import * as schema from "./schema";
-
-export type DatabaseType = PostgresJsDatabase<typeof schema> & {
-  $client: postgres.Sql<{}>;
-}
+import { PrismaClient } from './generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 export class DatabaseConnection {
-  readonly _db: DatabaseType
+	readonly _db: PrismaClient;
 
-  constructor(db_url: string)
-  constructor(db_connection: DatabaseConnection)
-  constructor(arg: string | DatabaseConnection) {
-    if (typeof arg === 'string') {
-      const client = postgres(arg);
-      this._db = drizzle(client, { schema });
-    } else {
-      this._db = arg._db;
-    }
-  }
+	constructor(db_url: string);
+	constructor(db_connection: DatabaseConnection);
+	constructor(arg: string | DatabaseConnection) {
+		if (typeof arg === 'string') {
+			const adapter = new PrismaPg({ connectionString: arg });
+			const prisma = new PrismaClient({ adapter });
+			this._db = prisma;
+		} else {
+			this._db = arg._db;
+		}
+	}
 }

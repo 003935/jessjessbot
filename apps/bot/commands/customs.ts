@@ -1,7 +1,5 @@
 import { Command } from '@sapphire/framework';
 import { db } from '@/db';
-import { schema } from '@repo/database';
-import { and, eq } from 'drizzle-orm';
 
 const timestampRegex = new RegExp(/<t:(\d+):\w>/);
 
@@ -15,7 +13,7 @@ async function getGamesFromCache() {
 	if (now - cacheTimestamp < CACHE_TTL && gamesCache.length > 0) {
 		return gamesCache;
 	}
-	gamesCache = await db._db.select().from(schema.eventGameTable);
+	gamesCache = await db._db.customGame.findMany();
 	cacheTimestamp = now;
 	return gamesCache;
 }
@@ -94,12 +92,7 @@ export class CustomsCommand extends Command {
 
 		const scheduledTime = Math.floor(scheduledDate.getTime() / 1000);
 
-		const game_info_arr = await db._db
-			.select()
-			.from(schema.eventGameTable)
-			.where(eq(schema.eventGameTable.name, game));
-
-		const game_info = game_info_arr[0];
+		const game_info = await db._db.customGame.findUnique({ where: { name: game } });
 		const emoji_id = game_info?.icon;
 
 		let emoji_str = '';
@@ -111,15 +104,12 @@ export class CustomsCommand extends Command {
 			emoji_str = emoji ? `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>` : '';
 		}
 
-		const roles = await db._db
-			.select()
-			.from(schema.gameRoleTable)
-			.where(
-				and(
-					eq(schema.gameRoleTable.guildId, interaction.guildId),
-					eq(schema.gameRoleTable.gameName, game)
-				)
-			);
+		const roles = await db._db.gameRole.findMany({
+			where: {
+				guildId: interaction.guildId,
+				gameName: game,
+			},
+		});
 
 		const role = roles[0]?.roleId as string | undefined;
 

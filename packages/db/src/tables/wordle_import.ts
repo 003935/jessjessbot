@@ -1,39 +1,36 @@
 import { DatabaseConnection } from '../connection';
-import { wordleImportTable } from '../schema';
-import { eq, type InferSelectModel } from 'drizzle-orm';
+import type { WordleImport } from '../generated/prisma/client';
 
-export type WordleImport = InferSelectModel<typeof wordleImportTable>;
+export type { WordleImport };
 
 export class WordleImportTable extends DatabaseConnection {
-	async getGuildImport(guildId: string): Promise<WordleImport | undefined> {
-		const results = await this._db.select().from(wordleImportTable).where(eq(wordleImportTable.guildId, guildId));
-		return results[0];
+	async getGuildImport(guildId: string): Promise<WordleImport | null> {
+		return await this._db.wordleImport.findUnique({
+			where: { guildId },
+		});
 	}
 
-	async upsertImport(
-		guildId: string,
-		importedBy: string,
-		messagesImported: number
-	): Promise<void> {
-		await this._db
-			.insert(wordleImportTable)
-			.values({
+	async upsertImport(guildId: string, importedBy: string, messagesImported: number): Promise<void> {
+		await this._db.wordleImport.upsert({
+			where: { guildId },
+			create: {
 				guildId,
 				importedBy,
 				messagesImported,
 				lastImport: new Date(),
-			})
-			.onConflictDoUpdate({
-				target: wordleImportTable.guildId,
-				set: {
-					lastImport: new Date(),
-					importedBy,
-					messagesImported,
-				},
-			});
+			},
+			update: {
+				lastImport: new Date(),
+				importedBy,
+				messagesImported,
+			},
+		});
 	}
 
-	async canImport(guildId: string, cooldownMs: number = 24 * 60 * 60 * 1000): Promise<{
+	async canImport(
+		guildId: string,
+		cooldownMs: number = 24 * 60 * 60 * 1000
+	): Promise<{
 		allowed: boolean;
 		lastImport?: Date;
 		remainingMs?: number;

@@ -1,0 +1,51 @@
+model WordleResult {
+  guildId          String
+  messageTimestamp DateTime
+  channelId        String
+  messageId        String
+  discordId        String
+  score            Int
+  winner           Boolean
+
+  @@id([discordId, channelId, messageId])
+  @@map("wordle_results")
+}
+
+model WordleImport {
+  guildId          String   @id
+  lastImport       DateTime
+  importedBy       String
+  messagesImported Int
+
+  @@unique([guildId])
+  @@map("wordle_imports")
+}
+
+enum FailedMentionStatus {
+  PENDING
+  RESOLVED
+  IGNORED
+}
+
+model FailedMention {
+  id               Int                 @id @default(autoincrement())
+  guildId          String
+  displayName      String
+  messageId        String
+  channelId        String
+  messageTimestamp DateTime
+  score            Int
+  winner           Boolean
+  status           FailedMentionStatus @default(PENDING)
+  resolvedUserId   String?
+  resolvedAt       DateTime?
+  resolvedBy       String?
+  /**
+   * This is the index of the first character of the mention in the message content.
+   * This is used to identify the mention in the message content.
+   */
+  startOfMention   Int
+
+  @@unique([channelId, messageId, startOfMention])
+  @@map("failed_mentions")
+}

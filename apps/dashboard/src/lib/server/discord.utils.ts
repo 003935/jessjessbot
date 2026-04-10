@@ -1,18 +1,16 @@
-import { schema } from '@repo/database';
 import { discordApi } from '$lib/server/discord';
 import { db } from '$lib/server/db';
-import { and, eq } from 'drizzle-orm';
 
 export async function _isGuildAdmin(
 	userId: string,
 	guild_promise: Awaitable<Awaited<ReturnType<typeof discordApi.getGuild>>>
 ) {
-	const discordAccounts = await db._db
-		.select()
-		.from(schema.account)
-		.where(and(eq(schema.account.userId, userId), eq(schema.account.providerId, 'discord')));
-
-	const discordAccount = discordAccounts[0];
+	const discordAccount = await db._db.account.findFirst({
+		where: {
+			userId,
+			providerId: 'discord',
+		},
+	});
 
 	if (!discordAccount) throw new Error('Couldnt find discord account');
 

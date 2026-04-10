@@ -1,7 +1,5 @@
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
-import { schema } from '@repo/database';
-import { and, eq } from 'drizzle-orm';
 import { discordApi } from '$lib/server/discord';
 
 export const load: PageServerLoad = async ({ parent }) => {
@@ -14,12 +12,12 @@ export const load: PageServerLoad = async ({ parent }) => {
 			user: null,
 		};
 
-	const discordAccounts = await db._db
-		.select()
-		.from(schema.account)
-		.where(and(eq(schema.account.userId, data.user.id), eq(schema.account.providerId, 'discord')));
-
-	const discordAccount = discordAccounts[0];
+	const discordAccount = await db._db.account.findFirst({
+		where: {
+			userId: data.user.id,
+			providerId: 'discord',
+		},
+	});
 
 	if (!discordAccount || !discordAccount.accessToken) {
 		return {

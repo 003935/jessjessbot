@@ -14,10 +14,11 @@
 <script lang="ts">
 	import { source } from 'sveltekit-sse';
 	import { browser } from '$app/environment';
-	import Gamepad2 from '@lucide/svelte/icons/gamepad-2';
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import CheckCircle from '@lucide/svelte/icons/check-circle';
 	import Clock from '@lucide/svelte/icons/clock';
+	import ImportIcon from '@lucide/svelte/icons/download';
+	import Info from '@lucide/svelte/icons/info';
 
 	type Progress = {
 		isDone: boolean;
@@ -36,22 +37,23 @@
 		isLimited: boolean;
 		hoursRemaining: number;
 		minutesRemaining: number;
+		secondsRemaining: number;
 	};
 
 	let { serverId, wordleImport = null }: { serverId: string; wordleImport?: WordleImportData } =
 		$props();
 
-	let connection: ReturnType<typeof source> | null = null;
-	let cleanup: (() => void) | null = null;
-	let countdown_interval: ReturnType<typeof setInterval> | null = null;
+	let connection: ReturnType<typeof source> | null = $state(null);
+	let cleanup_fn: (() => void) | null = $state(null);
 
 	let progress = $state<Progress | null>(null);
 	let error = $state<string | null>(null);
 	let is_importing = $state(false);
 	let last_import_time = $state<number | null>(null);
+	let date_now = $state(new Date().getTime());
+
 	let percentage = $derived(progress ? Math.round((progress.processed / progress.total) * 100) : 0);
 
-	// Initialize last_import_time from prop
 	$effect(() => {
 		if (wordleImport?.lastImport && browser) {
 			last_import_time = new Date(wordleImport.lastImport).getTime();
@@ -60,37 +62,33 @@
 		}
 	});
 
-	// Calculate rate limit derived value
 	let rate_limit: RateLimitInfo | null = $derived.by(() => {
 		if (last_import_time === null || !browser) return null;
 
-		const now = Date.now();
-		const elapsed = now - last_import_time;
-		const cooldownMs = 24 * 60 * 60 * 1000;
+		const elapsed = date_now - last_import_time;
+		const cooldown_ms = 24 * 60 * 60 * 1000;
 
-		if (elapsed >= cooldownMs) {
+		if (elapsed >= cooldown_ms) {
 			return null;
 		}
 
-		const remainingMs = cooldownMs - elapsed;
-		const hoursRemaining = Math.floor(remainingMs / (1000 * 60 * 60));
-		const minutesRemaining = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+		const remaining_ms = cooldown_ms - elapsed;
+		const hoursRemaining = Math.floor(remaining_ms / (1000 * 60 * 60));
+		const minutesRemaining = Math.floor((remaining_ms % (1000 * 60 * 60)) / (1000 * 60));
+		const secondsRemaining = Math.floor((remaining_ms % (1000 * 60)) / 1000);
 
 		return {
 			isLimited: true,
 			hoursRemaining,
 			minutesRemaining,
+			secondsRemaining,
 		};
 	});
 
 	function cleanup_connection() {
-		if (cleanup) {
-			cleanup();
-			cleanup = null;
-		}
-		if (countdown_interval) {
-			clearInterval(countdown_interval);
-			countdown_interval = null;
+		if (cleanup_fn) {
+			cleanup_fn();
+			cleanup_fn = null;
 		}
 		connection = null;
 	}
@@ -123,6 +121,11 @@
 							total: parsed.total,
 							unresolved_failed_mentions: parsed.unresolved_failed_mentions,
 						};
+
+						if (parsed.isDone) {
+							is_importing = false;
+							last_import_time = Date.now();
+						}
 					} catch (e) {
 						console.error('Failed to parse message:', e);
 					}
@@ -137,7 +140,7 @@
 				})
 			);
 
-			cleanup = () => {
+			cleanup_fn = () => {
 				subscriptions.forEach((unsubscribe) => unsubscribe());
 			};
 		} catch (e) {
@@ -148,73 +151,92 @@
 		}
 	}
 
-	// Update countdown every minute when rate limited or done
 	$effect(() => {
-		if ((rate_limit?.isLimited || progress?.isDone) && browser) {
-			countdown_interval = setInterval(() => {
-				if (last_import_time !== null) {
-					last_import_time = last_import_time;
-				}
-			}, 60000);
+		if ((is_importing || rate_limit?.isLimited) && browser) {
+			const interval = setInterval(() => {
+				date_now = new Date().getTime();
+			}, 1000);
 
-			return () => {
-				if (countdown_interval) {
-					clearInterval(countdown_interval);
-					countdown_interval = null;
-				}
-			};
+			return () => clearInterval(interval);
 		}
 	});
 
-	// Cleanup on unmount
 	$effect(() => {
 		return () => {
 			cleanup_connection();
 		};
 	});
+
+	function format_last_import() {
+		if (!wordleImport) return null;
+		const count = wordleImport.messagesImported;
+		return `${count.toLocaleString()} message${count !== 1 ? 's' : ''} imported`;
+	}
 </script>
 
-<div class="card border border-base-300 bg-base-100 shadow-xl">
-	<div class="card-body pt-6">
-		<div class="mb-4 flex items-center justify-between">
+<div
+	class="animate-in fade-in slide-in-from-bottom-4 card border border-base-300/50 bg-base-100 shadow-lg delay-200 duration-500"
+>
+	<div class="card-body pb-5">
+		<div class="mb-2 flex items-center justify-between">
 			<div class="flex items-center gap-3">
-				<div class="rounded-xl bg-gradient-to-br from-secondary/20 to-primary/20 p-2">
-					<Gamepad2 size={24} class="text-secondary" />
+				<div class="rounded-xl bg-linear-to-br from-secondary/20 to-primary/20 p-2">
+					<ImportIcon size={22} class="text-secondary" />
 				</div>
-				<h2 class="card-title text-2xl">Wordle Message Import</h2>
+				<div>
+					<h2 class="card-title text-xl">Wordle Import</h2>
+					<p class="text-xs text-base-content/50">
+						{#if wordleImport}
+							Last: {format_last_import()}
+						{:else}
+							No imports yet
+						{/if}
+					</p>
+				</div>
 			</div>
 		</div>
-		<div class="mb-4 h-px bg-gradient-to-r from-secondary/20 to-transparent"></div>
+		<div class="mb-3 h-px bg-linear-to-r from-secondary/20 to-transparent"></div>
 
 		<div class="flex flex-col gap-4">
 			<p class="text-sm text-base-content/60">
-				Import historical Wordle messages from your server. This fetches all messages containing
+				Import historical Wordle messages from your server. This fetches messages containing
 				yesterday's Wordle results and processes them for analytics.
 			</p>
 
 			{#if error}
 				<div class="alert rounded-xl alert-error" role="alert">
 					<AlertTriangle size={20} />
-					<span>{error}</span>
+					<div class="flex flex-col">
+						<span class="font-semibold">Import failed</span>
+						<span class="text-sm">{error}</span>
+					</div>
 				</div>
 			{:else if progress?.isDone && progress}
-				<div class="alert rounded-xl alert-success" role="alert">
+				<div class="alert rounded-xl alert-success" role="status">
 					<CheckCircle size={20} />
-					<span>
-						Successfully imported {progress.processed} messages! You can import again in 24 hours.
-					</span>
+					<div class="flex flex-col">
+						<span class="font-semibold">Import complete!</span>
+						<span class="text-sm">
+							Successfully imported {progress.processed.toLocaleString()} messages.
+						</span>
+					</div>
 				</div>
 				{#if progress.unresolved_failed_mentions && progress.unresolved_failed_mentions.length > 0}
 					<div class="alert rounded-xl alert-warning" role="alert">
 						<AlertTriangle size={20} />
-						<span>Could not resolve some mentions. Check the console for more information.</span>
+						<span>
+							Could not resolve {progress.unresolved_failed_mentions.length} failed mention{progress
+								.unresolved_failed_mentions.length !== 1
+								? 's'
+								: ''}.
+						</span>
 					</div>
 				{/if}
 			{:else if is_importing}
 				<div class="flex flex-col gap-3" aria-live="polite" aria-busy="true">
 					<div class="flex items-center justify-between">
-						<span class="text-sm">Importing messages...</span>
-						<span class="font-mono text-sm">{percentage}%</span>
+						<span class="text-sm font-medium">Importing messages...</span>
+						<span class="font-mono text-sm font-bold text-secondary">{percentage}%</span>
 					</div>
 					<progress
 						class="progress w-full progress-secondary"
@@ -222,49 +244,46 @@
 						max="100"
 					></progress>
 					{#if progress}
-						<div class="flex items-center gap-4 text-xs text-base-content/60">
-							<span>{progress.processed}/{progress.total} messages</span>
+						<div class="flex items-center gap-2 text-xs text-base-content/60">
+							<span class="loading loading-xs loading-dots"></span>
+							<span>
+								{progress.processed.toLocaleString()} / {progress.total.toLocaleString()} messages
+							</span>
 						</div>
 					{/if}
 				</div>
 			{:else if rate_limit?.isLimited}
 				<div class="flex flex-col gap-3">
-					<button
-						class="btn btn-disabled cursor-not-allowed gap-2 opacity-50 btn-secondary"
-						disabled={true}
-						type="button"
-					>
+					<button class="btn btn-disabled gap-2 opacity-60" disabled={true} type="button">
 						<Clock size={18} />
-						Import on Cooldown
+						On Cooldown
 					</button>
-					<div class="alert-warning/10 alert rounded-xl border border-warning/20" role="status">
-						<Clock size={18} class="text-warning" />
+					<div class="alert rounded-xl border-warning/20 alert-warning" role="status">
+						<Clock size={18} />
 						<div class="text-sm">
 							<strong>Available in:</strong>
-							{rate_limit.hoursRemaining}h{' '}
-							{rate_limit.minutesRemaining}m
+							{rate_limit.hoursRemaining}h {rate_limit.minutesRemaining}m {rate_limit.secondsRemaining}s
 						</div>
 					</div>
 				</div>
 			{:else}
 				<button
-					class="btn gap-2 btn-secondary"
+					class="btn gap-2 shadow-md transition-all btn-secondary hover:shadow-lg"
 					onclick={start_import}
-					disabled={is_importing || !browser}
+					disabled={!browser || is_importing}
 					type="button"
 				>
-					<Gamepad2 size={18} />
+					<ImportIcon size={18} />
 					Start Import
 				</button>
 			{/if}
 
 			{#if !is_importing && !progress?.isDone && !error && !rate_limit?.isLimited}
-				<div class="alert-info/10 alert rounded-xl border border-info/20" role="note">
-					<Clock size={18} class="text-info" />
-					<div class="text-xs text-base-content/60">
-						<strong>Rate Limit:</strong>
-						One import per 24 hours per server. This prevents API overuse and ensures fair usage across
-						all servers.
+				<div class="alert rounded-xl border-info/20 alert-info" role="note">
+					<Info size={18} />
+					<div class="text-xs">
+						<strong>Rate limit:</strong>
+						One import per 24 hours per server.
 					</div>
 				</div>
 			{/if}

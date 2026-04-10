@@ -17,29 +17,30 @@ const WORDLE_BOT_ID = env.WORDLE_BOT_ID;
 // Rate limit: 24 hours between imports
 const RATE_LIMIT_MS = 24 * 60 * 60 * 1000;
 
-// Cache for failed mention resolution
+// Cache for failed mention resolution (max 500 entries, evicts oldest)
+const MAX_CACHE_SIZE = 500;
 const failed_mentions_to_user_id_map = new Map<string, string>();
 
 async function resolve_failed_mentions(
 	rest: REST,
 	guildId: string,
-	failed_mentions: Set<string>
+	failed_mentions: Array<{ text: string; startOfMention: number }>
 ): Promise<{
 	userIds: Set<string>;
-	failed: Set<string>;
+	failed: Array<{ text: string; startOfMention: number }>;
 }> {
 	const userIds = new Set<string>();
-	const failed = new Set<string>();
+	const failed: Array<{ text: string; startOfMention: number }> = [];
 
 	for (const failed_mention of failed_mentions) {
-		const cached_user_id = failed_mentions_to_user_id_map.get(failed_mention);
+		const cached_user_id = failed_mentions_to_user_id_map.get(failed_mention.text);
 		if (cached_user_id !== undefined) {
 			userIds.add(cached_user_id);
 			continue;
 		}
 
 		const users = (await rest.get(`/guilds/${guildId}/members/search`, {
-			query: new URLSearchParams({ limit: '5', query: failed_mention }),
+			query: new URLSearchParams({ limit: '5', query: failed_mention.text }),
 		} as RequestData)) as {
 			nick: string;
 			user: {
@@ -51,16 +52,20 @@ async function resolve_failed_mentions(
 
 		const filtered_users = users.filter((member) => {
 			const nickname = member.nick || member.user.global_name || member.user.username;
-			return nickname === failed_mention;
+			return nickname === failed_mention.text;
 		});
 
 		if (filtered_users.length !== 1) {
-			failed.add(failed_mention);
+			failed.push(failed_mention);
 			continue;
 		}
 
 		const user = filtered_users[0];
-		failed_mentions_to_user_id_map.set(failed_mention, user.user.id);
+		if (failed_mentions_to_user_id_map.size >= MAX_CACHE_SIZE) {
+			const firstKey = failed_mentions_to_user_id_map.keys().next().value;
+			if (firstKey !== undefined) failed_mentions_to_user_id_map.delete(firstKey);
+		}
+		failed_mentions_to_user_id_map.set(failed_mention.text, user.user.id);
 		userIds.add(user.user.id);
 	}
 
@@ -105,14 +110,27 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 
 		// Collect all wins to insert in batch at the end
 		type WinInsert = {
+			guildId: string;
 			channelId: string;
 			discordId: string;
 			message_timestamp: Date;
 			messageId: string;
-			score: '1' | '2' | '3' | '4' | '5' | '6' | 'DNF';
+			tries: string;
 			winner: boolean;
 		};
 		const wins_to_insert: WinInsert[] = [];
+
+		type FailedMentionInsert = {
+			guildId: string;
+			displayName: string;
+			messageId: string;
+			channelId: string;
+			message_timestamp: Date;
+			tries: string;
+			winner: boolean;
+			startOfMention: number;
+		};
+		const failed_mentions_to_insert: FailedMentionInsert[] = [];
 
 		// serverId is guaranteed to be defined here due to earlier check
 		const guildId = serverId!;
@@ -167,42 +185,58 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 						let userIds = new Set<string>(parsed_line.mentions);
 
 						// Resolve failed mentions (nicknames without @ mentions)
-						if (parsed_line.failed_mentions.size > 0) {
+						if (parsed_line.failed_mentions.length > 0) {
 							const { userIds: resolved_userIds, failed } = await resolve_failed_mentions(
 								rest,
 								guildId,
 								parsed_line.failed_mentions
 							);
-							failed.forEach((mention) => unresolved_failed_mentions.add(mention));
+							for (const failed_mention of failed) {
+								unresolved_failed_mentions.add(failed_mention.text);
+								failed_mentions_to_insert.push({
+									guildId: guildId,
+									displayName: failed_mention.text,
+									messageId: message.id,
+									channelId: message.channel_id,
+									message_timestamp: new Date(message.timestamp),
+									tries: tries,
+									winner: parsed_line.winners,
+									startOfMention: failed_mention.startOfMention,
+								});
+							}
 							userIds = new Set<string>([...userIds, ...resolved_userIds]);
 						}
 
 						// Collect wins for batch insert
 						for (const user_id of userIds) {
 							wins_to_insert.push({
+								guildId: guildId,
 								channelId: message.channel_id,
 								discordId: user_id,
 								message_timestamp: new Date(message.timestamp),
 								messageId: message.id,
-								score: tries === 'X' ? 'DNF' : (tries as '1' | '2' | '3' | '4' | '5' | '6'),
+								tries: tries,
 								winner: parsed_line.winners,
 							});
 						}
 					}
 
 					messages_parsed_successfully += 1;
-				}
 
-				const { error: emitError } = emit(
-					'message',
-					JSON.stringify({
-						isDone: false,
-						processed: messages_parsed_successfully,
-						total: expected_total,
-					} as WordleImportMessage)
-				);
-				if (emitError) {
-					return;
+					// Emit progress every 5 messages
+					if (messages_parsed_successfully % 5 === 0) {
+						const { error: emitError } = emit(
+							'message',
+							JSON.stringify({
+								isDone: false,
+								processed: messages_parsed_successfully,
+								total: expected_total,
+							} as WordleImportMessage)
+						);
+						if (emitError) {
+							return;
+						}
+					}
 				}
 
 				// Get the last matching message for pagination
@@ -223,6 +257,11 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 			// Batch insert all wins in a single transaction
 			if (wins_to_insert.length > 0) {
 				await db.wordle.addWins(wins_to_insert);
+			}
+
+			// Batch insert failed mentions
+			if (failed_mentions_to_insert.length > 0) {
+				await db.failedMentions.addFailedMentions(failed_mentions_to_insert);
 			}
 
 			// Record the import in database

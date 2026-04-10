@@ -1,1 +1,0 @@
-ALTER TABLE "events_Table" ADD COLUMN "game" text NOT NULL;

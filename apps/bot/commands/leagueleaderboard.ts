@@ -90,7 +90,7 @@ export class LeagueLeaderboardCommand extends Command {
 
 		try {
 			const summoner = await lolApi.Summoner.getByPUUID(
-				rankone.riot_puuid,
+				rankone.riotPuuid,
 				rankone.region as Regions
 			);
 			const iconURL = `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${summoner.response.profileIconId}.jpg`;
@@ -108,7 +108,7 @@ export class LeagueLeaderboardCommand extends Command {
 											const rank = l.leaguedata?.soloq
 												? treat_soloq(l.leaguedata.soloq)
 												: 'Unranked';
-											return `${i + 1}. **${l.riot_gamename}#${l.riot_tagline}** ${rank}`;
+											return `${i + 1}. **${l.riotGamename}#${l.riotTagline}** ${rank}`;
 										})
 										.join('\n')
 								)

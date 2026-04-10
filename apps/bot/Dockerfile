@@ -14,6 +14,10 @@ COPY apps/bot ./apps/bot/
 COPY packages/db ./packages/db/
 COPY packages/config-typescript ./packages/config-typescript/
 
+ENV DATABASE_URL=postgres://dummy:dummy@localhost:5432/dummy
+
+RUN cd packages/db && bunx --bun prisma generate
+
 FROM oven/bun:alpine AS runner
 WORKDIR /app
 RUN chown bun:bun /app
@@ -22,4 +26,5 @@ COPY --chown=bun:bun --from=builder /app .
 
 USER bun
 
-CMD ["apps/bot/entrypoint.sh"]
+ENTRYPOINT []
+CMD ["sh", "apps/bot/entrypoint.sh"]

@@ -1,37 +1,39 @@
-import { type InferSelectModel, type InferInsertModel, eq } from 'drizzle-orm';
 import { DatabaseConnection } from '../connection';
-import { eventGameTable } from '../schema';
+import type { CustomGame } from '../generated/prisma/client';
 
-export type Game = InferSelectModel<typeof eventGameTable>;
-type InsertGame = InferInsertModel<typeof eventGameTable>;
+export type { CustomGame as Game };
 
 export class GamesTable extends DatabaseConnection {
 	constructor(db_conn: DatabaseConnection) {
 		super(db_conn);
 	}
 
-	async getAll() {
-		return await this._db.select().from(eventGameTable);
+	async getAll(): Promise<CustomGame[]> {
+		return await this._db.customGame.findMany();
 	}
 
-	async insert(event: InsertGame) {
-		await this._db.insert(eventGameTable).values(event);
+	async insert(event: { name: string; icon?: string | null }): Promise<void> {
+		await this._db.customGame.create({ data: event });
 	}
 
-	async update(old_name: string, event: InsertGame) {
-		await this._db.update(eventGameTable).set(event).where(eq(eventGameTable.name, old_name));
+	async update(old_name: string, event: { name: string; icon?: string | null }): Promise<void> {
+		await this._db.customGame.update({
+			where: { name: old_name },
+			data: event,
+		});
 	}
 
-	async deleteGame(game_name: string) {
-		await this._db.delete(eventGameTable).where(eq(eventGameTable.name, game_name));
+	async deleteGame(game_name: string): Promise<void> {
+		await this._db.customGame.delete({
+			where: { name: game_name },
+		});
 	}
 
-	async exists(game_name: string) {
-		const result = await this._db
-			.select({ name: eventGameTable.name })
-			.from(eventGameTable)
-			.where(eq(eventGameTable.name, game_name))
-			.limit(1);
-		return result.length > 0;
+	async exists(game_name: string): Promise<boolean> {
+		const result = await this._db.customGame.findUnique({
+			where: { name: game_name },
+			select: { name: true },
+		});
+		return result !== null;
 	}
 }

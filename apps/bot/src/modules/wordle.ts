@@ -3,8 +3,6 @@ import { WORDLE_BOT_ID, GUILD_ID, WORDLE_ROLE_ID, CHANNEL_ID } from '@/environme
 import { parse_wordle_message_v2 } from '@/modules/wordle.utils';
 import { db } from '@/db';
 import { Logger } from '@/utils';
-import { schema } from '@repo/database';
-import { InferEnum } from 'drizzle-orm';
 
 const logger = new Logger('Wordle');
 
@@ -57,21 +55,31 @@ export async function wordle_module(message: Message<boolean>) {
 	for (const [tries, parsed_line] of Object.entries(parse_result)) {
 		const line_userIds = new Set<string>(parsed_line.mentions);
 
-		if (parsed_line.failed_mentions.size > 0) {
+		if (parsed_line.failed_mentions.length > 0) {
 			for (const failed_mention of parsed_line.failed_mentions) {
 				const users = await guild.members.fetch({
-					query: failed_mention,
+					query: failed_mention.text,
 					limit: 1,
 				});
-				const user = users.filter((member) => member.displayName === failed_mention).first();
+				const user = users.filter((member) => member.displayName === failed_mention.text).first();
 				if (user) {
 					fetched_members.set(user.id, user);
 					line_userIds.add(user.id);
 					logger.info(
-						`Parsed failed mention: ${failed_mention} -> ${user.displayName} (@${user.user.tag})`
+						`Parsed failed mention: ${failed_mention.text} -> ${user.displayName} (@${user.user.tag})`
 					);
 				} else {
-					logger.warn(`No user found for failed mention: ${failed_mention}`);
+					logger.warn(`No user found for failed mention: ${failed_mention.text}`);
+					await db.failedMentions.addFailedMention({
+						guildId: guild.id,
+						displayName: failed_mention.text,
+						messageId: message.id,
+						channelId: message.channelId,
+						message_timestamp: new Date(message.createdTimestamp),
+						tries: tries,
+						winner: parsed_line.winners,
+						startOfMention: failed_mention.startOfMention,
+					});
 				}
 			}
 		}
@@ -85,11 +93,12 @@ export async function wordle_module(message: Message<boolean>) {
 
 		for (const user_id of line_userIds) {
 			await db.wordle.addWin({
+				guildId: guild.id,
 				channelId: message.channelId,
 				discordId: user_id,
 				message_timestamp: new Date(message.createdTimestamp),
 				messageId: message.id,
-				score: tries === 'X' ? 'DNF' : (tries as InferEnum<typeof schema.scoreEnum>),
+				tries: tries,
 				winner: parsed_line.winners,
 			});
 		}
