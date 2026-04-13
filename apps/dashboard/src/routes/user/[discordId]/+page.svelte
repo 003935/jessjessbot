@@ -305,7 +305,7 @@
 														? 'text-success'
 														: 'text-base-content/40'}"
 												>
-													{activity.winner ? activity.score + '/6' : 'DNF'}
+													{activity.score === 7 ? 'DNF' : activity.score + '/6'}
 												</span>
 												<span class="text-xs text-base-content/50">
 													{activity.winner ? 'Won' : 'Lost'}
