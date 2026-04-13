@@ -9,7 +9,7 @@ COPY packages/database/package.json ./packages/database/
 COPY packages/discord-api/package.json ./packages/discord-api/
 COPY apps/dashboard/package.json ./apps/dashboard/
 
-RUN bun install --filter './apps/dashboard' --filter './packages/database' --filter './packages/discord-api'
+RUN bun install --frozen-lockfile --filter './apps/dashboard' --filter './packages/database' --filter './packages/discord-api'
 
 COPY apps/dashboard ./apps/dashboard/
 COPY packages/database ./packages/database/
