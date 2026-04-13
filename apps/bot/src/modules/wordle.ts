@@ -1,7 +1,11 @@
 import { GuildMember, Role, Message } from 'discord.js';
 import { WORDLE_BOT_ID, GUILD_ID, WORDLE_ROLE_ID, CHANNEL_ID } from '@/environment';
-import { Parse_Wordle_Message } from '@/modules/wordle.utils';
 import { db } from '@/db';
+import { Logger } from '@/utils';
+import { parse_wordle_message_v2 } from '@repo/discord-api/utils';
+import { Score_To_String } from '@repo/database/utils';
+
+const logger = new Logger('Wordle');
 
 async function sync_wordle_role(winners: Array<GuildMember>, role: Role) {
 	const consecutive_winners = new Map<string, GuildMember>(
@@ -14,11 +18,11 @@ async function sync_wordle_role(winners: Array<GuildMember>, role: Role) {
 	const to_add = winners.filter((member) => !consecutive_winners.has(member.id));
 
 	if (to_remove.length > 0)
-		console.log(`Removing role from ${to_remove.map((m) => m.displayName).join(', ')}.`);
+		logger.info(`Removing role from ${to_remove.map((m) => m.displayName).join(', ')}.`);
 	if (to_add.length > 0)
-		console.log(`Adding role to ${to_add.map((m) => m.displayName).join(', ')}.`);
+		logger.info(`Adding role to ${to_add.map((m) => m.displayName).join(', ')}.`);
 	if (consecutive_winners.size > 0)
-		console.log(
+		logger.info(
 			`Keeping role on ${Array.from(consecutive_winners.values())
 				.map((m) => m.displayName)
 				.join(', ')}.`
@@ -35,88 +39,111 @@ export async function wordle_module(message: Message<boolean>) {
 	if (message.channel.id !== CHANNEL_ID) return; // Only respond in general channel
 	if (message.author.id !== WORDLE_BOT_ID) return; // Ignore non-Wordle bot messages
 
-	console.log(`📨 Message received:
-   \t${message.content.split('\n').join('\n\t\t')}`);
+	logger.info(`Message received:\n${message.content.split('\n').join('\n  ')}`);
 
-	const parse_result = Parse_Wordle_Message(message.content);
-	if (parse_result === undefined) {
-		console.log('No valid Wordle result found in the message.');
+	const result_message = parse_wordle_message_v2({
+		channelId: message.channelId,
+		content: message.content,
+		messageId: message.id,
+		messageTimestamp: new Date(message.createdTimestamp),
+		guildId: guild.id,
+	});
+	if (result_message === null) {
+		logger.debug('No valid Wordle result found in the message.');
 		return;
 	}
 
-	const winners = new Map<string, GuildMember>();
-	const ids_to_fetch = new Set<string>();
+	const fetched_members = new Map<string, GuildMember>();
 
-	for (const parsed_winner_id of parse_result.winner_ids) {
-		const mentioned_member = message.mentions.members.get(parsed_winner_id);
-		if (mentioned_member !== undefined) winners.set(parsed_winner_id, mentioned_member);
-		else ids_to_fetch.add(parsed_winner_id);
+	for (const [key, failed_mention] of result_message.failedMentions.entries()) {
+		const users = (
+			await guild.members.fetch({
+				query: failed_mention.displayName,
+			})
+		).filter((member) => member.displayName === failed_mention.displayName);
+		if (users.size > 1) {
+			logger.warn(`Multiple users found for failed mention: ${failed_mention.displayName}`);
+			continue;
+		}
+
+		const user = users.first();
+		if (user) {
+			fetched_members.set(user.id, user);
+			// Remove failed_mention from result_message.failedMentions
+			result_message.failedMentions.delete(key);
+			// Add user to result_message.players
+			result_message.players.set(user.id, {
+				discordId: user.id,
+				score: failed_mention.score,
+			});
+			logger.info(
+				`Parsed failed mention: ${failed_mention.displayName} -> ${user.displayName} (@${user.user.tag})`
+			);
+		} else {
+			logger.warn(`No user found for failed mention: ${failed_mention.displayName}`);
+		}
 	}
 
-	if (ids_to_fetch.size > 0) {
+	await db.wordle.addWordleResultMessage(result_message);
+
+	const winner_ids = new Set<string>(
+		result_message.winningScore !== null
+			? result_message.players
+					.values()
+					.filter((p) => p.score === result_message.winningScore)
+					.map((p) => p.discordId)
+			: []
+	);
+
+	const ids_to_fetch = [...winner_ids].filter((id) => !fetched_members.has(id));
+
+	if (ids_to_fetch.length > 0) {
 		const membersMentioned = await guild.members.fetch({
 			user: Array.from(ids_to_fetch),
 		});
 		for (const id of ids_to_fetch) {
 			const member = membersMentioned.get(id);
 			if (member === undefined) {
-				console.log(`Failed to fetch user Id: ${id}`);
+				logger.debug(`Failed to fetch user Id: ${id}`);
 				continue;
 			}
-			winners.set(id, member);
+			fetched_members.set(id, member);
 		}
 	}
-
-	if (parse_result.failed_mentions.size > 0) {
-		for (const failed_mention of parse_result.failed_mentions) {
-			const users = await guild.members.fetch({
-				query: failed_mention,
-				limit: 1,
-			});
-			const user = users.filter((member) => member.displayName === failed_mention).first();
-			if (user) {
-				winners.set(user.id, user);
-				console.log(
-					`Parsed failed mention: ${failed_mention} -> ${user.displayName} (@${user.user.tag})`
-				);
-			} else {
-				console.warn(`No user found for failed mention: ${failed_mention}`);
-			}
-		}
-	}
-
-	const { winningScore } = parse_result;
 
 	const wordleKingRole = await guild.roles.fetch(WORDLE_ROLE_ID);
 	if (wordleKingRole === null) {
-		console.error(`Role with ID ${WORDLE_ROLE_ID} not found in guild ${guild.name}.`);
+		logger.error(`Role with ID ${WORDLE_ROLE_ID} not found in guild ${guild.name}.`);
 		return;
 	}
 
-	const winners_array = Array.from(winners.values());
+	const winners_array = [...winner_ids]
+		.map((id) => fetched_members.get(id))
+		.filter((member): member is GuildMember => member !== undefined);
 
 	await sync_wordle_role(winners_array, wordleKingRole);
 
 	if (winners_array.length === 0) {
-		console.log('No winners found.');
+		logger.debug('No winners found.');
 		return;
 	} else {
-		console.log(`Winners: ${winners_array.map((winner) => winner.displayName).join(', ')}`);
-	}
-
-	for (const winner of winners_array) {
-		await db.wordle.addWin(winner.id, message.id);
+		logger.info(`Winners: ${winners_array.map((winner) => winner.displayName).join(', ')}`);
 	}
 
 	const winnerMentions = winners_array.map((winner) => `<@${winner.id}>`);
-	if (winners_array.length === 1) {
-		const dbUser = await db.wordle.getUser(winners_array[0]!.id);
-		await message.channel.send(
-			`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${dbUser?.wins ?? 1})`
-		);
-	} else {
-		await message.channel.send(
-			`Congratulations ${winnerMentions.join(', ')}! You are the new Wordle Kings! 👑 (Tied with ${winningScore}/6)`
-		);
+	const winningScore = Score_To_String(result_message.winningScore!);
+	try {
+		if (winners_array.length === 1) {
+			const dbUser = await db.wordle.getUser(winners_array[0]?.id);
+			await message.channel.send(
+				`Congratulations ${winnerMentions[0]}! You are the new Wordle King! 👑 (Total wins: ${dbUser?.wins ?? 1})`
+			);
+		} else {
+			await message.channel.send(
+				`Congratulations ${winnerMentions.join(', ')}! You are the new Wordle Kings! 👑 (Tied with ${winningScore ?? '?'}/6)`
+			);
+		}
+	} catch (error) {
+		logger.error('Failed to send announcement message:', error);
 	}
 }

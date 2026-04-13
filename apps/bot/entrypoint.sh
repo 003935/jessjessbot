@@ -2,8 +2,8 @@
 set -e
 
 echo "Running migrations..."
-cd packages/db
-bunx drizzle-kit migrate
+cd packages/database
+bunx --bun prisma migrate deploy
 cd ../..
 
 echo "Starting bot..."

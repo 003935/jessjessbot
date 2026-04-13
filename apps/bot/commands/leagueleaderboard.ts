@@ -2,9 +2,11 @@ import { Command } from '@sapphire/framework';
 import { RIOT_API_KEY } from '@/environment';
 import { ContainerBuilder, MessageFlags } from 'discord.js';
 import { Constants, LolApi, RiotApi } from 'twisted';
-import { Tiers } from 'twisted/dist/constants';
+import { Regions, Tiers } from 'twisted/dist/constants';
 import { db } from '@/db';
+import { Logger } from '@/utils';
 
+const logger = new Logger('LeagueLeaderboard');
 const riotApi = new RiotApi({ key: RIOT_API_KEY });
 const lolApi = new LolApi({ key: RIOT_API_KEY });
 
@@ -78,32 +80,51 @@ export class LeagueLeaderboardCommand extends Command {
 			return;
 		}
 
-		const rankone = leaderboard[0]!.riot_puuid;
-		const summoner = await lolApi.Summoner.getByPUUID(rankone, Constants.Regions.EU_WEST);
-		const iconURL = `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${summoner.response.profileIconId}.jpg`;
-		const bee = '<:bee001:1481311305603485756>';
-		const container = new ContainerBuilder()
-			.setAccentColor(0xad66f2)
-			.addSectionComponents((section) =>
-				section
-					.addTextDisplayComponents(
-						(textDisplay) => textDisplay.setContent(`## ${bee} League Leaderboard`),
-						(textDisplay) =>
-							textDisplay.setContent(
-								leaderboard
-									.map((l, i) => {
-										const rank = l.leaguedata?.soloq ? treat_soloq(l.leaguedata.soloq) : 'Unranked';
-										return `${i + 1}. **${l.riot_gamename}#${l.riot_tagline}** ${rank}`;
-									})
-									.join('\n')
-							)
-					)
-					.setThumbnailAccessory((thumbnail) => thumbnail.setURL(iconURL))
-			);
+		const rankone = leaderboard[0];
+		if (!rankone) {
+			await interaction.editReply({
+				content: 'Failed to get leaderboard data',
+			});
+			return;
+		}
 
-		await interaction.editReply({
-			components: [container],
-			flags: MessageFlags.IsComponentsV2,
-		});
+		try {
+			const summoner = await lolApi.Summoner.getByPUUID(
+				rankone.riotPuuid,
+				rankone.region as Regions
+			);
+			const iconURL = `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${summoner.response.profileIconId}.jpg`;
+			const bee = '<:bee001:1481311305603485756>';
+			const container = new ContainerBuilder()
+				.setAccentColor(0xad66f2)
+				.addSectionComponents((section) =>
+					section
+						.addTextDisplayComponents(
+							(textDisplay) => textDisplay.setContent(`## ${bee} League Leaderboard`),
+							(textDisplay) =>
+								textDisplay.setContent(
+									leaderboard
+										.map((l, i) => {
+											const rank = l.leaguedata?.soloq
+												? treat_soloq(l.leaguedata.soloq)
+												: 'Unranked';
+											return `${i + 1}. **${l.riotGamename}#${l.riotTagline}** ${rank}`;
+										})
+										.join('\n')
+								)
+						)
+						.setThumbnailAccessory((thumbnail) => thumbnail.setURL(iconURL))
+				);
+
+			await interaction.editReply({
+				components: [container],
+				flags: MessageFlags.IsComponentsV2,
+			});
+		} catch (error) {
+			logger.error('Failed to fetch summoner data for leaderboard', error);
+			await interaction.editReply({
+				content: 'Failed to fetch leaderboard data',
+			});
+		}
 	}
 }

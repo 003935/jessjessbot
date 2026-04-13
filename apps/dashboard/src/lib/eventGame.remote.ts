@@ -4,16 +4,15 @@ import { db } from '$lib/server/db';
 import { auth } from '$lib/server/auth';
 import { error } from '@sveltejs/kit';
 import { EventGame_Schema } from './components/EventGameDialog.svelte';
+import { throwIfNotLoggedIn } from './server/permission.utils';
 
 export const getEventGames = query(async () => {
-	const { locals } = getRequestEvent();
-
-	if (!locals.user) return error(401, 'Not logged in');
+	const user = throwIfNotLoggedIn();
 
 	const can_list_games = await auth.api.userHasPermission({
 		body: {
-			userId: locals.user.id,
-			role: locals.user.role,
+			userId: user.id,
+			role: user.role,
 			permissions: { game: ['list'] },
 		},
 	});
@@ -26,14 +25,12 @@ export const getEventGames = query(async () => {
 });
 
 export const removeEventGame = command(v.string(), async (gameName) => {
-	const { locals } = getRequestEvent();
-
-	if (!locals.user) error(401, 'Not logged in');
+	const user = throwIfNotLoggedIn();
 
 	const can_manage_games = await auth.api.userHasPermission({
 		body: {
-			userId: locals.user.id,
-			role: locals.user.role,
+			userId: user.id,
+			role: user.role,
 			permissions: { game: ['manage'] },
 		},
 	});
@@ -52,14 +49,12 @@ const addEventGame_Schema = v.object({
 });
 
 export const addEventGame = command(addEventGame_Schema, async (game) => {
-	const { locals } = getRequestEvent();
-
-	if (!locals.user) error(401, 'Not logged in');
+	const user = throwIfNotLoggedIn();
 
 	const can_manage_games = await auth.api.userHasPermission({
 		body: {
-			userId: locals.user.id,
-			role: locals.user.role,
+			userId: user.id,
+			role: user.role,
 			permissions: { game: ['manage'] },
 		},
 	});
@@ -82,14 +77,12 @@ const updateEventGame_Schema = v.intersect([
 ]);
 
 export const updateEventGame = command(updateEventGame_Schema, async (game) => {
-	const { locals } = getRequestEvent();
-
-	if (!locals.user) error(401, 'Not logged in');
+	const user = throwIfNotLoggedIn();
 
 	const can_manage_games = await auth.api.userHasPermission({
 		body: {
-			userId: locals.user.id,
-			role: locals.user.role,
+			userId: user.id,
+			role: user.role,
 			permissions: { game: ['manage'] },
 		},
 	});

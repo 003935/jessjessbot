@@ -1,1 +1,0 @@
-ALTER TABLE "league_Table" ALTER COLUMN "region" SET NOT NULL;

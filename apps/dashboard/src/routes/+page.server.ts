@@ -1,35 +1,31 @@
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
-import { schema } from '@repo/database';
-import { and, eq } from 'drizzle-orm';
 import { discordApi } from '$lib/server/discord';
 
-export const load: PageServerLoad = async ({ parent }) => {
-	const data = await parent();
-
-	if (!data.user)
+export const load: PageServerLoad = async ({ locals }) => {
+	if (!locals.user)
 		return {
 			servers: [],
 			emojis: [],
 			user: null,
 		};
 
-	const discordAccounts = await db._db
-		.select()
-		.from(schema.account)
-		.where(and(eq(schema.account.userId, data.user.id), eq(schema.account.providerId, 'discord')));
-
-	const discordAccount = discordAccounts[0];
+	const discordAccount = await db._db.account.findFirst({
+		where: {
+			userId: locals.user.id,
+			providerId: 'discord',
+		},
+	});
 
 	if (!discordAccount || !discordAccount.accessToken) {
 		return {
 			servers: [],
 			emojis: [],
-			user: data.user,
+			user: locals.user,
 		};
 	}
 
-	const user_guilds_promise = discordApi.getUserGuilds(data.user.id, discordAccount.accessToken);
+	const user_guilds_promise = discordApi.getUserGuilds(locals.user.id, discordAccount.accessToken);
 	const bot_guilds_promise = discordApi.getBotGuilds();
 
 	const emojis_promise = discordApi.getEmojis();
@@ -39,6 +35,8 @@ export const load: PageServerLoad = async ({ parent }) => {
 	const joined_guilds = user_guilds.filter((guild) =>
 		bot_guilds.some((bot_guild) => bot_guild.id === guild.id)
 	);
+
+	const customs = await db.events.getEventsByGuildIds(joined_guilds.map((guild) => guild.id));
 
 	return {
 		servers: joined_guilds.map((guild) => ({
@@ -51,6 +49,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 			permissions: guild.permissions,
 		})),
 		emojis: await emojis_promise,
-		user: data.user,
+		user: locals.user,
+		customs,
 	};
 };

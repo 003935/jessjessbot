@@ -1,24 +1,20 @@
 import type { PageServerLoad } from './$types';
-import { discordApi } from '$lib/server/discord';
-import { error } from '@sveltejs/kit';
-import { _isGuildAdmin } from '$lib/server/discord.utils';
 import { db } from '$lib/server/db';
-import { schema } from '@repo/database';
+import { getDiscordAcc, throwIfNotLoggedIn } from '$lib/server/permission.utils';
+import { discordApi } from '$lib/server/discord';
 
-export const load: PageServerLoad = async ({ parent, params }) => {
-	const data = await parent();
+export const load: PageServerLoad = async ({ params, locals }) => {
+	const user = throwIfNotLoggedIn(locals);
 
-	if (!data.user) error(401, 'Not logged in');
+	const { isAdmin, guild } = await getDiscordAcc(user, params.serverId);
 
-	const guild_promise = discordApi.getGuild(params.serverId);
+	const eventGames = await db.games.getAll();
+	const emojis = await discordApi.getEmojis();
 
-	const isAdmin = await _isGuildAdmin(data.user.id, guild_promise);
-
-	if (!isAdmin) error(403, 'Not admin');
-
-	const eventGames = await db._db.select().from(schema.eventGameTable);
-
-	const guild = await guild_promise;
+	let wordleImport = null;
+	if (isAdmin) {
+		wordleImport = await db.wordleImport.getGuildImport(params.serverId);
+	}
 
 	return {
 		guild: {
@@ -28,6 +24,14 @@ export const load: PageServerLoad = async ({ parent, params }) => {
 				: null,
 		},
 		games: eventGames,
-		user: data.user,
+		emojis: await emojis,
+		isAdmin,
+		wordleImport: wordleImport
+			? {
+					lastImport: wordleImport.lastImport,
+					importedBy: wordleImport.importedBy,
+					messagesImported: wordleImport.messagesImported,
+				}
+			: null,
 	};
 };

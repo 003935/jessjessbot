@@ -1,5 +1,5 @@
 import { Command } from '@sapphire/framework';
-import { ContainerBuilder, MessageFlags } from 'discord.js';
+import { ContainerBuilder, GuildMember, MessageFlags } from 'discord.js';
 import { db } from '@/db';
 
 export class KingCommand extends Command {
@@ -24,7 +24,7 @@ export class KingCommand extends Command {
 			return;
 		}
 
-		const sorted = await db.wordle.getSortedWinners(5);
+		const sorted = await db.wordle.getSortedWinners(guild.id, 5);
 
 		if (sorted.length === 0) {
 			await interaction.reply({
@@ -36,16 +36,31 @@ export class KingCommand extends Command {
 
 		const firstfive = await Promise.all(
 			sorted.map(async (u) => {
-				const user = await guild.members.fetch(u.id);
+				const user = await guild.members
+					.fetch(u.id)
+					.catch(async () => interaction.client.users.fetch(u.id).catch(() => null));
+
+				if (user === null) {
+					return {
+						name: u.id,
+						avatar: null,
+						...u,
+					};
+				}
+
+				const avatar =
+					user instanceof GuildMember
+						? user.displayAvatarURL() || user.user.displayAvatarURL()
+						: user.displayAvatarURL();
 				return {
-					name: user?.displayName ?? 'undefined',
+					name: user.displayName,
+					avatar,
 					...u,
 				};
 			})
 		);
 
-		const king = await guild.members.fetch(firstfive[0]!.id);
-		const king_avatar = king.displayAvatarURL() || king.user.displayAvatarURL();
+		const king = firstfive[0];
 
 		const container = new ContainerBuilder()
 			.setAccentColor(0x51c962)
@@ -63,7 +78,7 @@ export class KingCommand extends Command {
 									.join('\n')
 							)
 					)
-					.setThumbnailAccessory((thumbnail) => thumbnail.setURL(king_avatar))
+					.setThumbnailAccessory((thumbnail) => thumbnail.setURL(king.avatar ?? ''))
 			);
 
 		await interaction.reply({

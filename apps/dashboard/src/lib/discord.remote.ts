@@ -1,11 +1,9 @@
-import { query, getRequestEvent } from '$app/server';
-import { error } from '@sveltejs/kit';
-import { discordApi } from './server/discord';
+import { query } from '$app/server';
+import { discordApi } from '$lib/server/discord';
+import { throwIfNotLoggedIn } from './server/permission.utils';
 
 export const getEmojis = query(async () => {
-	const { locals } = getRequestEvent();
-
-	if (!locals.user) return error(401, 'Not logged in');
+	throwIfNotLoggedIn();
 
 	const emojis = await discordApi.getEmojis();
 

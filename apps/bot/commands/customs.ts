@@ -1,9 +1,22 @@
 import { Command } from '@sapphire/framework';
 import { db } from '@/db';
-import { schema } from '@repo/database';
-import { and, eq } from 'drizzle-orm';
 
 const timestampRegex = new RegExp(/<t:(\d+):\w>/);
+
+// Cache for event games - refreshed every 5 minutes
+let gamesCache: { name: string; icon: string | null }[] = [];
+let cacheTimestamp = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function getGamesFromCache() {
+	const now = Date.now();
+	if (now - cacheTimestamp < CACHE_TTL && gamesCache.length > 0) {
+		return gamesCache;
+	}
+	gamesCache = await db._db.customGame.findMany();
+	cacheTimestamp = now;
+	return gamesCache;
+}
 
 export class CustomsCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -11,8 +24,6 @@ export class CustomsCommand extends Command {
 	}
 
 	public override async registerApplicationCommands(registry: Command.Registry) {
-		const games = await db._db.select().from(schema.eventGameTable);
-
 		registry.registerChatInputCommand((builder) =>
 			builder
 				.setName('customs')
@@ -25,8 +36,22 @@ export class CustomsCommand extends Command {
 						.setName('game')
 						.setDescription('Game to play')
 						.setRequired(true)
-						.addChoices(...games.map((game) => ({ name: game.name, value: game.name })))
+						.setAutocomplete(true)
 				)
+		);
+	}
+
+	public override async autocompleteRun(interaction: Command.AutocompleteInteraction) {
+		const focusedValue = interaction.options.getFocused();
+
+		const games = await getGamesFromCache();
+
+		const filtered = focusedValue
+			? games.filter((game) => game.name.toLowerCase().includes(focusedValue.toLowerCase()))
+			: games;
+
+		await interaction.respond(
+			filtered.slice(0, 25).map((game) => ({ name: game.name, value: game.name }))
 		);
 	}
 
@@ -67,12 +92,7 @@ export class CustomsCommand extends Command {
 
 		const scheduledTime = Math.floor(scheduledDate.getTime() / 1000);
 
-		const game_info_arr = await db._db
-			.select()
-			.from(schema.eventGameTable)
-			.where(eq(schema.eventGameTable.name, game));
-
-		const game_info = game_info_arr[0];
+		const game_info = await db._db.customGame.findUnique({ where: { name: game } });
 		const emoji_id = game_info?.icon;
 
 		let emoji_str = '';
@@ -84,15 +104,12 @@ export class CustomsCommand extends Command {
 			emoji_str = emoji ? `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>` : '';
 		}
 
-		const roles = await db._db
-			.select()
-			.from(schema.gameRoleTable)
-			.where(
-				and(
-					eq(schema.gameRoleTable.guildId, interaction.guildId),
-					eq(schema.gameRoleTable.gameName, game)
-				)
-			);
+		const roles = await db._db.gameRole.findMany({
+			where: {
+				guildId: interaction.guildId,
+				gameName: game,
+			},
+		});
 
 		const role = roles[0]?.roleId as string | undefined;
 
@@ -106,7 +123,11 @@ export class CustomsCommand extends Command {
 			},
 		});
 
-		const message = response.resource!.message!;
+		const message = response.resource?.message;
+		if (!message) {
+			await interaction.editReply({ content: 'Failed to create event message' });
+			return;
+		}
 
 		await db.events.insert({
 			guildId: interaction.guildId,
