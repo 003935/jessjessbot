@@ -17,6 +17,7 @@ COPY packages/discord-api ./packages/discord-api/
 COPY packages/config-typescript ./packages/config-typescript/
 
 ENV DATABASE_URL=postgres://dummy:dummy@localhost:5432/dummy
+ENV DIRECT_URL=postgres://dummy:dummy@localhost:5432/dummy
 ENV BETTER_AUTH_SECRET=a_very_secret_dummy_value_for_build_purposes
 
 RUN cd packages/database && bunx --bun prisma generate
