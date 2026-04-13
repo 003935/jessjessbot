@@ -2,15 +2,12 @@ import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { discordApi } from '$lib/server/discord';
+import { throwIfNotLoggedIn } from '$lib/server/permission.utils';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
-	const user = locals.user;
-
-	if (!user) error(401, 'Not logged in');
+	throwIfNotLoggedIn(locals);
 
 	const { discordId } = params;
-
-	if (!discordId) error(400, 'Discord ID is required');
 
 	const serverId = url.searchParams.get('serverId');
 

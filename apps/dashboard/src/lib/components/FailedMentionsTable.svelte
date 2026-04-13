@@ -2,42 +2,39 @@
 	import {
 		getFailedMentions,
 		hideFailedMention,
-		identifyFailedMention,
+		type FailedMentionId,
 	} from '$lib/failedMentions.remote';
 	import EyeOff from '@lucide/svelte/icons/eye-off';
 	import Eye from '@lucide/svelte/icons/eye';
 	import UserCheck from '@lucide/svelte/icons/user-check';
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import Crown from '@lucide/svelte/icons/crown';
-	import { Score_To_String, FailedMentionStatus } from '@repo/database/utils';
-	import { isHttpError } from '@sveltejs/kit';
 
-	type FailedMention = {
-		id: number;
-		guildId: string;
-		displayName: string;
-		messageId: string;
-		channelId: string;
-		message_timestamp: Date;
-		score: number;
-		winner: boolean;
-		status: FailedMentionStatus;
-	};
+	import { SvelteMap } from 'svelte/reactivity';
+	import { Score_To_String } from '$lib';
+	import IdentifyDialog from './IdentifyDialog.svelte';
 
 	let { serverId }: { serverId: string } = $props();
 
-	import { SvelteMap } from 'svelte/reactivity';
+	type FailedMention = NonNullable<ReturnType<typeof getFailedMentions>['current']>[number];
 
 	const query = $derived(getFailedMentions(serverId));
 	let failedMentions = $derived(query.current ?? []);
 	let showHidden = $state(false);
-	let isHiding = $state<number | null>(null);
-	let isIdentifying = $state<number | null>(null);
-	let identifyUserId = $state('');
-	let identifyError = $state<string | null>(null);
+	let isHiding = $state<FailedMentionId | null>(null);
+	let identifySingle = $state<FailedMentionId | null>(null);
+	let identifyBulk = $state<string | null>(null);
+
+	function isSameMention(a: FailedMentionId, b: FailedMentionId): boolean {
+		return (
+			a.channelId === b.channelId &&
+			a.messageId === b.messageId &&
+			a.startOfMention === b.startOfMention
+		);
+	}
 
 	let filteredMentions = $derived(
-		(failedMentions as FailedMention[]).filter((m) => showHidden || m.status !== 'IGNORED')
+		failedMentions.filter((m) => showHidden || m.status !== 'IGNORED')
 	);
 
 	function getGroupedMentions() {
@@ -55,51 +52,22 @@
 	}
 
 	async function handleHide(mention: FailedMention) {
-		isHiding = mention.id;
+		const id = {
+			channelId: mention.channelId,
+			messageId: mention.messageId,
+			startOfMention: mention.startOfMention,
+		};
+		isHiding = id;
 		try {
-			await hideFailedMention({ mentionId: mention.id, guildId: serverId }).updates(
+			await hideFailedMention({ mentionId: id, guildId: serverId }).updates(
 				getFailedMentions(serverId).withOverride((arr) =>
-					arr?.map((m) => (m.id === mention.id ? { ...m, status: 'IGNORED' } : m))
+					arr?.map((m) => (isSameMention(m, id) ? { ...m, status: 'IGNORED' } : m))
 				)
 			);
 		} catch (e) {
 			console.error('Failed to hide mention:', e);
 		} finally {
 			isHiding = null;
-		}
-	}
-
-	function openIdentifyDialog(mention: FailedMention) {
-		isIdentifying = mention.id;
-		identifyUserId = '';
-		identifyError = null;
-	}
-
-	function closeIdentifyDialog() {
-		isIdentifying = null;
-		identifyUserId = '';
-		identifyError = null;
-	}
-
-	async function handleIdentify() {
-		if (!isIdentifying || !identifyUserId.trim()) {
-			identifyError = 'Please enter a Discord user ID';
-			return;
-		}
-
-		try {
-			await identifyFailedMention({
-				mentionId: isIdentifying,
-				guildId: serverId,
-				userId: identifyUserId.trim(),
-			}).updates(
-				getFailedMentions(serverId).withOverride((arr) =>
-					arr?.filter((m) => m.id !== isIdentifying)
-				)
-			);
-			closeIdentifyDialog();
-		} catch (e) {
-			identifyError = isHttpError(e) ? e.body.message : 'Failed to identify user';
 		}
 	}
 
@@ -180,11 +148,22 @@
 								<th>Score</th>
 								<th>Winner</th>
 								<th>Date</th>
-								<th>Actions</th>
+								<th>
+									{#if mentions.length > 1}
+										<button
+											class="btn gap-1 btn-xs btn-primary"
+											onclick={() => (identifyBulk = displayName)}
+											type="button"
+										>
+											<UserCheck size={12} />
+											Identify All
+										</button>
+									{/if}
+								</th>
 							</tr>
 						</thead>
 						<tbody>
-							{#each mentions as mention (mention.id)}
+							{#each mentions as mention (mention.channelId + mention.messageId + mention.startOfMention)}
 								<tr class:opacity-50={mention.status === 'IGNORED'}>
 									<td>
 										<span class="font-mono text-sm">@{mention.displayName}</span>
@@ -212,10 +191,10 @@
 											<button
 												class="btn gap-1 btn-ghost btn-xs"
 												onclick={() => handleHide(mention)}
-												disabled={isHiding === mention.id || mention.status === 'IGNORED'}
+												disabled={(isHiding !== null && isSameMention(isHiding, mention)) || mention.status === 'IGNORED'}
 												type="button"
 											>
-												{#if isHiding === mention.id}
+												{#if isHiding && isSameMention(isHiding, mention)}
 													<span class="loading loading-xs loading-spinner"></span>
 												{:else if mention.status === 'IGNORED'}
 													<Eye size={14} />
@@ -227,7 +206,12 @@
 											</button>
 											<button
 												class="btn gap-1 text-primary btn-ghost btn-xs"
-												onclick={() => openIdentifyDialog(mention)}
+												onclick={() =>
+													(identifySingle = {
+														channelId: mention.channelId,
+														messageId: mention.messageId,
+														startOfMention: mention.startOfMention,
+													})}
 												type="button"
 											>
 												<UserCheck size={14} />
@@ -245,49 +229,15 @@
 	</div>
 </div>
 
-{#if isIdentifying !== null}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-		role="button"
-		tabindex="0"
-		onclick={closeIdentifyDialog}
-		onkeydown={(e) => e.key === 'Escape' && closeIdentifyDialog()}
-	>
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="card w-96 bg-base-100 shadow-xl" onclick={(e) => e.stopPropagation()}>
-			<div class="card-body">
-				<h3 class="card-title">Identify Failed Mention</h3>
-				<p class="text-sm text-base-content/60">
-					Enter the Discord user ID to associate with this mention.
-				</p>
-				<label class="form-control w-full">
-					<div class="label">
-						<span class="label-text">Discord User ID</span>
-					</div>
-					<input
-						type="text"
-						placeholder="123456789012345678"
-						class="input-bordered input w-full"
-						bind:value={identifyUserId}
-						onkeydown={(e) => e.key === 'Enter' && handleIdentify()}
-					/>
-				</label>
-				{#if identifyError}
-					<div class="alert py-2 alert-error">
-						<AlertTriangle size={16} />
-						<span class="text-sm">{identifyError}</span>
-					</div>
-				{/if}
-				<div class="mt-4 card-actions justify-end">
-					<button class="btn btn-ghost btn-sm" onclick={closeIdentifyDialog} type="button">
-						Cancel
-					</button>
-					<button class="btn btn-sm btn-primary" onclick={handleIdentify} type="button">
-						Identify
-					</button>
-				</div>
-			</div>
-		</div>
-	</div>
+{#if identifySingle !== null || identifyBulk !== null}
+	<IdentifyDialog
+		{serverId}
+		{query}
+		singleMention={identifySingle}
+		bulkDisplayName={identifyBulk}
+		onClose={() => {
+			identifySingle = null;
+			identifyBulk = null;
+		}}
+	/>
 {/if}

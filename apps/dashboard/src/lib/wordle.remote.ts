@@ -1,19 +1,18 @@
 import * as v from 'valibot';
-import { query, getRequestEvent } from '$app/server';
+import { query } from '$app/server';
 import { db } from '$lib/server/db';
 import { auth } from '$lib/server/auth';
 import { error } from '@sveltejs/kit';
 import { discordApi } from '$lib/server/discord';
+import { throwIfNotLoggedIn } from './server/permission.utils';
 
 export const getWordleStats = query(v.string(), async (guildId) => {
-	const { locals } = getRequestEvent();
-
-	if (!locals.user) return error(401, 'Not logged in');
+	const user = throwIfNotLoggedIn();
 
 	const can_list = await auth.api.userHasPermission({
 		body: {
-			userId: locals.user.id,
-			role: locals.user.role,
+			userId: user.id,
+			role: user.role,
 			permissions: { game: ['list'] },
 		},
 	});
@@ -26,14 +25,12 @@ export const getWordleStats = query(v.string(), async (guildId) => {
 });
 
 export const getUserProfileStats = query(v.string(), async (discordId) => {
-	const { locals } = getRequestEvent();
-
-	if (!locals.user) return error(401, 'Not logged in');
+	const user = throwIfNotLoggedIn();
 
 	const can_list = await auth.api.userHasPermission({
 		body: {
-			userId: locals.user.id,
-			role: locals.user.role,
+			userId: user.id,
+			role: user.role,
 			permissions: { game: ['list'] },
 		},
 	});
@@ -46,25 +43,19 @@ export const getUserProfileStats = query(v.string(), async (discordId) => {
 });
 
 export const getGuildLeaderboard = query(v.string(), async (guildId) => {
-	const { locals } = getRequestEvent();
-
-	if (!locals.user) return error(401, 'Not logged in');
+	const user = throwIfNotLoggedIn();
 
 	const can_list = await auth.api.userHasPermission({
 		body: {
-			userId: locals.user.id,
-			role: locals.user.role,
+			userId: user.id,
+			role: user.role,
 			permissions: { game: ['list'] },
 		},
 	});
 
 	if (!can_list.success) return error(403, 'Not authorized');
 
-	const [byWins, byWinRate, byAvgScore] = await Promise.all([
-		db.wordle.getGuildLeaderboardByWins(guildId),
-		db.wordle.getGuildLeaderboardByWinRate(guildId),
-		db.wordle.getGuildLeaderboardByAvgScore(guildId),
-	]);
+	const { byWins, byWinRate, byAvgScore } = await db.wordle.getGuildLeaderboard(guildId);
 
 	const allUsers = new Map<string, (typeof byWins)[number]>();
 	for (const entry of [...byWins, ...byWinRate, ...byAvgScore]) {
@@ -101,14 +92,12 @@ export const getGuildLeaderboard = query(v.string(), async (guildId) => {
 });
 
 export const getGuildSummary = query(v.string(), async (guildId) => {
-	const { locals } = getRequestEvent();
-
-	if (!locals.user) return error(401, 'Not logged in');
+	const user = throwIfNotLoggedIn();
 
 	const can_list = await auth.api.userHasPermission({
 		body: {
-			userId: locals.user.id,
-			role: locals.user.role,
+			userId: user.id,
+			role: user.role,
 			permissions: { game: ['list'] },
 		},
 	});

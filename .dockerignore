@@ -8,7 +8,7 @@
 **/Dockerfile*
 **/docker-compose*
 **/.dockerignore
-packages/db/src/generated/prisma
+packages/database/src/generated/prisma
 
 AGENTS.md
 .opencode/

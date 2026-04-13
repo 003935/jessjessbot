@@ -6,10 +6,11 @@ import { env } from '$env/dynamic/private';
 import type { RequestHandler } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 import { discordApi } from '$lib/server/discord';
+import { parse_wordle_message_v2 } from '@repo/discord-api/utils';
 import { db } from '$lib/server/db';
-import { isGuildAdmin } from '$lib/server/permission.utils';
-import { parse_wordle_message_v2 } from '$lib/server/wordle.utils';
+import { throwIfNotAdmin, throwIfNotLoggedIn } from '$lib/server/permission.utils';
 import type { WordleImportMessage } from '$lib/components/WordleImport.svelte';
+import type { WordleResultMessage } from '@repo/database/utils';
 
 const rest = new REST().setToken(env.DISCORD_BOT_TOKEN);
 const WORDLE_BOT_ID = env.WORDLE_BOT_ID;
@@ -17,68 +18,10 @@ const WORDLE_BOT_ID = env.WORDLE_BOT_ID;
 // Rate limit: 24 hours between imports
 const RATE_LIMIT_MS = 24 * 60 * 60 * 1000;
 
-// Cache for failed mention resolution (max 500 entries, evicts oldest)
-const MAX_CACHE_SIZE = 500;
-const failed_mentions_to_user_id_map = new Map<string, string>();
-
-async function resolve_failed_mentions(
-	rest: REST,
-	guildId: string,
-	failed_mentions: Array<{ text: string; startOfMention: number }>
-): Promise<{
-	userIds: Set<string>;
-	failed: Array<{ text: string; startOfMention: number }>;
-}> {
-	const userIds = new Set<string>();
-	const failed: Array<{ text: string; startOfMention: number }> = [];
-
-	for (const failed_mention of failed_mentions) {
-		const cached_user_id = failed_mentions_to_user_id_map.get(failed_mention.text);
-		if (cached_user_id !== undefined) {
-			userIds.add(cached_user_id);
-			continue;
-		}
-
-		const users = (await rest.get(`/guilds/${guildId}/members/search`, {
-			query: new URLSearchParams({ limit: '5', query: failed_mention.text }),
-		} as RequestData)) as {
-			nick: string;
-			user: {
-				global_name: string;
-				username: string;
-				id: string;
-			};
-		}[];
-
-		const filtered_users = users.filter((member) => {
-			const nickname = member.nick || member.user.global_name || member.user.username;
-			return nickname === failed_mention.text;
-		});
-
-		if (filtered_users.length !== 1) {
-			failed.push(failed_mention);
-			continue;
-		}
-
-		const user = filtered_users[0];
-		if (failed_mentions_to_user_id_map.size >= MAX_CACHE_SIZE) {
-			const firstKey = failed_mentions_to_user_id_map.keys().next().value;
-			if (firstKey !== undefined) failed_mentions_to_user_id_map.delete(firstKey);
-		}
-		failed_mentions_to_user_id_map.set(failed_mention.text, user.user.id);
-		userIds.add(user.user.id);
-	}
-
-	return { userIds, failed };
-}
-
 export const POST: RequestHandler = async ({ params, locals }) => {
 	const { serverId } = params;
-	const user = locals.user;
 
-	if (!user) {
-		error(401, 'Not authenticated');
-	}
+	const user = throwIfNotLoggedIn(locals);
 
 	if (!serverId) {
 		error(400, 'Server ID is required');
@@ -86,11 +29,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 
 	// Check if user is admin
 	const guild_promise = discordApi.getGuild(serverId);
-	const { isAdmin, discordAccount } = await isGuildAdmin(user, guild_promise);
-
-	if (!isAdmin) {
-		error(403, 'You must be a server admin to import Wordle messages');
-	}
+	const { discordID } = await throwIfNotAdmin(user, guild_promise);
 
 	// Check rate limit
 	const canImport = await db.wordleImport.canImport(serverId, RATE_LIMIT_MS);
@@ -106,34 +45,12 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 		let messages_parsed_successfully = 0;
 		let done = false;
 		let expected_total: number | undefined;
-		const unresolved_failed_mentions = new Set<string>();
-
-		// Collect all wins to insert in batch at the end
-		type WinInsert = {
-			guildId: string;
-			channelId: string;
-			discordId: string;
-			message_timestamp: Date;
-			messageId: string;
-			tries: string;
-			winner: boolean;
-		};
-		const wins_to_insert: WinInsert[] = [];
-
-		type FailedMentionInsert = {
-			guildId: string;
-			displayName: string;
-			messageId: string;
-			channelId: string;
-			message_timestamp: Date;
-			tries: string;
-			winner: boolean;
-			startOfMention: number;
-		};
-		const failed_mentions_to_insert: FailedMentionInsert[] = [];
+		let total_failed_mentions = 0;
 
 		// serverId is guaranteed to be defined here due to earlier check
 		const guildId = serverId!;
+
+		const WordleResultMessages: WordleResultMessage[] = [];
 
 		try {
 			while (!done) {
@@ -146,7 +63,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 
 				const response = (await rest.get(`/guilds/${guildId}/messages/search`, {
 					query: new URLSearchParams(queryArgs),
-				} as RequestData)) as {
+				} satisfies RequestData)) as {
 					messages: {
 						id: Snowflake;
 						content: string;
@@ -175,51 +92,21 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 					total_messages++;
 
 					// Parse the Wordle message
-					const parsed = parse_wordle_message_v2(message.content);
-					if (parsed === undefined) {
+					const parsed = parse_wordle_message_v2({
+						guildId,
+						messageId: message.id,
+						content: message.content,
+						channelId: message.channel_id,
+						messageTimestamp: new Date(message.timestamp),
+					});
+
+					if (parsed === null) {
 						continue;
 					}
 
-					// Process each score tier
-					for (const [tries, parsed_line] of Object.entries(parsed)) {
-						let userIds = new Set<string>(parsed_line.mentions);
+					total_failed_mentions += parsed.failedMentions.size;
 
-						// Resolve failed mentions (nicknames without @ mentions)
-						if (parsed_line.failed_mentions.length > 0) {
-							const { userIds: resolved_userIds, failed } = await resolve_failed_mentions(
-								rest,
-								guildId,
-								parsed_line.failed_mentions
-							);
-							for (const failed_mention of failed) {
-								unresolved_failed_mentions.add(failed_mention.text);
-								failed_mentions_to_insert.push({
-									guildId: guildId,
-									displayName: failed_mention.text,
-									messageId: message.id,
-									channelId: message.channel_id,
-									message_timestamp: new Date(message.timestamp),
-									tries: tries,
-									winner: parsed_line.winners,
-									startOfMention: failed_mention.startOfMention,
-								});
-							}
-							userIds = new Set<string>([...userIds, ...resolved_userIds]);
-						}
-
-						// Collect wins for batch insert
-						for (const user_id of userIds) {
-							wins_to_insert.push({
-								guildId: guildId,
-								channelId: message.channel_id,
-								discordId: user_id,
-								message_timestamp: new Date(message.timestamp),
-								messageId: message.id,
-								tries: tries,
-								winner: parsed_line.winners,
-							});
-						}
-					}
+					WordleResultMessages.push(parsed);
 
 					messages_parsed_successfully += 1;
 
@@ -231,7 +118,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 								isDone: false,
 								processed: messages_parsed_successfully,
 								total: expected_total,
-							} as WordleImportMessage)
+							} satisfies WordleImportMessage)
 						);
 						if (emitError) {
 							return;
@@ -254,31 +141,22 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 				await new Promise((resolve) => setTimeout(resolve, 50));
 			}
 
-			// Batch insert all wins in a single transaction
-			if (wins_to_insert.length > 0) {
-				await db.wordle.addWins(wins_to_insert);
-			}
-
-			// Batch insert failed mentions
-			if (failed_mentions_to_insert.length > 0) {
-				await db.failedMentions.addFailedMentions(failed_mentions_to_insert);
-			}
+			const result = await db.wordle.addWordleResultMessages(WordleResultMessages);
 
 			// Record the import in database
-			await db.wordleImport.upsertImport(
-				guildId,
-				discordAccount.accountId,
-				messages_parsed_successfully
-			);
+			await db.wordleImport.upsertImport(guildId, discordID, messages_parsed_successfully);
 
 			emit(
 				'message',
 				JSON.stringify({
 					isDone: true,
 					processed: messages_parsed_successfully,
-					total: expected_total,
-					unresolved_failed_mentions: Array.from(unresolved_failed_mentions),
-				} as WordleImportMessage)
+					total: expected_total ?? 0,
+					total_failed_mentions,
+					succeeded: result.succeeded,
+					failed: result.failed,
+					skipped: result.alreadyExists,
+				} satisfies WordleImportMessage)
 			);
 		} catch (err) {
 			console.error('SSE error:', err);

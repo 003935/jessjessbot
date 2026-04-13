@@ -8,6 +8,29 @@ export function Score_To_String(score: number): string {
 	return 'Unknown';
 }
 
+export interface WordleResultMessage {
+	guildId: string;
+	messageId: string;
+	channelId: string;
+	messageTimestamp: Date;
+	winningScore: number | null;
+	players: Map<
+		string,
+		{
+			discordId: string;
+			score: number;
+		}
+	>;
+	failedMentions: Map<
+		number,
+		{
+			displayName: string;
+			score: number;
+			startOfMention: number;
+		}
+	>;
+}
+
 export function Tries_To_Score(tries: string): number {
 	switch (tries) {
 		case '1':

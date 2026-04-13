@@ -2,9 +2,6 @@
 CREATE TYPE "Region" AS ENUM ('BR1', 'EUN1', 'EUW1', 'KR', 'LA1', 'LA2', 'NA1', 'OC1', 'TR1', 'RU', 'JP1', 'VN2', 'TW2', 'SG2', 'ME1', 'PBE1');
 
 -- CreateEnum
-CREATE TYPE "Score" AS ENUM ('1', '2', '3', '4', '5', '6', 'DNF');
-
--- CreateEnum
 CREATE TYPE "FailedMentionStatus" AS ENUM ('PENDING', 'RESOLVED', 'IGNORED');
 
 -- CreateTable
@@ -113,16 +110,24 @@ CREATE TABLE "verification" (
 );
 
 -- CreateTable
-CREATE TABLE "wordle_results" (
+CREATE TABLE "wordle_result_messages" (
     "guildId" TEXT NOT NULL,
     "messageTimestamp" TIMESTAMP(3) NOT NULL,
     "channelId" TEXT NOT NULL,
     "messageId" TEXT NOT NULL,
-    "discordId" TEXT NOT NULL,
-    "score" "Score" NOT NULL,
-    "winner" BOOLEAN NOT NULL,
+    "winningScore" INTEGER,
 
-    CONSTRAINT "wordle_results_pkey" PRIMARY KEY ("discordId","channelId","messageId")
+    CONSTRAINT "wordle_result_messages_pkey" PRIMARY KEY ("channelId","messageId")
+);
+
+-- CreateTable
+CREATE TABLE "wordle_results" (
+    "channelId" TEXT NOT NULL,
+    "messageId" TEXT NOT NULL,
+    "discordId" TEXT NOT NULL,
+    "score" INTEGER NOT NULL,
+
+    CONSTRAINT "wordle_results_pkey" PRIMARY KEY ("channelId","messageId","discordId")
 );
 
 -- CreateTable
@@ -137,21 +142,17 @@ CREATE TABLE "wordle_imports" (
 
 -- CreateTable
 CREATE TABLE "failed_mentions" (
-    "id" SERIAL NOT NULL,
-    "guildId" TEXT NOT NULL,
-    "displayName" TEXT NOT NULL,
-    "messageId" TEXT NOT NULL,
     "channelId" TEXT NOT NULL,
-    "messageTimestamp" TIMESTAMP(3) NOT NULL,
-    "score" "Score" NOT NULL,
-    "winner" BOOLEAN NOT NULL,
+    "messageId" TEXT NOT NULL,
+    "displayName" TEXT NOT NULL,
+    "score" INTEGER NOT NULL,
     "status" "FailedMentionStatus" NOT NULL DEFAULT 'PENDING',
-    "resolvedUserId" TEXT,
-    "resolvedAt" TIMESTAMP(3),
-    "resolvedBy" TEXT,
+    "resolvedDiscordId" TEXT,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedByDiscordId" TEXT,
     "startOfMention" INTEGER NOT NULL,
 
-    CONSTRAINT "failed_mentions_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "failed_mentions_pkey" PRIMARY KEY ("channelId","messageId","startOfMention")
 );
 
 -- CreateIndex
@@ -178,9 +179,6 @@ CREATE INDEX "verification_identifier_idx" ON "verification"("identifier");
 -- CreateIndex
 CREATE UNIQUE INDEX "wordle_imports_guildId_key" ON "wordle_imports"("guildId");
 
--- CreateIndex
-CREATE UNIQUE INDEX "failed_mentions_channelId_messageId_startOfMention_key" ON "failed_mentions"("channelId", "messageId", "startOfMention");
-
 -- AddForeignKey
 ALTER TABLE "customs" ADD CONSTRAINT "customs_gameName_fkey" FOREIGN KEY ("gameName") REFERENCES "custom_games"("name") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -192,3 +190,9 @@ ALTER TABLE "session" ADD CONSTRAINT "session_userId_fkey" FOREIGN KEY ("userId"
 
 -- AddForeignKey
 ALTER TABLE "account" ADD CONSTRAINT "account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "wordle_results" ADD CONSTRAINT "wordle_results_channelId_messageId_fkey" FOREIGN KEY ("channelId", "messageId") REFERENCES "wordle_result_messages"("channelId", "messageId") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "failed_mentions" ADD CONSTRAINT "failed_mentions_channelId_messageId_fkey" FOREIGN KEY ("channelId", "messageId") REFERENCES "wordle_result_messages"("channelId", "messageId") ON DELETE RESTRICT ON UPDATE CASCADE;

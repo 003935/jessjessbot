@@ -1,21 +1,20 @@
 import type { PageServerLoad } from './$types';
-import { error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { isGuildAdmin } from '$lib/server/permission.utils';
+import { getDiscordAcc, throwIfNotLoggedIn } from '$lib/server/permission.utils';
 import { discordApi } from '$lib/server/discord';
 
-export const load: PageServerLoad = async ({ parent, params }) => {
-	const data = await parent();
+export const load: PageServerLoad = async ({ params, locals }) => {
+	const user = throwIfNotLoggedIn(locals);
 
-	if (!data.user) error(401, 'Not logged in');
-
-	const { isAdmin, guild } = await isGuildAdmin(data.user, params.serverId);
-
-	if (!isAdmin) error(403, 'Not admin');
+	const { isAdmin, guild } = await getDiscordAcc(user, params.serverId);
 
 	const eventGames = await db.games.getAll();
-	const wordleImport = await db.wordleImport.getGuildImport(params.serverId);
 	const emojis = await discordApi.getEmojis();
+
+	let wordleImport = null;
+	if (isAdmin) {
+		wordleImport = await db.wordleImport.getGuildImport(params.serverId);
+	}
 
 	return {
 		guild: {
@@ -27,7 +26,6 @@ export const load: PageServerLoad = async ({ parent, params }) => {
 		games: eventGames,
 		emojis: await emojis,
 		isAdmin,
-		user: data.user,
 		wordleImport: wordleImport
 			? {
 					lastImport: wordleImport.lastImport,

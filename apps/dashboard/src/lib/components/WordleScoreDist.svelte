@@ -36,7 +36,7 @@
 	const allScores = [1, 2, 3, 4, 5, 6, 7];
 
 	const chartData = $derived.by(() => {
-		const data = query.current as ScoreDistribution[] | undefined;
+		const data = query.current;
 		if (!data || data.length === 0) return null;
 
 		const map = new Map(data.map((d) => [d.score, d.count]));
@@ -110,7 +110,7 @@
 	});
 
 	const totalWins = $derived.by(() => {
-		const data = query.current as ScoreDistribution[] | undefined;
+		const data = query.current;
 		if (!data || data.length === 0) return 0;
 		return data.reduce((sum, d) => sum + d.count, 0);
 	});

@@ -24,7 +24,7 @@ export class KingCommand extends Command {
 			return;
 		}
 
-		const sorted = await db.wordle.getSortedWinners(5);
+		const sorted = await db.wordle.getSortedWinners(guild.id, 5);
 
 		if (sorted.length === 0) {
 			await interaction.reply({

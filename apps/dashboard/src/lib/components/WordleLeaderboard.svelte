@@ -69,7 +69,7 @@
 				<div class="overflow-x-auto">
 					<table class="table table-sm">
 						<thead>
-							<tr class="sticky top-0 bg-base-100 z-10">
+							<tr class="sticky top-0 z-10 bg-base-100">
 								<th class="w-12">#</th>
 								<th>Player</th>
 								<th class="text-right">Wins</th>
@@ -88,9 +88,15 @@
 											<div class="h-4 w-24 animate-pulse rounded bg-base-300"></div>
 										</div>
 									</td>
-									<td class="text-right"><div class="ml-auto h-4 w-10 animate-pulse rounded bg-base-300"></div></td>
-									<td class="text-right"><div class="ml-auto h-4 w-12 animate-pulse rounded bg-base-300"></div></td>
-									<td class="text-right"><div class="ml-auto h-4 w-10 animate-pulse rounded bg-base-300"></div></td>
+									<td class="text-right">
+										<div class="ml-auto h-4 w-10 animate-pulse rounded bg-base-300"></div>
+									</td>
+									<td class="text-right">
+										<div class="ml-auto h-4 w-12 animate-pulse rounded bg-base-300"></div>
+									</td>
+									<td class="text-right">
+										<div class="ml-auto h-4 w-10 animate-pulse rounded bg-base-300"></div>
+									</td>
 								</tr>
 							{/each}
 						</tbody>
@@ -106,7 +112,7 @@
 				<div class="overflow-x-auto">
 					<table class="table table-sm">
 						<thead>
-							<tr class="sticky top-0 bg-base-100 z-10">
+							<tr class="sticky top-0 z-10 bg-base-100">
 								<th class="w-12">#</th>
 								<th>Player</th>
 								<th class="text-right">Wins</th>
@@ -136,7 +142,9 @@
 													<User size={16} class="text-base-content/40" />
 												</div>
 											{/if}
-											<span class="font-semibold transition-all group-hover:underline group-hover:text-info">
+											<span
+												class="font-semibold transition-all group-hover:text-info group-hover:underline"
+											>
 												{entry.displayName}
 											</span>
 										</div>

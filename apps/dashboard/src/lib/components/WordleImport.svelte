@@ -5,7 +5,10 @@
 		isDone: v.boolean(),
 		processed: v.number(),
 		total: v.number(),
-		unresolved_failed_mentions: v.optional(v.array(v.string())),
+		total_failed_mentions: v.optional(v.number()),
+		succeeded: v.optional(v.number()),
+		failed: v.optional(v.number()),
+		skipped: v.optional(v.number()),
 	});
 
 	export type WordleImportMessage = v.InferOutput<typeof message_schema>;
@@ -19,12 +22,17 @@
 	import Clock from '@lucide/svelte/icons/clock';
 	import ImportIcon from '@lucide/svelte/icons/download';
 	import Info from '@lucide/svelte/icons/info';
+	import { getFailedMentions } from '$lib/failedMentions.remote';
+	import { getGuildLeaderboard, getGuildSummary, getWordleStats } from '$lib/wordle.remote';
 
 	type Progress = {
 		isDone: boolean;
 		processed: number;
 		total: number;
-		unresolved_failed_mentions?: string[];
+		total_failed_mentions?: number;
+		succeeded?: number;
+		failed?: number;
+		skipped?: number;
 	};
 
 	type WordleImportData = {
@@ -112,19 +120,18 @@
 					if (!value) return;
 					try {
 						const parsed = v.parse(message_schema, JSON.parse(value));
-						if (parsed.unresolved_failed_mentions) {
-							console.warn('Unresolved failed mentions:', parsed.unresolved_failed_mentions);
+						if (parsed.total_failed_mentions) {
+							console.warn('Unresolved failed mentions:', parsed.total_failed_mentions);
 						}
-						progress = {
-							isDone: parsed.isDone,
-							processed: parsed.processed,
-							total: parsed.total,
-							unresolved_failed_mentions: parsed.unresolved_failed_mentions,
-						};
+						progress = parsed;
 
 						if (parsed.isDone) {
 							is_importing = false;
 							last_import_time = Date.now();
+							getFailedMentions(serverId).refresh();
+							getWordleStats(serverId).refresh();
+							getGuildLeaderboard(serverId).refresh();
+							getGuildSummary(serverId).refresh();
 						}
 					} catch (e) {
 						console.error('Failed to parse message:', e);
@@ -212,21 +219,29 @@
 					</div>
 				</div>
 			{:else if progress?.isDone && progress}
-				<div class="alert rounded-xl alert-success" role="status">
+				<div
+					class={[
+						'alert rounded-xl',
+						(progress?.failed ?? 0) > 0 ? 'alert-warning' : 'alert-success',
+					]}
+					role="status"
+				>
 					<CheckCircle size={20} />
 					<div class="flex flex-col">
 						<span class="font-semibold">Import complete!</span>
 						<span class="text-sm">
-							Successfully imported {progress.processed.toLocaleString()} messages.
+							Successfully processed {progress.processed.toLocaleString()} messages.
+							{progress.succeeded ?? 0} succeeded, {progress.failed ?? 0} failed, {progress.skipped ??
+								0} skipped.
 						</span>
 					</div>
 				</div>
-				{#if progress.unresolved_failed_mentions && progress.unresolved_failed_mentions.length > 0}
+				{#if progress.total_failed_mentions && progress.total_failed_mentions > 0}
 					<div class="alert rounded-xl alert-warning" role="alert">
 						<AlertTriangle size={20} />
 						<span>
-							Could not resolve {progress.unresolved_failed_mentions.length} failed mention{progress
-								.unresolved_failed_mentions.length !== 1
+							Could not resolve {progress.total_failed_mentions} failed mention{progress.total_failed_mentions !==
+							1
 								? 's'
 								: ''}.
 						</span>

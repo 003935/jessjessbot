@@ -3,15 +3,15 @@ import { query, command, getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
 import { error } from '@sveltejs/kit';
 import { GameRole_Schema } from './components/GameRoleDialog.svelte';
-import { isGuildAdmin, isLoggedIn } from './server/permission.utils';
+import { throwIfNotAdmin, throwIfNotLoggedIn } from './server/permission.utils';
 
 export const getGameRoles = query(v.string(), async (guildId) => {
 	const { locals } = getRequestEvent();
 
-	const user = isLoggedIn(locals);
+	const user = throwIfNotLoggedIn(locals);
 
 	const [roles, gameRoles, games] = await Promise.all([
-		isGuildAdmin(user, guildId).then(({ guild }) => guild.roles),
+		throwIfNotAdmin(user, guildId).then(({ guild }) => guild.roles),
 		db.game_roles.get_by_guild_id(guildId),
 		db.games.getAll(),
 	]);
@@ -35,7 +35,7 @@ const addGameRole_Schema = v.object({
 export const addGameRole = command(addGameRole_Schema, async (gameRole) => {
 	const { locals } = getRequestEvent();
 
-	const user = isLoggedIn(locals);
+	const user = throwIfNotLoggedIn(locals);
 
 	await Promise.all([
 		db.game_roles
@@ -44,7 +44,7 @@ export const addGameRole = command(addGameRole_Schema, async (gameRole) => {
 		db.game_roles.game_exists_in_guild(gameRole.guildId, gameRole.gameName).then((exists) => {
 			if (exists) error(400, 'Game already assigned');
 		}),
-		isGuildAdmin(user, gameRole.guildId).then(({ guild }) => {
+		throwIfNotAdmin(user, gameRole.guildId).then(({ guild }) => {
 			const roleExists = guild.roles.some((role) => role.id === gameRole.roleId);
 			if (!roleExists) error(404, 'Role not found');
 		}),
@@ -76,7 +76,7 @@ const updateGameRole_Schema = v.object({
 export const updateGameRole = command(updateGameRole_Schema, async (gameRole) => {
 	const { locals } = getRequestEvent();
 
-	const user = isLoggedIn(locals);
+	const user = throwIfNotLoggedIn(locals);
 
 	await Promise.all([
 		db.game_roles
@@ -89,7 +89,7 @@ export const updateGameRole = command(updateGameRole_Schema, async (gameRole) =>
 			if (exists && gameRole.old.gameName !== gameRole.gameName)
 				error(400, 'Game already assigned');
 		}),
-		isGuildAdmin(user, gameRole.old.guildId).then(({ guild }) => {
+		throwIfNotAdmin(user, gameRole.old.guildId).then(({ guild }) => {
 			const roleExists = guild.roles.some((role) => role.id === gameRole.roleId);
 			if (!roleExists) error(404, 'Role not found');
 		}),
@@ -121,8 +121,8 @@ const removeGameRole_Schema = v.object({
 export const removeGameRole = command(removeGameRole_Schema, async (gameRole) => {
 	const { locals } = getRequestEvent();
 
-	const user = isLoggedIn(locals);
-	await isGuildAdmin(user, gameRole.guildId);
+	const user = throwIfNotLoggedIn(locals);
+	await throwIfNotAdmin(user, gameRole.guildId);
 
 	try {
 		await db.game_roles.delete(gameRole.guildId, gameRole.roleId);

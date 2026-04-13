@@ -29,7 +29,7 @@
 		{/each}
 	</div>
 {:else if query.current}
-	{@const summary = query.current as GuildSummary}
+	{@const summary = query.current}
 	<div class="grid grid-cols-2 gap-4 md:grid-cols-5">
 		<div class="rounded-xl bg-base-200/40 p-4">
 			<div class="flex items-center gap-2">

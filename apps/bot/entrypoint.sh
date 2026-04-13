@@ -2,7 +2,7 @@
 set -e
 
 echo "Running migrations..."
-cd packages/db
+cd packages/database
 bunx --bun prisma migrate deploy
 cd ../..
 

@@ -2,10 +2,8 @@ import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { discordApi } from '$lib/server/discord';
 
-export const load: PageServerLoad = async ({ parent }) => {
-	const data = await parent();
-
-	if (!data.user)
+export const load: PageServerLoad = async ({ locals }) => {
+	if (!locals.user)
 		return {
 			servers: [],
 			emojis: [],
@@ -14,7 +12,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 
 	const discordAccount = await db._db.account.findFirst({
 		where: {
-			userId: data.user.id,
+			userId: locals.user.id,
 			providerId: 'discord',
 		},
 	});
@@ -23,11 +21,11 @@ export const load: PageServerLoad = async ({ parent }) => {
 		return {
 			servers: [],
 			emojis: [],
-			user: data.user,
+			user: locals.user,
 		};
 	}
 
-	const user_guilds_promise = discordApi.getUserGuilds(data.user.id, discordAccount.accessToken);
+	const user_guilds_promise = discordApi.getUserGuilds(locals.user.id, discordAccount.accessToken);
 	const bot_guilds_promise = discordApi.getBotGuilds();
 
 	const emojis_promise = discordApi.getEmojis();
@@ -51,7 +49,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 			permissions: guild.permissions,
 		})),
 		emojis: await emojis_promise,
-		user: data.user,
+		user: locals.user,
 		customs,
 	};
 };

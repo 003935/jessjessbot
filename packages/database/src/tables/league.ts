@@ -95,11 +95,8 @@ export class LeagueTable extends DatabaseConnection {
 		const users = await this._db.leagueAccount.findMany();
 		const [ranked, unranked] = users.reduce<[LeagueAccount[], LeagueAccount[]]>(
 			([ranked, unranked], user) => {
-				if (
-					user.leaguedata !== null &&
-					user.leaguedata !== undefined &&
-					(user.leaguedata as any).soloq !== undefined
-				) {
+				const soloq = user.leaguedata?.soloq;
+				if (soloq !== undefined) {
 					ranked.push(user);
 				} else {
 					unranked.push(user);
@@ -110,8 +107,8 @@ export class LeagueTable extends DatabaseConnection {
 		);
 
 		const sorted = ranked.sort((a, b) => {
-			const asoloq = (a.leaguedata as LeagueData | null)?.soloq;
-			const bsoloq = (b.leaguedata as LeagueData | null)?.soloq;
+			const asoloq = a.leaguedata?.soloq;
+			const bsoloq = b.leaguedata?.soloq;
 
 			if (!asoloq || !bsoloq) return 0;
 
