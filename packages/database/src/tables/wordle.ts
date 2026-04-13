@@ -175,7 +175,9 @@ export class WordleTable extends DatabaseConnection {
 			}
 		}
 
-		const recentEntries = allEntries.slice(0, 30);
+		const recentEntries = allEntries
+			.sort((a, b) => b.message.messageTimestamp.getTime() - a.message.messageTimestamp.getTime())
+			.slice(0, 30);
 
 		const recentActivity: RecentEntry[] = recentEntries.map((entry) => ({
 			date: entry.message.messageTimestamp.toISOString(),
