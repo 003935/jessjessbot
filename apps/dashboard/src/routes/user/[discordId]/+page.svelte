@@ -9,105 +9,9 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { Bar } from 'svelte-chartjs';
-	import {
-		Chart as ChartJS,
-		CategoryScale,
-		LinearScale,
-		BarElement,
-		Title,
-		Legend,
-		Tooltip,
-	} from 'chart.js';
-
-	ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Legend, Tooltip);
+	import WordleScoreDist from '$lib/components/WordleScoreDist.svelte';
 
 	let { data }: PageProps = $props();
-
-	const scoreLabels: Record<number, string> = {
-		1: '1/6',
-		2: '2/6',
-		3: '3/6',
-		4: '4/6',
-		5: '5/6',
-		6: '6/6',
-		7: 'DNF',
-	};
-
-	const allScores = [1, 2, 3, 4, 5, 6, 7];
-
-	const chartData = $derived.by(() => {
-		if (data.stats.scoreDistribution.length === 0) return null;
-
-		const map = new Map(data.stats.scoreDistribution.map((d) => [d.score, d.count]));
-		const counts = allScores.map((score) => map.get(score) || 0);
-
-		const colors = [
-			'rgba(16, 185, 129, 0.8)',
-			'rgba(34, 197, 94, 0.8)',
-			'rgba(234, 179, 8, 0.8)',
-			'rgba(249, 115, 22, 0.8)',
-			'rgba(239, 68, 68, 0.8)',
-			'rgba(185, 28, 28, 0.8)',
-			'rgba(75, 85, 99, 0.8)',
-		];
-
-		const borders = [
-			'rgba(16, 185, 129, 1)',
-			'rgba(34, 197, 94, 1)',
-			'rgba(234, 179, 8, 1)',
-			'rgba(249, 115, 22, 1)',
-			'rgba(239, 68, 68, 1)',
-			'rgba(185, 28, 28, 1)',
-			'rgba(75, 85, 99, 1)',
-		];
-
-		return {
-			labels: allScores.map((s) => scoreLabels[s]),
-			datasets: [
-				{
-					label: 'Count',
-					data: counts,
-					backgroundColor: colors,
-					borderColor: borders,
-					borderWidth: 1,
-					borderRadius: 6,
-				},
-			],
-		};
-	});
-
-	const chartOptions = {
-		responsive: true,
-		maintainAspectRatio: false,
-		plugins: {
-			legend: {
-				display: false,
-			},
-			tooltip: {
-				callbacks: {
-					title: (items: { dataIndex: number }[]) => {
-						const idx = items[0]?.dataIndex ?? 0;
-						return `Score: ${scoreLabels[allScores[idx]]}`;
-					},
-					label: (context: { raw: unknown }) => `Count: ${context.raw}`,
-				},
-			},
-		},
-		scales: {
-			x: {
-				grid: {
-					display: false,
-				},
-			},
-			y: {
-				beginAtZero: true,
-				ticks: {
-					stepSize: 1,
-				},
-			},
-		},
-	};
 </script>
 
 <div class="min-h-screen bg-linear-to-br from-base-300/20 via-base-200/30 to-base-100">
@@ -261,9 +165,14 @@
 						</div>
 						<div class="mb-3 h-px bg-linear-to-r from-info/20 to-transparent"></div>
 
-						{#if chartData}
+						{#if data.stats}
 							<div class="h-64">
-								<Bar data={chartData} options={chartOptions} />
+								<WordleScoreDist
+									data={data.stats.scoreDistribution.map((d) => ({
+										score: d.score,
+										value: d.count,
+									}))}
+								/>
 							</div>
 						{:else}
 							<div class="py-10 text-center text-base-content/60">

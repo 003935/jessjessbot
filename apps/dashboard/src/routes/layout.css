@@ -3,6 +3,7 @@
 	themes: dracula --default;
 }
 @import '@fontsource-variable/geist/wght.css';
+@import 'layerchart/daisyui-5.css';
 
 body {
 	font-family: 'Geist Variable', sans-serif;

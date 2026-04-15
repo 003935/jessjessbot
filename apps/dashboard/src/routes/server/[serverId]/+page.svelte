@@ -17,12 +17,16 @@
 	import Wrench from '@lucide/svelte/icons/wrench';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { getWordleStats } from '$lib/wordle.remote';
+	import Trophy from '@lucide/svelte/icons/trophy';
 
 	let { data }: PageProps = $props();
 
 	let dialog: GameRoleDialog | undefined = $state();
 
-	const query = $derived(getGameRoles(data.guild.id));
+	const grQuery = $derived(getGameRoles(data.guild.id));
+
+	const wsQuery = $derived(getWordleStats(data.guild.id));
 </script>
 
 <div class="min-h-screen bg-linear-to-br from-base-300/20 via-base-200/30 to-base-100">
@@ -86,8 +90,8 @@
 									<div>
 										<h3 class="card-title text-xl">Game Roles</h3>
 										<p class="text-xs text-base-content/50">
-											{#if query.loading}Loading...{:else if query.current}{query.current.length} configured{:else}0
-												configured{/if}
+											{#if grQuery.loading}Loading...{:else if grQuery.current}{grQuery.current
+													.length} configured{:else}0 configured{/if}
 										</p>
 									</div>
 								</div>
@@ -100,12 +104,12 @@
 								</button>
 							</div>
 							<div class="mb-3 h-px bg-linear-to-r from-primary/20 to-transparent"></div>
-							{#if query.error}
+							{#if grQuery.error}
 								<div class="alert rounded-xl alert-error">
 									<AlertTriangle size={20} />
 									<span>Failed to load game roles</span>
 								</div>
-							{:else if query.loading}
+							{:else if grQuery.loading}
 								<div class="flex flex-col gap-3 py-8">
 									<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
 									{#each Array(3) as _, i (i)}
@@ -120,7 +124,7 @@
 										</div>
 									{/each}
 								</div>
-							{:else if query.current?.length === 0}
+							{:else if grQuery.current?.length === 0}
 								<div class="py-10 text-center text-base-content/60">
 									<div class="mx-auto mb-4 inline-flex rounded-full bg-base-200/50 p-4">
 										<Shield size={40} class="opacity-40" />
@@ -130,7 +134,7 @@
 								</div>
 							{:else}
 								<div class="flex max-h-[500px] flex-col gap-2 overflow-y-auto pr-1">
-									{#each query.current as game_role (game_role.roleId + game_role.guildId + game_role.gameName)}
+									{#each grQuery.current as game_role (game_role.roleId + game_role.guildId + game_role.gameName)}
 										{@const emoji = game_role.gameIcon
 											? data.emojis.find((e) => e.id === game_role.gameIcon)
 											: null}
@@ -211,7 +215,55 @@
 			</div>
 
 			<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-				<WordleScoreDist serverId={data.guild.id} />
+				<section
+					class="animate-in fade-in slide-in-from-bottom-4 card border border-base-300/50 bg-base-100 shadow-lg delay-200 duration-500"
+				>
+					<div class="card-body">
+						<div class="mb-2 flex items-center justify-between">
+							<div class="flex items-center gap-3">
+								<div class="rounded-xl bg-linear-to-br from-warning/20 to-secondary/20 p-2">
+									<Trophy size={22} class="text-warning" />
+								</div>
+								<div>
+									<h2 class="card-title text-xl">Score Distribution</h2>
+									<p class="text-xs text-base-content/50">
+										{#if wsQuery.loading}Loading...{:else if wsQuery.current}
+											{wsQuery.current.total} total results{:else}No data{/if}
+									</p>
+								</div>
+							</div>
+						</div>
+						<div class="mb-3 h-px bg-linear-to-r from-warning/20 to-transparent"></div>
+
+						{#if wsQuery.error}
+							<div class="alert rounded-xl alert-error">
+								<Trophy size={20} />
+								<span>Failed to load wordle statistics</span>
+							</div>
+						{:else if wsQuery.loading}
+							<div class="flex animate-pulse items-center justify-center py-10">
+								<div class="h-64 w-full rounded bg-base-300"></div>
+							</div>
+						{:else if !wsQuery.current || wsQuery.current.total === 0}
+							<div class="py-10 text-center text-base-content/60">
+								<div class="mx-auto mb-4 inline-flex rounded-full bg-base-200/50 p-4">
+									<Trophy size={40} class="opacity-40" />
+								</div>
+								<p class="text-base font-medium">No wordle results recorded yet</p>
+								<p class="mt-1.5 text-sm">Import wordle results to see statistics</p>
+							</div>
+						{:else}
+							<div class="h-64">
+								<WordleScoreDist
+									data={wsQuery.current.dist.map((d) => ({
+										score: d.score,
+										value: d.count,
+									}))}
+								/>
+							</div>
+						{/if}
+					</div>
+				</section>
 				<WordleLeaderboard serverId={data.guild.id} />
 			</div>
 		</section>

@@ -21,7 +21,10 @@ export const getWordleStats = query(v.string(), async (guildId) => {
 
 	const scoreDistribution = await db.wordle.getScoreDistributionByGuild(guildId);
 
-	return scoreDistribution;
+	return {
+		dist: scoreDistribution,
+		total: scoreDistribution.reduce((acc, d) => acc + d.count, 0),
+	};
 });
 
 export const getUserProfileStats = query(v.string(), async (discordId) => {
