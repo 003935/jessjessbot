@@ -1,4 +1,4 @@
-<script module>
+<script module lang="ts">
 	import * as v from 'valibot';
 
 	const message_schema = v.object({
