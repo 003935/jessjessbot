@@ -9,6 +9,7 @@ model WordleResultMessage {
   winningScore Int?
 
   @@id([channelId, messageId])
+  @@index([guildId])
   @@map("wordle_result_messages")
 }
 
@@ -21,6 +22,7 @@ model WordleResult {
   score          Int
 
   @@id([channelId, messageId, discordId])
+  @@index([discordId])
   @@map("wordle_results")
 }
 

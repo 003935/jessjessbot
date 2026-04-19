@@ -41,6 +41,7 @@
         "@repo/database": "workspace:*",
         "@repo/discord-api": "workspace:*",
         "@repo/typescript-config": "workspace:*",
+        "@repo/valkey": "workspace:*",
         "@sveltejs/adapter-node": "^5.5.4",
         "@sveltejs/kit": "^2.50.2",
         "@sveltejs/vite-plugin-svelte": "^7.0.0",
@@ -90,6 +91,18 @@
     },
     "packages/discord-api": {
       "name": "@repo/discord-api",
+      "dependencies": {
+        "@discordjs/rest": "^2.6.1",
+        "@repo/database": "workspace:*",
+        "@repo/valkey": "workspace:*",
+        "discord-api-types": "^0.38.45",
+      },
+      "devDependencies": {
+        "@repo/typescript-config": "workspace:*",
+      },
+    },
+    "packages/valkey": {
+      "name": "@repo/valkey",
       "dependencies": {
         "@discordjs/rest": "^2.6.1",
         "@repo/database": "workspace:*",
@@ -358,6 +371,8 @@
     "@repo/discord-api": ["@repo/discord-api@workspace:packages/discord-api"],
 
     "@repo/typescript-config": ["@repo/typescript-config@workspace:packages/config-typescript"],
+
+    "@repo/valkey": ["@repo/valkey@workspace:packages/valkey"],
 
     "@rolldown/binding-android-arm64": ["@rolldown/binding-android-arm64@1.0.0-rc.15", "", { "os": "android", "cpu": "arm64" }, "sha512-YYe6aWruPZDtHNpwu7+qAHEMbQ/yRl6atqb/AhznLTnD3UY99Q1jE7ihLSahNWkF4EqRPVC4SiR4O0UkLK02tA=="],
 

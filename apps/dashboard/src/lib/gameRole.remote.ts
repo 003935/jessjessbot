@@ -5,22 +5,33 @@ import { error } from '@sveltejs/kit';
 import { GameRole_Schema } from './components/GameRoleDialog.svelte';
 import { throwIfNotAdmin, throwIfNotLoggedIn } from './server/permission.utils';
 
-export const getGameRoles = query(v.string(), async (guildId) => {
+export const getGameRoles = query<
+	v.StringSchema<undefined>,
+	{
+		gameName: string;
+		roleId: string;
+		roleName?: string;
+	}[]
+>(v.string(), async (guildId) => {
 	const { locals } = getRequestEvent();
 
 	const user = throwIfNotLoggedIn(locals);
 
-	const [roles, gameRoles, games] = await Promise.all([
+	const [roles, gameRoles] = await Promise.all([
 		throwIfNotAdmin(user, guildId).then(({ guild }) => guild.roles),
 		db.game_roles.get_by_guild_id(guildId),
-		db.games.getAll(),
 	]);
 
-	return gameRoles.map((game) => ({
-		...game,
-		role: roles.find((role) => role.id === game.roleId),
-		gameIcon: games.find((g) => g.name === game.gameName)?.icon ?? null,
-	}));
+	const ret = new Map<string, { gameName: string; roleId: string; roleName?: string }>(
+		gameRoles.map((game) => [game.roleId, { gameName: game.gameName, roleId: game.roleId }])
+	);
+
+	for (const role of roles) {
+		const gRole = ret.get(role.id);
+		if (gRole) gRole.roleName = role.name;
+	}
+
+	return Array.from(ret.values());
 });
 
 const addGameRole_Schema = v.object({

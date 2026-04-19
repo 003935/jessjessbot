@@ -16,7 +16,6 @@
 
 <script lang="ts">
 	import { source } from 'sveltekit-sse';
-	import { browser } from '$app/environment';
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import CheckCircle from '@lucide/svelte/icons/check-circle';
 	import Clock from '@lucide/svelte/icons/clock';
@@ -57,21 +56,13 @@
 	let progress = $state<Progress | null>(null);
 	let error = $state<string | null>(null);
 	let is_importing = $state(false);
-	let last_import_time = $state<number | null>(null);
+	let last_import_time = $derived(wordleImport?.lastImport?.getTime() ?? null);
 	let date_now = $state(new Date().getTime());
 
 	let percentage = $derived(progress ? Math.round((progress.processed / progress.total) * 100) : 0);
 
-	$effect(() => {
-		if (wordleImport?.lastImport && browser) {
-			last_import_time = new Date(wordleImport.lastImport).getTime();
-		} else {
-			last_import_time = null;
-		}
-	});
-
 	let rate_limit: RateLimitInfo | null = $derived.by(() => {
-		if (last_import_time === null || !browser) return null;
+		if (last_import_time === null) return null;
 
 		const elapsed = date_now - last_import_time;
 		const cooldown_ms = 24 * 60 * 60 * 1000;
@@ -102,7 +93,7 @@
 	}
 
 	function start_import() {
-		if (is_importing || !browser || rate_limit?.isLimited) return;
+		if (is_importing || rate_limit?.isLimited) return;
 
 		cleanup_connection();
 
@@ -159,7 +150,7 @@
 	}
 
 	$effect(() => {
-		if ((is_importing || rate_limit?.isLimited) && browser) {
+		if (is_importing || rate_limit?.isLimited) {
 			const interval = setInterval(() => {
 				date_now = new Date().getTime();
 			}, 1000);
@@ -285,15 +276,12 @@
 				<button
 					class="btn gap-2 shadow-md transition-all btn-secondary hover:shadow-lg"
 					onclick={start_import}
-					disabled={!browser || is_importing}
+					disabled={is_importing}
 					type="button"
 				>
 					<ImportIcon size={18} />
 					Start Import
 				</button>
-			{/if}
-
-			{#if !is_importing && !progress?.isDone && !error && !rate_limit?.isLimited}
 				<div class="alert rounded-xl border-info/20 alert-info" role="note">
 					<Info size={18} />
 					<div class="text-xs">

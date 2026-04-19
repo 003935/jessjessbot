@@ -1,5 +1,5 @@
-import { AsyncCache, MapAsyncCache } from './cache';
 import { REST } from '@discordjs/rest';
+import { ValkeyDiscordApiModule } from '@repo/valkey';
 import {
 	Routes,
 	type RESTGetCurrentApplicationResult,
@@ -14,113 +14,71 @@ import {
 	type RESTAPIPartialCurrentUserGuild,
 	type APIUser,
 	type RESTGetAPIUserResult,
-	type RESTGetAPIGuildMembersQuery,
 	type RESTGetAPIGuildMembersSearchResult,
 } from 'discord-api-types/v10';
 
 class DiscordApi {
-	private api: REST;
-	private application: APIApplication;
-	private emojis: AsyncCache<APIApplicationEmoji[]>;
-	private botGuilds: AsyncCache<RESTAPIPartialCurrentUserGuild[]>;
+	private readonly api: REST;
+	private readonly application: APIApplication;
 
-	private guild_map: MapAsyncCache<string, APIGuild>;
-	private userGuilds_map: MapAsyncCache<
-		{ userId: string; accessToken: string },
-		RESTAPIPartialCurrentUserGuild[]
-	>;
-	private guildMembers_map: MapAsyncCache<
-		{
-			guildId: string;
-			userId: string;
-		},
-		APIGuildMember
-	>;
-	private user_map: MapAsyncCache<string, APIUser>;
-	private searchGuildMembers_cache: MapAsyncCache<
-		{ guildId: string; query: string },
-		RESTGetAPIGuildMembersSearchResult
-	>;
+	private readonly cache: ValkeyDiscordApiModule;
 
-	constructor(api: REST, application: APIApplication) {
+	constructor(api: REST, application: APIApplication, cache: ValkeyDiscordApiModule) {
 		this.api = api;
 		this.application = application;
-		this.emojis = new AsyncCache<APIApplicationEmoji[]>(
-			1000 * 60 * 60, // 1 hour TTL
-			() => this.fetchEmojis()
-		);
-		this.botGuilds = new AsyncCache<RESTAPIPartialCurrentUserGuild[]>(
-			1000 * 60, // 1 min TTL
-			() => this.fetchBotGuilds()
-		);
-
-		this.guild_map = new MapAsyncCache(
-			1000 * 60 * 5, // 5 min TTL
-			(guildId) => this.fetchGuild(guildId),
-			(guildId) => guildId
-		);
-		this.guildMembers_map = new MapAsyncCache(
-			1000 * 60 * 5, // 5 min TTL
-			({ guildId, userId }) => this.fetchGuildMember(guildId, userId),
-			({ guildId, userId }) => `${guildId}-${userId}`
-		);
-		this.userGuilds_map = new MapAsyncCache(
-			1000 * 60 * 5, // 5 min TTL
-			({ accessToken }) => this.fetchUserGuilds(accessToken),
-			({ userId, accessToken }) => `${userId}-${accessToken}`
-		);
-		this.user_map = new MapAsyncCache(
-			1000 * 60 * 5, // 5 min TTL
-			(userId) => this.fetchUser(userId),
-			(userId) => userId
-		);
-		this.searchGuildMembers_cache = new MapAsyncCache(
-			1000 * 60 * 2, // 2 min TTL
-			({ guildId, query }) => this.fetchSearchGuildMembers(guildId, query),
-			({ guildId, query }) => `${guildId}|${query}`
-		);
+		this.cache = cache;
 	}
 
-	static async fromToken(token: string) {
+	static async fromToken(token: string, module: ValkeyDiscordApiModule) {
 		const api = new REST({
 			version: '10',
 		}).setToken(token);
 		const application = (await api.get(
 			Routes.currentApplication()
 		)) as RESTGetCurrentApplicationResult;
-		return new DiscordApi(api, application);
+		return new DiscordApi(api, application, module);
 	}
 
-	private async fetchEmojis() {
-		const result = (await this.api.get(
-			Routes.applicationEmojis(this.application.id)
-		)) as RESTGetAPIApplicationEmojisResult;
-		return result.items;
+	async getEmojis(): Promise<APIApplicationEmoji[]> {
+		const cached = await this.cache.emojis.get(this.application.id);
+		if (cached) return cached;
+
+		const fetched = (
+			(await this.api.get(
+				Routes.applicationEmojis(this.application.id)
+			)) as RESTGetAPIApplicationEmojisResult
+		).items;
+		await this.cache.emojis.set(this.application.id, fetched);
+		return fetched;
 	}
 
-	private async fetchGuild(guildId: string) {
-		return (await this.api.get(Routes.guild(guildId))) as RESTGetAPIGuildResult;
+	async getGuild(guildId: string): Promise<APIGuild> {
+		const cached = await this.cache.guild.get(guildId);
+		if (cached) return cached;
+
+		const fetched = (await this.api.get(Routes.guild(guildId))) as RESTGetAPIGuildResult;
+		await this.cache.guild.set(guildId, fetched);
+		return fetched;
 	}
 
-	private async fetchGuildMember(guildId: string, userId: string) {
-		return (await this.api.get(Routes.guildMember(guildId, userId))) as RESTGetAPIGuildMemberResult;
+	async getGuildMember(guildId: string, userId: string): Promise<APIGuildMember> {
+		const cached = await this.cache.guildMember.get({ guildID: guildId, userID: userId });
+		if (cached) return cached;
+
+		const fetched = (await this.api.get(
+			Routes.guildMember(guildId, userId)
+		)) as RESTGetAPIGuildMemberResult;
+		await this.cache.guildMember.set({ guildID: guildId, userID: userId }, fetched);
+		return fetched;
 	}
 
-	private async fetchBotGuilds() {
-		return (await this.api.get(Routes.userGuilds())) as RESTGetAPICurrentUserGuildsResult;
-	}
+	async getUser(userId: string): Promise<APIUser> {
+		const cached = await this.cache.user.get(userId);
+		if (cached) return cached;
 
-	private async fetchUserGuilds(accessToken: string) {
-		const api = new REST({
-			version: '10',
-			authPrefix: 'Bearer',
-		}).setToken(accessToken);
-		const result = (await api.get(Routes.userGuilds())) as RESTGetAPICurrentUserGuildsResult;
-		return result;
-	}
-
-	private async fetchUser(userId: string) {
-		return (await this.api.get(Routes.user(userId))) as RESTGetAPIUserResult;
+		const fetched = (await this.api.get(Routes.user(userId))) as RESTGetAPIUserResult;
+		await this.cache.user.set(userId, fetched);
+		return fetched;
 	}
 
 	private async fetchSearchGuildMembers(guildId: string, query: string) {
@@ -132,32 +90,38 @@ class DiscordApi {
 		)) as RESTGetAPIGuildMembersSearchResult;
 	}
 
-	async getEmojis() {
-		return await this.emojis.get();
-	}
-
-	async getGuild(guildId: string) {
-		return await this.guild_map.get(guildId);
-	}
-
-	async getGuildMember(guildId: string, userId: string) {
-		return await this.guildMembers_map.get({ guildId, userId });
-	}
-
-	async getUser(userId: string) {
-		return await this.user_map.get(userId);
-	}
-
 	async searchGuildMembers(guildId: string, query: string) {
-		return await this.searchGuildMembers_cache.get({ guildId, query });
+		return await this.fetchSearchGuildMembers(guildId, query);
 	}
 
-	async getBotGuilds() {
-		return await this.botGuilds.get();
+	async getBotGuilds(): Promise<RESTAPIPartialCurrentUserGuild[]> {
+		const botId = this.application.bot?.id;
+		if (!botId) throw new Error('Bot ID not found');
+
+		const cached = await this.cache.user_guilds.get(botId);
+		if (cached) return cached;
+
+		const fetched = (await this.api.get(Routes.userGuilds())) as RESTGetAPICurrentUserGuildsResult;
+		await this.cache.user_guilds.set(botId, fetched, 1000 * 60);
+		return fetched;
+	}
+
+	private async fetchUserGuilds(accessToken: string): Promise<RESTAPIPartialCurrentUserGuild[]> {
+		const api = new REST({
+			version: '10',
+			authPrefix: 'Bearer',
+		}).setToken(accessToken);
+		const result = (await api.get(Routes.userGuilds())) as RESTGetAPICurrentUserGuildsResult;
+		return result;
 	}
 
 	async getUserGuilds(userId: string, accessToken: string) {
-		return await this.userGuilds_map.get({ userId, accessToken });
+		const cached = await this.cache.user_guilds.get(userId);
+		if (cached) return cached;
+
+		const fetched = await this.fetchUserGuilds(accessToken);
+		await this.cache.user_guilds.set(userId, fetched);
+		return fetched;
 	}
 }
 

@@ -8,7 +8,7 @@
 	"private": true,
 	"scripts": {
 		"format": "prettier --write .",
-		"check": "bun run --cwd ./packages/database check-types && bun run --cwd ./apps/dashboard check-types && bun run --cwd ./apps/bot check-types",
+		"check": "bun run --cwd ./packages/database check && bun run --cwd ./apps/dashboard check && bun run --cwd ./apps/bot check && bun run --cwd ./packages/discord-api check && bun run --cwd ./packages/valkey check",
 		"db:generate": "bun run --cwd ./packages/database db:generate",
 		"db:migrate": "bun run --cwd ./packages/database db:migrate",
 		"dash:dev": "bun run --cwd ./apps/dashboard dev",

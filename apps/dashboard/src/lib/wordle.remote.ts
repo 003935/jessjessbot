@@ -60,14 +60,13 @@ export const getGuildLeaderboard = query(v.string(), async (guildId) => {
 
 	const { byWins, byWinRate, byAvgScore } = await db.wordle.getGuildLeaderboard(guildId);
 
-	const allUsers = new Map<string, (typeof byWins)[number]>();
-	for (const entry of [...byWins, ...byWinRate, ...byAvgScore]) {
-		allUsers.set(entry.discordId, entry);
-	}
+	const allUsers = new Set<string>(
+		[...byWins, ...byWinRate, ...byAvgScore].map((e) => e.discordId)
+	);
 
 	const userMap = new Map<string, { displayName: string; avatarUrl: string | null }>();
-	await Promise.all(
-		Array.from(allUsers.keys()).map(async (discordId) => {
+	await Promise.allSettled(
+		Array.from(allUsers).map(async (discordId) => {
 			let displayName = discordId;
 			let avatarUrl: string | null = null;
 			try {
@@ -91,7 +90,13 @@ export const getGuildLeaderboard = query(v.string(), async (guildId) => {
 			return { ...e, ...user };
 		});
 
-	return { byWins: enrich(byWins), byWinRate: enrich(byWinRate), byAvgScore: enrich(byAvgScore) };
+	const ret = {
+		byWins: enrich(byWins),
+		byWinRate: enrich(byWinRate),
+		byAvgScore: enrich(byAvgScore),
+	};
+
+	return ret;
 });
 
 export const getGuildSummary = query(v.string(), async (guildId) => {
