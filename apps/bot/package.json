@@ -2,7 +2,7 @@
 	"name": "bot",
 	"private": true,
 	"scripts": {
-		"start": "src/index.ts",
+		"start": "bun src/index.ts",
 		"check": "tsc --noEmit"
 	},
 	"dependencies": {
