@@ -6,6 +6,7 @@ import { getRequestEvent } from '$app/server';
 import { db } from './db';
 import { admin as adminPlugin } from 'better-auth/plugins';
 import { ac, admin, user } from '../auth.permissions';
+import valkey from './valkey';
 
 export const auth = betterAuth({
 	baseURL: env.ORIGIN,
@@ -13,6 +14,7 @@ export const auth = betterAuth({
 	database: prismaAdapter(db._db, {
 		provider: 'postgresql',
 	}),
+	secondaryStorage: valkey.authModule,
 	socialProviders: {
 		discord: {
 			clientId: env.DISCORD_CLIENT_ID,

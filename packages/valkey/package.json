@@ -1,10 +1,9 @@
 {
-	"name": "@repo/discord-api",
+	"name": "@repo/valkey",
 	"type": "module",
 	"private": true,
 	"exports": {
-		".": "./src/index.ts",
-		"./utils": "./src/utils.ts"
+		".": "./src/index.ts"
 	},
 	"devDependencies": {
 		"@repo/typescript-config": "workspace:*"
@@ -14,7 +13,6 @@
 	},
 	"dependencies": {
 		"@repo/database": "workspace:*",
-		"@repo/valkey": "workspace:*",
 		"@discordjs/rest": "^2.6.1",
 		"discord-api-types": "^0.38.45"
 	}

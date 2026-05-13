@@ -1,4 +1,4 @@
-import { DatabaseConnection } from './connection';
+import { DatabaseConnection, type DatabaseLogger, type PoolConfig } from './connection';
 import {
 	GamesTable,
 	EventsTable,
@@ -18,8 +18,8 @@ export class Database extends DatabaseConnection {
 	readonly wordleImport: WordleImportTable;
 	readonly failedMentions: FailedMentionsTable;
 
-	constructor(db_url: string) {
-		super(db_url);
+	constructor(db_url: string, poolConfig?: PoolConfig, logger?: DatabaseLogger) {
+		super(db_url, poolConfig, logger);
 		this.events = new EventsTable(this);
 		this.league = new LeagueTable(this);
 		this.wordle = new WordleTable(this);

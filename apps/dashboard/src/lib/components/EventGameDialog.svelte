@@ -76,7 +76,7 @@
 	const handleSubmit: SubmitEventHandler<typeof EventGame_Schema> = async (output) => {
 		const submission_id = crypto.randomUUID();
 		try {
-			let submit_promise: Promise<void>;
+			let submit_promise: Promise<Promise<void>>;
 
 			const old_object_copy = old_state ? { ...old_state } : null;
 

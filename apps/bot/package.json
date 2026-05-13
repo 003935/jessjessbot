@@ -2,8 +2,8 @@
 	"name": "bot",
 	"private": true,
 	"scripts": {
-		"start": "bun run src/index.ts",
-		"check-types": "tsc --noEmit"
+		"start": "bun src/index.ts",
+		"check": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@sapphire/framework": "^5.5.0",

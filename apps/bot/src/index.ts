@@ -6,6 +6,7 @@ import { start_background_rank_update } from '@/modules/league';
 import { start_background_event_checker } from '@/modules/events';
 import { Check_Attachments } from '@/modules/reaction';
 import { Logger } from '@/utils';
+import { db } from '@/db';
 
 const logger = new Logger('Bot', LogLevel.Info);
 const client = new SapphireClient({
@@ -50,6 +51,13 @@ async function gracefulShutdown(signal: string) {
 		logger.info('Discord client destroyed');
 	} catch (error) {
 		logger.error('Error destroying Discord client:', error);
+	}
+
+	try {
+		await db.disconnect();
+		logger.info('Database connection closed');
+	} catch (error) {
+		logger.error('Error closing database connection:', error);
 	}
 
 	logger.info('Shutdown complete');

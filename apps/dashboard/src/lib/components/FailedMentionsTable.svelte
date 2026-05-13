@@ -108,36 +108,36 @@
 		</div>
 		<div class="mb-3 h-px bg-linear-to-r from-warning/20 to-transparent"></div>
 
-		{#if query.error}
-			<div class="alert rounded-xl alert-error">
-				<AlertTriangle size={20} />
-				<span>Failed to load failed mentions</span>
-			</div>
-		{:else if query.loading}
-			<div class="flex flex-col gap-3 py-8">
-				<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
-				{#each Array(3) as _, i (i)}
-					<div
-						class="flex animate-pulse items-center justify-between gap-4 rounded-xl bg-base-200/50 p-3"
-					>
-						<div class="flex items-center gap-4">
-							<div class="h-10 w-10 rounded-lg bg-base-300"></div>
-							<div class="h-4 w-20 rounded bg-base-300"></div>
-						</div>
-						<div class="h-6 w-24 rounded bg-base-300"></div>
-					</div>
-				{/each}
-			</div>
-		{:else if filteredMentions.length === 0}
-			<div class="py-10 text-center text-base-content/60">
-				<div class="mx-auto mb-4 inline-flex rounded-full bg-base-200/50 p-4">
-					<AlertTriangle size={40} class="opacity-40" />
+		<div class="h-96 overflow-x-auto">
+			{#if query.error}
+				<div class="alert rounded-xl alert-error">
+					<AlertTriangle size={20} />
+					<span>Failed to load failed mentions</span>
 				</div>
-				<p class="text-base font-medium">No unresolved failed mentions</p>
-				<p class="mt-1.5 text-sm">All mentions have been resolved or hidden</p>
-			</div>
-		{:else}
-			<div class="h-96 overflow-x-auto">
+			{:else if query.loading}
+				<div class="flex flex-col gap-3 py-8">
+					<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
+					{#each Array(3) as _, i (i)}
+						<div
+							class="flex animate-pulse items-center justify-between gap-4 rounded-xl bg-base-200/50 p-3"
+						>
+							<div class="flex items-center gap-4">
+								<div class="h-10 w-10 rounded-lg bg-base-300"></div>
+								<div class="h-4 w-20 rounded bg-base-300"></div>
+							</div>
+							<div class="h-6 w-24 rounded bg-base-300"></div>
+						</div>
+					{/each}
+				</div>
+			{:else if filteredMentions.length === 0}
+				<div class="py-10 text-center text-base-content/60">
+					<div class="mx-auto mb-4 inline-flex rounded-full bg-base-200/50 p-4">
+						<AlertTriangle size={40} class="opacity-40" />
+					</div>
+					<p class="text-base font-medium">No unresolved failed mentions</p>
+					<p class="mt-1.5 text-sm">All mentions have been resolved or hidden</p>
+				</div>
+			{:else}
 				<table class="table-pin-rows table bg-base-200">
 					{#each getGroupedMentions() as [displayName, mentions] (displayName)}
 						<thead>
@@ -191,7 +191,8 @@
 											<button
 												class="btn gap-1 btn-ghost btn-xs"
 												onclick={() => handleHide(mention)}
-												disabled={(isHiding !== null && isSameMention(isHiding, mention)) || mention.status === 'IGNORED'}
+												disabled={(isHiding !== null && isSameMention(isHiding, mention)) ||
+													mention.status === 'IGNORED'}
 												type="button"
 											>
 												{#if isHiding && isSameMention(isHiding, mention)}
@@ -224,8 +225,8 @@
 						</tbody>
 					{/each}
 				</table>
-			</div>
-		{/if}
+			{/if}
+		</div>
 	</div>
 </div>
 

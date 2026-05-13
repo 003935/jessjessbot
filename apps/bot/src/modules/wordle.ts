@@ -1,5 +1,5 @@
 import { GuildMember, Role, Message } from 'discord.js';
-import { WORDLE_BOT_ID, GUILD_ID, WORDLE_ROLE_ID, CHANNEL_ID } from '@/environment';
+import { WORDLE_BOT_ID, WORDLE_ROLE_ID } from '@/environment';
 import { db } from '@/db';
 import { Logger } from '@/utils';
 import { parse_wordle_message_v2 } from '@repo/discord-api/utils';
@@ -35,8 +35,6 @@ async function sync_wordle_role(winners: Array<GuildMember>, role: Role) {
 export async function wordle_module(message: Message<boolean>) {
 	if (!message.inGuild()) return;
 	const guild = message.guild;
-	if (guild.id !== GUILD_ID) return; // Ignore other guilds
-	if (message.channel.id !== CHANNEL_ID) return; // Only respond in general channel
 	if (message.author.id !== WORDLE_BOT_ID) return; // Ignore non-Wordle bot messages
 
 	logger.info(`Message received:\n${message.content.split('\n').join('\n  ')}`);
