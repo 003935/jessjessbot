@@ -20,6 +20,7 @@
 	import { getWordleStats } from '$lib/wordle.remote';
 	import Trophy from '@lucide/svelte/icons/trophy';
 	import { FrownIcon } from '@lucide/svelte';
+	import Card from '$lib/components/Card.svelte';
 
 	let { data }: PageProps = $props();
 
@@ -146,62 +147,52 @@
 				</div>
 
 				<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-					<section
-						class="animate-in fade-in slide-in-from-bottom-4 card border border-base-300/50 bg-base-100 shadow-lg delay-100 duration-500"
+					<Card
+						Icon={Shield}
+						title="Game Roles"
+						subtext={grQuery.current ? `${grQuery.current.length} configured` : 'Loading...'}
 					>
-						<div class="card-body pb-5">
-							<div class="mb-2 flex items-center justify-between">
-								<div class="flex items-center gap-3">
-									<div class="rounded-xl bg-linear-to-br from-primary/20 to-secondary/20 p-2">
-										<Shield size={22} class="text-primary" />
-									</div>
-									<div>
-										<h3 class="card-title text-xl">Game Roles</h3>
-										<p class="text-xs text-base-content/50">
-											{#if grQuery.loading}Loading...{:else if grQuery.current}{grQuery.current
-													.length} configured{:else}0 configured{/if}
-										</p>
-									</div>
-								</div>
-								<button
-									class="btn gap-2 rounded-lg shadow-md transition-all btn-sm btn-primary hover:shadow-lg"
-									onclick={() => dialog?.open()}
-								>
-									<Plus size={16} />
-									Add Role
-								</button>
-							</div>
-							<div class="mb-3 h-px bg-linear-to-r from-primary/20 to-transparent"></div>
-							<div class="max-h-64 overflow-y-auto">
-								{#if grQuery.error}
+						{#snippet leftside()}
+							<button
+								class="btn gap-2 rounded-lg shadow-md transition-all btn-sm btn-primary hover:shadow-lg"
+								onclick={() => dialog?.open()}
+								disabled={!grQuery.ready}
+							>
+								<Plus size={16} />
+								Add Role
+							</button>
+						{/snippet}
+
+						<div class="h-64">
+							{#if grQuery.error}
+								<div class="flex h-full flex-col items-center justify-center">
 									<div class="alert rounded-xl alert-error">
 										<AlertTriangle size={20} />
 										<span>Failed to load game roles</span>
 									</div>
-								{:else if grQuery.loading}
-									<div class="flex max-h-[500px] flex-col gap-2 overflow-y-auto pr-1">
-										{#each Array(3) as _, i (i)}
-											{@render gr({ gameName: '', roleId: '' }, true)}
-										{/each}
-									</div>
-								{:else if grQuery.current?.length === 0}
-									<div class="py-10 text-center text-base-content/60">
-										<div class="mx-auto mb-4 inline-flex rounded-full bg-base-200/50 p-4">
-											<Shield size={40} class="opacity-40" />
-										</div>
+								</div>
+							{:else if grQuery.loading}
+								<div class="flex flex-col gap-2 pr-1">
+									{#each Array(4) as _, i (i)}
+										{@render gr({ gameName: '', roleId: '' }, true)}
+									{/each}
+								</div>
+							{:else if grQuery.current?.length === 0}
+								<div class="flex h-full flex-col items-center justify-center">
+									<div class="text-center text-base-content/60">
 										<p class="text-base font-medium">No game roles configured yet</p>
 										<p class="mt-1.5 text-sm">Click "Add Role" to get started</p>
 									</div>
-								{:else}
-									<div class="flex max-h-[500px] flex-col gap-2 overflow-y-auto pr-1">
-										{#each grQuery.current as game_role (game_role.roleId + game_role.gameName)}
-											{@render gr(game_role)}
-										{/each}
-									</div>
-								{/if}
-							</div>
+								</div>
+							{:else}
+								<div class="flex flex-col gap-2 pr-1">
+									{#each grQuery.current as game_role (game_role.roleId + game_role.gameName)}
+										{@render gr(game_role)}
+									{/each}
+								</div>
+							{/if}
 						</div>
-					</section>
+					</Card>
 
 					<WordleImport serverId={data.guild.id} wordleImport={data.wordleImport} />
 				</div>
