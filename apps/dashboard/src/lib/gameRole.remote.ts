@@ -1,5 +1,5 @@
 import * as v from 'valibot';
-import { query, command, getRequestEvent } from '$app/server';
+import { query, command, getRequestEvent, requested } from '$app/server';
 import { db } from '$lib/server/db';
 import { error } from '@sveltejs/kit';
 import { GameRole_Schema } from './components/GameRoleDialog.svelte';
@@ -68,6 +68,8 @@ export const addGameRole = command(addGameRole_Schema, async (gameRole) => {
 			roleId: gameRole.roleId,
 			guildId: gameRole.guildId,
 		});
+
+		await requested(getGameRoles, 1).refreshAll();
 	} catch (e) {
 		const errorMessage = e instanceof Error ? e.message : 'Unknown database error';
 		console.error(`[GameRole] Failed to add game role: ${errorMessage}`, {
@@ -112,6 +114,7 @@ export const updateGameRole = command(updateGameRole_Schema, async (gameRole) =>
 			roleId: gameRole.roleId,
 			gameName: gameRole.gameName,
 		});
+		await requested(getGameRoles, 1).refreshAll();
 	} catch (e) {
 		const errorMessage = e instanceof Error ? e.message : 'Unknown database error';
 		console.error(`[GameRole] Failed to update game role: ${errorMessage}`, {
@@ -137,6 +140,7 @@ export const removeGameRole = command(removeGameRole_Schema, async (gameRole) =>
 
 	try {
 		await db.game_roles.delete(gameRole.guildId, gameRole.roleId);
+		await requested(getGameRoles, 1).refreshAll();
 	} catch (e) {
 		const errorMessage = e instanceof Error ? e.message : 'Unknown database error';
 		console.error(`[GameRole] Failed to remove game role: ${errorMessage}`, {

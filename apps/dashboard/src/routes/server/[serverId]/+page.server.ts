@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { getDiscordAcc, throwIfNotLoggedIn } from '$lib/server/permission.utils';
 import { discordApi } from '$lib/server/discord';
+import { ChannelType } from 'discord-api-types/v10';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const user = throwIfNotLoggedIn(locals);
@@ -11,9 +12,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const eventGames = await db.games.getAll();
 	const emojis = await discordApi.getEmojis();
 
-	let wordleImport = null;
+	let channels: null | Awaited<ReturnType<typeof discordApi.getGuildChannels>> = null;
+	let wordleImport: null | Awaited<ReturnType<typeof db.wordleImport.getGuildImport>> = null;
+	let config: null | Awaited<ReturnType<typeof db.config.getConfig>> = null;
 	if (isAdmin) {
+		channels = await discordApi.getGuildChannels(guild.id);
 		wordleImport = await db.wordleImport.getGuildImport(params.serverId);
+		config = await db.config.getConfig(guild.id);
 	}
 
 	return {
@@ -26,6 +31,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		games: eventGames,
 		emojis: await emojis,
 		isAdmin,
+		channels: channels
+			?.filter((c) => c.type === ChannelType.GuildText)
+			.map((c) => ({ id: c.id, name: c.name })),
+		config,
 		wordleImport: wordleImport
 			? {
 					lastImport: wordleImport.lastImport,

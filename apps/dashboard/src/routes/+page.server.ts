@@ -3,11 +3,14 @@ import { db } from '$lib/server/db';
 import { discordApi } from '$lib/server/discord';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	const bot_guilds_promise = discordApi.getBotGuilds();
+
 	if (!locals.user)
 		return {
 			servers: [],
 			emojis: [],
 			user: null,
+			bot_guild_count: (await bot_guilds_promise).length,
 		};
 
 	const discordAccount = await db._db.account.findFirst({
@@ -22,11 +25,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 			servers: [],
 			emojis: [],
 			user: locals.user,
+			bot_guild_count: (await bot_guilds_promise).length,
 		};
 	}
 
 	const user_guilds_promise = discordApi.getUserGuilds(locals.user.id, discordAccount.accessToken);
-	const bot_guilds_promise = discordApi.getBotGuilds();
 
 	const emojis_promise = discordApi.getEmojis();
 
@@ -51,5 +54,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 		emojis: await emojis_promise,
 		user: locals.user,
 		customs,
+		bot_guild_count: bot_guilds.length,
 	};
 };

@@ -8,5 +8,6 @@
 	},
 	"[svelte]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
-	}
+	},
+	"tailwindCSS.classAttributes": ["class", "className"]
 }

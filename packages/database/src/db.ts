@@ -7,6 +7,7 @@ import {
 	GameRolesTable,
 	WordleImportTable,
 	FailedMentionsTable,
+	ConfigTable,
 } from './tables';
 
 export class Database extends DatabaseConnection {
@@ -17,6 +18,7 @@ export class Database extends DatabaseConnection {
 	readonly game_roles: GameRolesTable;
 	readonly wordleImport: WordleImportTable;
 	readonly failedMentions: FailedMentionsTable;
+	readonly config: ConfigTable;
 
 	constructor(db_url: string, poolConfig?: PoolConfig, logger?: DatabaseLogger) {
 		super(db_url, poolConfig, logger);
@@ -27,5 +29,6 @@ export class Database extends DatabaseConnection {
 		this.game_roles = new GameRolesTable(this);
 		this.wordleImport = new WordleImportTable(this);
 		this.failedMentions = new FailedMentionsTable(this);
+		this.config = new ConfigTable(this);
 	}
 }

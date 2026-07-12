@@ -4,6 +4,11 @@
 	import User from '@lucide/svelte/icons/user';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import * as Card from '$lib/components/ui/card/index.js';
+	import * as Empty from '$lib/components/ui/empty/index.js';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
+	import * as Table from '$lib/components/ui/table/index.js';
+	import * as Avatar from '$lib/components/ui/avatar/index.js';
 
 	let { serverId }: { serverId: string } = $props();
 
@@ -22,54 +27,37 @@
 	};
 </script>
 
-<section
-	class="animate-in fade-in slide-in-from-bottom-4 card border border-base-300/50 bg-base-100 shadow-lg delay-300 duration-500"
->
-	<div class="card-body">
-		<div class="mb-2 flex items-center justify-between">
-			<div class="flex items-center gap-3">
-				<div class="rounded-xl bg-linear-to-br from-info/20 to-secondary/20 p-2">
-					<Trophy size={22} class="text-info" />
-				</div>
-				<div>
-					<h2 class="card-title text-xl">Leaderboard</h2>
-					<p class="text-xs text-base-content/50">Top 10 players {sortLabel[sortBy]}</p>
-				</div>
-			</div>
-			<div class="join">
-				<button
-					class={['btn join-item btn-xs btn-neutral', sortBy === 'byWins' ? 'btn-primary' : '']}
-					onclick={() => (sortBy = 'byWins')}
-				>
-					Wins
-				</button>
-				<button
-					class={['btn join-item btn-xs btn-neutral', sortBy === 'byWinRate' ? 'btn-primary' : '']}
-					onclick={() => (sortBy = 'byWinRate')}
-				>
-					Win Rate
-				</button>
-				<button
-					class={['btn join-item btn-xs btn-neutral', sortBy === 'byAvgScore' ? 'btn-primary' : '']}
-					onclick={() => (sortBy = 'byAvgScore')}
-				>
-					Avg Score
-				</button>
-			</div>
-		</div>
-		<div class="mb-3 h-px bg-linear-to-r from-info/20 to-transparent"></div>
-
+<Card.Root>
+	<Card.Header>
+		<Card.Title>Leaderboard</Card.Title>
+		<Card.Description>
+			Top 10 players {sortLabel[sortBy]}
+		</Card.Description>
+		<Card.Action>
+			<ToggleGroup.Root type="single" bind:value={sortBy}>
+				<ToggleGroup.Item value="byWins">Wins</ToggleGroup.Item>
+				<ToggleGroup.Item value="byWinRate">Win Rate</ToggleGroup.Item>
+				<ToggleGroup.Item value="byAvgScore">Avg Score</ToggleGroup.Item>
+			</ToggleGroup.Root>
+		</Card.Action>
+	</Card.Header>
+	<Card.Content class="flex h-64">
 		{#if query.error}
-			<div class="alert rounded-xl alert-error">
-				<Trophy size={20} />
-				<span>Failed to load leaderboard</span>
-			</div>
+			<Empty.Root>
+				<Empty.Header>
+					<Empty.Media variant="icon">
+						<Trophy class="opacity-40" />
+					</Empty.Media>
+					<Empty.Title>Error</Empty.Title>
+					<Empty.Description>Failed to load leaderboard</Empty.Description>
+				</Empty.Header>
+			</Empty.Root>
 		{:else if query.loading || !query.current}
 			<div class="max-h-64 overflow-y-auto">
 				<div class="overflow-x-auto">
-					<table class="table table-sm">
+					<table class="table-sm table">
 						<thead>
-							<tr class="sticky top-0 z-10 bg-base-100">
+							<tr class="bg-base-100 sticky top-0 z-10">
 								<th class="w-12">#</th>
 								<th>Player</th>
 								<th class="text-right">Wins</th>
@@ -81,21 +69,21 @@
 							<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
 							{#each Array(5) as _, i (i)}
 								<tr>
-									<td><div class="h-4 w-6 animate-pulse rounded bg-base-300"></div></td>
+									<td><div class="bg-base-300 h-4 w-6 animate-pulse rounded"></div></td>
 									<td>
 										<div class="flex items-center gap-2">
-											<div class="h-8 w-8 animate-pulse rounded-full bg-base-300"></div>
-											<div class="h-4 w-24 animate-pulse rounded bg-base-300"></div>
+											<div class="bg-base-300 h-8 w-8 animate-pulse rounded-full"></div>
+											<div class="bg-base-300 h-4 w-24 animate-pulse rounded"></div>
 										</div>
 									</td>
 									<td class="text-right">
-										<div class="ml-auto h-4 w-10 animate-pulse rounded bg-base-300"></div>
+										<div class="bg-base-300 ml-auto h-4 w-10 animate-pulse rounded"></div>
 									</td>
 									<td class="text-right">
-										<div class="ml-auto h-4 w-12 animate-pulse rounded bg-base-300"></div>
+										<div class="bg-base-300 ml-auto h-4 w-12 animate-pulse rounded"></div>
 									</td>
 									<td class="text-right">
-										<div class="ml-auto h-4 w-10 animate-pulse rounded bg-base-300"></div>
+										<div class="bg-base-300 ml-auto h-4 w-10 animate-pulse rounded"></div>
 									</td>
 								</tr>
 							{/each}
@@ -104,66 +92,58 @@
 				</div>
 			</div>
 		{:else if data.length === 0}
-			<div class="py-6 text-center text-base-content/60">
-				<p class="text-sm">No leaderboard data available</p>
-			</div>
+			<Empty.Root>
+				<Empty.Header>
+					<Empty.Media variant="icon">
+						<Trophy class="opacity-40" />
+					</Empty.Media>
+					<Empty.Title>No Data</Empty.Title>
+					<Empty.Description>No leaderboard data available</Empty.Description>
+				</Empty.Header>
+			</Empty.Root>
 		{:else}
-			<div class="max-h-64 overflow-y-auto">
-				<div class="overflow-x-auto">
-					<table class="table table-sm">
-						<thead>
-							<tr class="sticky top-0 z-10 bg-base-100">
-								<th class="w-12">#</th>
-								<th>Player</th>
-								<th class="text-right">Wins</th>
-								<th class="text-right">Win Rate</th>
-								<th class="text-right">Avg Score</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each data as entry, index (entry.discordId)}
-								<tr
-									class="group cursor-pointer transition-colors hover:bg-info/10"
-									onclick={() => goto(resolve(`/user/${entry.discordId}?serverId=${serverId}`))}
-								>
-									<td class="font-mono font-bold text-base-content/50">{index + 1}</td>
-									<td>
-										<div class="flex items-center gap-2">
-											{#if entry.avatarUrl}
-												<div class="avatar">
-													<div class="mask w-8 rounded-full">
-														<img src={entry.avatarUrl} alt="" />
-													</div>
-												</div>
-											{:else}
-												<div
-													class="flex h-8 w-8 items-center justify-center rounded-full bg-base-300"
-												>
-													<User size={16} class="text-base-content/40" />
-												</div>
-											{/if}
-											<span
-												class="font-semibold transition-all group-hover:text-info group-hover:underline"
-											>
-												{entry.displayName}
-											</span>
-										</div>
-									</td>
-									<td class="text-right font-bold">{entry.wins}</td>
-									<td class="text-right">{entry.winRate.toFixed(1)}%</td>
-									<td class="text-right">
-										{#if entry.avgScore !== null}
-											{entry.avgScore.toFixed(1)}
-										{:else}
-											N/A
-										{/if}
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			</div>
+			<Table.Root>
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>#</Table.Head>
+						<Table.Head>Player</Table.Head>
+						<Table.Head>Wins</Table.Head>
+						<Table.Head>Win Rate</Table.Head>
+						<Table.Head>Avg Score</Table.Head>
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each data as entry, index (entry.discordId)}
+						<Table.Row
+							onclick={() => goto(resolve(`/user/${entry.discordId}?serverId=${serverId}`))}
+						>
+							<Table.Cell>{index + 1}</Table.Cell>
+							<Table.Cell>
+								<div class="flex items-center gap-2">
+									<Avatar.Root>
+										<Avatar.Image src={entry.avatarUrl} alt={entry.displayName} />
+										<Avatar.Fallback>{entry.displayName.charAt(0)}</Avatar.Fallback>
+									</Avatar.Root>
+									<span
+										class="group-hover:text-info font-semibold transition-all group-hover:underline"
+									>
+										{entry.displayName}
+									</span>
+								</div>
+							</Table.Cell>
+							<Table.Cell>{entry.wins}</Table.Cell>
+							<Table.Cell>{entry.winRate.toFixed(1)}%</Table.Cell>
+							<Table.Cell>
+								{#if entry.avgScore !== null}
+									{entry.avgScore.toFixed(1)}
+								{:else}
+									N/A
+								{/if}
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
 		{/if}
-	</div>
-</section>
+	</Card.Content>
+</Card.Root>

@@ -15,6 +15,7 @@ import {
 	type APIUser,
 	type RESTGetAPIUserResult,
 	type RESTGetAPIGuildMembersSearchResult,
+	RESTGetAPIGuildChannelsResult,
 } from 'discord-api-types/v10';
 
 class DiscordApi {
@@ -122,6 +123,74 @@ class DiscordApi {
 		const fetched = await this.fetchUserGuilds(accessToken);
 		await this.cache.user_guilds.set(userId, fetched);
 		return fetched;
+	}
+
+	async getGuildChannels(guildId: string) {
+		const res = (await await this.api.get(
+			Routes.guildChannels(guildId)
+		)) as RESTGetAPIGuildChannelsResult;
+
+		return res;
+	}
+
+	async reactToMessage(channelId: string, messageID: string, emojiId: string) {
+		await this.api.put(Routes.channelMessageOwnReaction(channelId, messageID, emojiId));
+	}
+
+	async sendCustomMessage(
+		channelId: string,
+		content: {
+			roleId?: string;
+			emojiId?: string;
+			gameName: string;
+			time: string;
+			name?: string;
+		}
+	) {
+		let emoji: APIApplicationEmoji | undefined;
+		if (content.emojiId) {
+			const emojis = await this.getEmojis(); // FIXME change to single fetch?
+			emoji = emojis.find((e) => e.id === content.emojiId);
+		}
+
+		const text_components = [
+			{
+				type: 10,
+				content: `# ${content.name ?? content.gameName} ${content.roleId ? `<@&${content.roleId}>` : ''}`,
+			},
+			{
+				type: 10,
+				content: `React with ✅ to sign up!`,
+			},
+		];
+
+		const ret = await this.api.post(Routes.channelMessages(channelId), {
+			body: {
+				components: [
+					{
+						type: 17,
+						accent_color: null,
+						spoiler: false,
+						components: emoji
+							? [
+									{
+										type: 9,
+										components: text_components,
+										accessory: {
+											type: 11,
+											media: {
+												url: `https://cdn.discordapp.com/emojis/${emoji.id}.webp?animated=${emoji.animated}`,
+											},
+										},
+									},
+								]
+							: text_components,
+					},
+				],
+				flags: 32768,
+			},
+		});
+		return (ret as { id: string }).id;
 	}
 }
 

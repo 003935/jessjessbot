@@ -5,6 +5,7 @@ model Custom {
   messageId     String
   scheduledTime DateTime
   gameName      String
+  name          String?
   game          CustomGame @relation(fields: [gameName], references: [name], onDelete: Cascade, onUpdate: Cascade)
 
   @@map("customs")

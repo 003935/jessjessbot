@@ -14,6 +14,7 @@ export class EventsTable extends DatabaseConnection {
 		messageId: string;
 		scheduledTime: Date;
 		gameName: string;
+		name?: string;
 	}) {
 		await this._db.custom.create({ data: event });
 	}
