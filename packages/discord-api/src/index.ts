@@ -15,7 +15,7 @@ import {
 	type APIUser,
 	type RESTGetAPIUserResult,
 	type RESTGetAPIGuildMembersSearchResult,
-	RESTGetAPIGuildChannelsResult,
+	type RESTGetAPIGuildChannelsResult,
 } from 'discord-api-types/v10';
 
 class DiscordApi {
@@ -156,13 +156,22 @@ class DiscordApi {
 		const text_components = [
 			{
 				type: 10,
-				content: `# ${content.name ?? content.gameName} ${content.roleId ? `<@&${content.roleId}>` : ''}`,
-			},
-			{
-				type: 10,
-				content: `React with ✅ to sign up!`,
+				content: `# ${content.name ?? content.gameName}`,
 			},
 		];
+
+		const date = new Date(content.time);
+		const scheduledTime = Math.floor(date.getTime() / 1000);
+
+		text_components.push({
+			type: 10,
+			content: `${content.roleId ? `<@&${content.roleId}>` : ''} <t:${scheduledTime}:t> `,
+		});
+
+		text_components.push({
+			type: 10,
+			content: `React with ✅ to sign up!`,
+		});
 
 		const ret = await this.api.post(Routes.channelMessages(channelId), {
 			body: {

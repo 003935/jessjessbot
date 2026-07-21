@@ -2,7 +2,6 @@ import { Command } from '@sapphire/framework';
 import { RIOT_API_KEY } from '@/environment';
 import { ContainerBuilder, MessageFlags } from 'discord.js';
 import { Constants, LolApi, RiotApi } from 'twisted';
-import { Regions, Tiers } from 'twisted/dist/constants';
 import { db } from '@/db';
 import { Logger } from '@/utils';
 
@@ -10,27 +9,30 @@ const logger = new Logger('LeagueLeaderboard');
 const riotApi = new RiotApi({ key: RIOT_API_KEY });
 const lolApi = new LolApi({ key: RIOT_API_KEY });
 
-function shortenTier(tier: Tiers): string {
+type Tier = (typeof Constants.Tiers)[keyof typeof Constants.Tiers];
+type Region = (typeof Constants.Regions)[keyof typeof Constants.Regions];
+
+function shortenTier(tier: Tier): string {
 	switch (tier) {
-		case Tiers.CHALLENGER:
+		case Constants.Tiers.CHALLENGER:
 			return '<:chall:1481245575323193496>';
-		case Tiers.GRANDMASTER:
+		case Constants.Tiers.GRANDMASTER:
 			return '<:gm:1481245503843995800>';
-		case Tiers.MASTER:
+		case Constants.Tiers.MASTER:
 			return '<:master:1481243836478001212>';
-		case Tiers.DIAMOND:
+		case Constants.Tiers.DIAMOND:
 			return '<:diamond:1481247193863291001>';
-		case Tiers.EMERALD:
+		case Constants.Tiers.EMERALD:
 			return '<:emerald:1481247224762601584>';
-		case Tiers.PLATINUM:
+		case Constants.Tiers.PLATINUM:
 			return '<:plat:1481247241745207418>';
-		case Tiers.GOLD:
+		case Constants.Tiers.GOLD:
 			return '<:gold:1481247259504017550>';
-		case Tiers.SILVER:
+		case Constants.Tiers.SILVER:
 			return '<:silver:1481249419205804123>';
-		case Tiers.BRONZE:
+		case Constants.Tiers.BRONZE:
 			return '<:bronze:1481249459185909860>';
-		case Tiers.IRON:
+		case Constants.Tiers.IRON:
 			return '<:iron:1481249532791750758>';
 		default:
 			const _never: never = tier;
@@ -40,17 +42,17 @@ function shortenTier(tier: Tiers): string {
 
 function treat_soloq(soloq_data: { tier: string; rank: string; lp: number }): string {
 	switch (soloq_data.tier) {
-		case Tiers.CHALLENGER:
-		case Tiers.GRANDMASTER:
-		case Tiers.MASTER:
+		case Constants.Tiers.CHALLENGER:
+		case Constants.Tiers.GRANDMASTER:
+		case Constants.Tiers.MASTER:
 			return `${shortenTier(soloq_data.tier)} ${soloq_data.lp} LP`;
-		case Tiers.DIAMOND:
-		case Tiers.EMERALD:
-		case Tiers.PLATINUM:
-		case Tiers.GOLD:
-		case Tiers.SILVER:
-		case Tiers.BRONZE:
-		case Tiers.IRON:
+		case Constants.Tiers.DIAMOND:
+		case Constants.Tiers.EMERALD:
+		case Constants.Tiers.PLATINUM:
+		case Constants.Tiers.GOLD:
+		case Constants.Tiers.SILVER:
+		case Constants.Tiers.BRONZE:
+		case Constants.Tiers.IRON:
 			return `${shortenTier(soloq_data.tier)} ${soloq_data.rank} ${soloq_data.lp} LP`;
 		default:
 			return 'undefined';
@@ -91,7 +93,7 @@ export class LeagueLeaderboardCommand extends Command {
 		try {
 			const summoner = await lolApi.Summoner.getByPUUID(
 				rankone.riotPuuid,
-				rankone.region as Regions
+				rankone.region as Region
 			);
 			const iconURL = `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/profile-icons/${summoner.response.profileIconId}.jpg`;
 			const bee = '<:bee001:1481311305603485756>';

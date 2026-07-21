@@ -1,5 +1,5 @@
 import { DatabaseConnection } from '../connection';
-import { ServerConfig } from '../generated/prisma/client';
+import { type ServerConfig } from '../generated/prisma/client';
 
 type ConfigOptions = Omit<ServerConfig, 'guildId'>;
 

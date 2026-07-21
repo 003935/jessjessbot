@@ -22,6 +22,6 @@
 		"prisma": "^7.7.0",
 		"prisma-json-types-generator": "^4.1.1",
 		"twisted": "^1.72.2",
-		"typescript": "^5.9.3"
+		"typescript": "^7.0.2"
 	}
 }

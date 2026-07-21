@@ -1,14 +1,16 @@
 import { Command } from '@sapphire/framework';
 import { RIOT_API_KEY } from '@/environment';
 import { MessageFlags } from 'discord.js';
-import { LolApi, RiotApi } from 'twisted';
-import { Regions, regionToRegionGroupForAccountAPI, Tiers } from 'twisted/dist/constants';
+import { LolApi, RiotApi, Constants } from 'twisted';
 import { db } from '@/db';
 import { Logger } from '@/utils';
 
 const logger = new Logger('AddLeagueAccount');
 const riotApi = new RiotApi({ key: RIOT_API_KEY });
 const lolApi = new LolApi({ key: RIOT_API_KEY });
+
+type Region = (typeof Constants.Regions)[keyof typeof Constants.Regions];
+type Tier = (typeof Constants.Tiers)[keyof typeof Constants.Tiers];
 
 export class AddLeagueAccountCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -28,8 +30,10 @@ export class AddLeagueAccountCommand extends Command {
 						.setName('region')
 						.setDescription('account region')
 						.setChoices(
-							Object.entries(Regions)
-								.filter(([_, val]) => [Regions.EU_WEST, Regions.AMERICA_NORTH].includes(val))
+							Object.entries(Constants.Regions)
+								.filter(([_, val]) =>
+									[Constants.Regions.EU_WEST, Constants.Regions.AMERICA_NORTH].includes(val)
+								)
 								.map(([id, val]) => ({
 									name: id,
 									value: val,
@@ -60,8 +64,9 @@ export class AddLeagueAccountCommand extends Command {
 			const account = await riotApi.Account.getByRiotId(
 				gamename!,
 				tagline!,
-				regionToRegionGroupForAccountAPI(region as Regions)
+				Constants.regionToRegionGroupForAccountAPI(region as Region)
 			);
+
 			const dbAccounts = await db.league.getAccounts(interaction.user.id);
 
 			const alreadyAdded = dbAccounts?.some((acc) => acc.riotPuuid === account.response.puuid);
@@ -75,7 +80,7 @@ export class AddLeagueAccountCommand extends Command {
 				return;
 			}
 
-			const leagueData = await lolApi.League.byPUUID(account.response.puuid, region as Regions);
+			const leagueData = await lolApi.League.byPUUID(account.response.puuid, region as Region);
 			// TODO: Add TFT API integration when available
 			// const tftData = await tftApi.League.getByPUUID(account.response.puuid, Constants.Regions.EU_WEST)
 			const league_soloq = leagueData.response.find(
@@ -87,14 +92,14 @@ export class AddLeagueAccountCommand extends Command {
 				riotPuuid: account.response.puuid,
 				riotGamename: account.response.gameName,
 				riotTagline: account.response.tagLine,
-				region: region as Regions,
+				region: region as Region,
 				leaguedata: {
 					soloq:
 						league_soloq !== undefined
 							? {
 									lp: league_soloq.leaguePoints,
 									rank: league_soloq.rank,
-									tier: league_soloq.tier as Tiers,
+									tier: league_soloq.tier as Tier,
 									wins: league_soloq.wins,
 								}
 							: undefined,
