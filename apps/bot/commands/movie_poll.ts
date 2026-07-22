@@ -8,6 +8,7 @@ export class RequestCommand extends Command {
 			...options,
 			preconditions: ['GuildTextOnly'],
 			requiredUserPermissions: ['Administrator'],
+			requiredClientPermissions: ['SendPolls'],
 		});
 	}
 
