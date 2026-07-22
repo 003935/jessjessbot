@@ -21,7 +21,7 @@ async function getGamesFromCache() {
 
 export class CustomsCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
-		super(context, { ...options });
+		super(context, { ...options, preconditions: ['GuildTextOnly'] });
 	}
 
 	public override async registerApplicationCommands(registry: Command.Registry) {

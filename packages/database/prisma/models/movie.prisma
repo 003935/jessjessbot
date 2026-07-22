@@ -1,0 +1,23 @@
+model Movie {
+  imdbId     String @id
+  imdbRating Float
+  title      String
+  year       Int    @db.SmallInt
+  runtime    String
+  genre      String
+  poster     String
+
+  requests Request[]
+
+  @@map("movies")
+}
+
+model Request {
+  dServerId String
+  dUserID   String
+
+  imdbId String
+  movie  Movie  @relation(fields: [imdbId], references: [imdbId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([dServerId, dUserID, imdbId])
+}

@@ -6,3 +6,4 @@ export * from './games';
 export * from './wordle_import';
 export * from './failed_mentions';
 export * from './config';
+export * from './movie';

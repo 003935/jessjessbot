@@ -14,7 +14,7 @@ type Tier = (typeof Constants.Tiers)[keyof typeof Constants.Tiers];
 
 export class AddLeagueAccountCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
-		super(context, { ...options });
+		super(context, { ...options, preconditions: ['GuildTextOnly'] });
 	}
 
 	public override registerApplicationCommands(registry: Command.Registry) {

@@ -61,7 +61,7 @@ function treat_soloq(soloq_data: { tier: string; rank: string; lp: number }): st
 
 export class LeagueLeaderboardCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
-		super(context, { ...options });
+		super(context, { ...options, preconditions: ['GuildTextOnly'] });
 	}
 
 	public override registerApplicationCommands(registry: Command.Registry) {

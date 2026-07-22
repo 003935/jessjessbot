@@ -10,7 +10,8 @@ if (
 	!process.env.ROLE_ID ||
 	!process.env.BOT_TOKEN ||
 	!process.env.CLIENT_ID ||
-	!process.env.RIOT_API_KEY
+	!process.env.RIOT_API_KEY ||
+	!process.env.OMDB_API_KEY
 )
 	throw new Error('Missing or empty environment variables: Set all required environment variables');
 
