@@ -92,6 +92,12 @@ export class MovieTable extends DatabaseConnection {
 		});
 	}
 
+	async countServerMovies(dServerId: string) {
+		return await this._db.movie.count({
+			where: { requests: { some: { dServerId } } },
+		});
+	}
+
 	async getServerMovies(dServerId: string, options?: { offset?: number; limit?: number }) {
 		const { offset = 0, limit = 5 } = options ?? {};
 

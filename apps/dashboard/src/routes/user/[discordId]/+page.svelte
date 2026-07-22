@@ -24,7 +24,7 @@
 	);
 </script>
 
-<div class="container mx-auto max-w-7xl px-4 py-8">
+<div class="container mx-auto h-fit max-w-7xl px-4 py-8">
 	<div class="mb-12 flex items-center justify-between">
 		{#if data.serverId}
 			<Button onclick={() => goto(resolve(`/server/${data.serverId}`))} variant="ghost">

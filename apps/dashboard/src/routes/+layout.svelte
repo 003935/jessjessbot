@@ -79,6 +79,7 @@
 					onclick={() =>
 						authClient.signIn.social({
 							provider: 'discord',
+							callbackURL: window.location.pathname,
 						})}
 				>
 					<svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -92,7 +93,7 @@
 		</div>
 	</div>
 
-	<main class="flex-1">
+	<main class="flex min-h-[calc(100vh-49px)]">
 		{@render children()}
 	</main>
 </div>

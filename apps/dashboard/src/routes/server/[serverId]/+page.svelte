@@ -95,7 +95,7 @@
 	</div>
 {/snippet}
 
-<div class="container mx-auto flex max-w-7xl flex-col gap-12 px-4 py-8">
+<div class="container mx-auto flex h-fit max-w-7xl flex-col gap-12 px-4 py-8">
 	<div class="flex items-center justify-between">
 		<Button onclick={() => goto(resolve('/'))} variant="ghost">
 			<ArrowLeft />

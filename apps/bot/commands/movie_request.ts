@@ -62,9 +62,11 @@ export class RequestCommand extends Command {
 			case 'list': {
 				const list = await db.movie.getServerMovies(interaction.guildId);
 				return await interaction.editReply({
-					content: list
-						.map((movie) => `${movie._count.requests} | ${movie.title} (${movie.year})`)
-						.join('\n'),
+					content:
+						list
+							.map((movie) => `${movie._count.requests} | ${movie.title} (${movie.year})`)
+							.join('\n') +
+						`\nFull list [here](https://dash.jessawg.space/server/${interaction.guildId}/movies)`,
 				});
 			}
 			default:

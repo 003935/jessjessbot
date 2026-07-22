@@ -86,7 +86,7 @@
 </script>
 
 {#if data.user}
-	<div class="container mx-auto grid max-w-7xl grid-cols-2 gap-4 px-4 py-8">
+	<div class="container mx-auto grid h-fit max-w-7xl grid-cols-2 gap-4 px-4 py-8">
 		{#if data.servers}
 			<Card.Root class="col-span-2">
 				<Card.Header>
@@ -267,29 +267,27 @@
 		/>
 	{/if}
 {:else}
-	<div class="flex min-h-screen">
-		<Empty.Root>
-			<Empty.Header>
-				<Bot class="text-primary" size={48} />
-				<Empty.Title class="text-3xl font-bold text-primary">JessJessBot</Empty.Title>
-				<Empty.Description>
-					<p>Serving {data.bot_guild_count} servers</p>
-					<p>
-						<Button
-							class="p-0"
-							variant="link"
-							onclick={() =>
-								authClient.signIn.social({
-									provider: 'discord',
-								})}
-						>
-							Login
-						</Button> to access the dashboard
-					</p>
-				</Empty.Description>
-			</Empty.Header>
-		</Empty.Root>
-	</div>
+	<Empty.Root>
+		<Empty.Header>
+			<Bot class="text-primary" size={48} />
+			<Empty.Title class="text-3xl font-bold text-primary">JessJessBot</Empty.Title>
+			<Empty.Description>
+				<p>Serving {data.bot_guild_count} servers</p>
+				<p>
+					<Button
+						class="p-0"
+						variant="link"
+						onclick={() =>
+							authClient.signIn.social({
+								provider: 'discord',
+							})}
+					>
+						Login
+					</Button> to access the dashboard
+				</p>
+			</Empty.Description>
+		</Empty.Header>
+	</Empty.Root>
 {/if}
 
 {#if canManageGames}

@@ -201,6 +201,20 @@ class DiscordApi {
 		});
 		return (ret as { id: string }).id;
 	}
+
+	getMemberAvatar(member: APIGuildMember, guildId: string): string {
+		if (member.avatar)
+			return `https://cdn.discordapp.com/guilds/${guildId}/users/${member.user.id}/avatars/${member.avatar}.png`;
+
+		if (member.user.avatar)
+			return `https://cdn.discordapp.com/avatars/${member.user.id}/${member.user.avatar}.png`;
+
+		if (!Object.hasOwn(member.user, 'discriminator') || member.user.discriminator === '0') {
+			return `https://cdn.discordapp.com/embed/avatars/${(parseInt(member.user.id) >> 22) % 6}.png`;
+		} else {
+			return `https://cdn.discordapp.com/embed/avatars/${parseInt(member.user.discriminator) % 5}.png`;
+		}
+	}
 }
 
 export * from './utils';
