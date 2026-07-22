@@ -59,12 +59,10 @@ export class RequestCommand extends Command {
 		const imdbId = interaction.options.getString('title', true);
 
 		const movie = await db.movie.getMovie(imdbId);
-		if (movie === null) {
-			await interaction.editReply({
+		if (movie === null)
+			return await interaction.editReply({
 				content: 'Movie does not exist.',
 			});
-			return;
-		}
 
 		if (interaction.channel && interaction.channel.isSendable()) {
 			await interaction.channel.send({

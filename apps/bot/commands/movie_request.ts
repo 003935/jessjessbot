@@ -49,26 +49,26 @@ export class RequestCommand extends Command {
 						interaction.user.id
 					);
 
-					await interaction.editReply({
+					return await interaction.editReply({
 						content: `${created ? 'Added request for' : 'You already requested the'} movie: ${movie.title} (${movie.year})\nThere ${req_count !== 1 ? 'are' : 'is'} ${req_count} request${req_count !== 1 ? 's' : ''} for this movie.`,
 					});
 				} catch (e) {
 					console.error(e);
-					await interaction.editReply({
+					return await interaction.editReply({
 						content: 'Failed to request movie.',
 					});
 				}
 			}
 			case 'list': {
 				const list = await db.movie.getServerMovies(interaction.guildId);
-				await interaction.editReply({
+				return await interaction.editReply({
 					content: list
 						.map((movie) => `${movie._count.requests} | ${movie.title} (${movie.year})`)
 						.join('\n'),
 				});
 			}
 			default:
-				await interaction.editReply({
+				return await interaction.editReply({
 					content: 'Invalid subcommand',
 				});
 		}
