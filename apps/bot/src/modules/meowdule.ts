@@ -14,9 +14,9 @@ const simple: string[] = [
 	`にゃん`,
 	`야옹`,
 
-	`Μιάου`,
-	`Mjau`,
-	`Mjav`,
+	`mιάου`,
+	`mjau`,
+	`mjav`,
 ];
 
 const rare: string[] = [
