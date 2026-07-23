@@ -7,6 +7,7 @@ import { start_background_event_checker } from '@/modules/events';
 import { Check_Attachments } from '@/modules/reaction';
 import { Logger } from '@/utils';
 import { db } from '@/db';
+import { Meowdule } from './modules/meowdule';
 
 const logger = new Logger('Bot', LogLevel.Info);
 const client = new SapphireClient({
@@ -24,6 +25,8 @@ const client = new SapphireClient({
 	enableLoaderTraceLoggings: false,
 });
 
+let meowdule: undefined | Meowdule;
+
 // Global error handlers to prevent crashes
 process.on('unhandledRejection', (reason, promise) => {
 	logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
@@ -35,6 +38,7 @@ process.on('uncaughtException', (error) => {
 
 client.on('clientReady', (client) => {
 	logger.info(`${client.user?.tag} is online!`);
+	meowdule = new Meowdule(client);
 	start_background_event_checker(client);
 });
 
@@ -73,6 +77,7 @@ function messageparser(message: Message<boolean>) {
 	if (message.inGuild() === false) return;
 	wordle_module(message);
 	Check_Attachments(message);
+	meowdule?.handleMsg(message);
 }
 
 client.on('messageCreate', messageparser);
