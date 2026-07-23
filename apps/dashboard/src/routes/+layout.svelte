@@ -1,95 +1,85 @@
 <script lang="ts">
 	import './layout.css';
+	import { ModeWatcher } from 'mode-watcher';
 	import favicon from '$lib/assets/favicon.svg';
 	import type { LayoutProps } from './$types';
 	import { authClient } from '$lib/auth.client';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { Toaster } from 'svelte-sonner';
-	import LogOut from '@lucide/svelte/icons/log-out';
+
+	import { Toaster } from '$lib/components/ui/sonner/index.js';
 	import Bot from '@lucide/svelte/icons/bot';
-	import User from '@lucide/svelte/icons/user';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import * as Avatar from '$lib/components/ui/avatar/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { ChartColumnIcon, LogOutIcon } from '@lucide/svelte';
 
 	let { data, children }: LayoutProps = $props();
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
+<ModeWatcher />
+
+<Toaster />
+
 <div class="flex min-h-screen flex-col">
-	<div
-		class="navbar sticky top-0 z-50 border-b border-base-300/50 bg-base-100/90 px-4 shadow-md backdrop-blur-md lg:px-8"
-	>
+	<div class="sticky top-0 z-50 flex items-center border-b bg-background px-4 py-2 lg:px-8">
 		<div class="flex-1">
-			<button
-				class="btn gap-2 text-xl font-bold normal-case btn-ghost hover:bg-transparent"
-				onclick={() => goto(resolve('/'))}
-			>
-				<div class="rounded-lg bg-linear-to-br from-primary to-secondary p-1.5">
-					<Bot size={22} class="text-white" />
-				</div>
-				<span class="bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent">
-					jessjessbot
-				</span>
-			</button>
+			<a class="flex items-center gap-2 text-xl font-bold normal-case" href={resolve('/')}>
+				<Bot size={22} class="text-primary" />
+				<span class="text-primary">jessjessbot</span>
+			</a>
 		</div>
 		<div class="flex-none gap-2">
 			{#if data.user}
-				<div class="dropdown dropdown-end">
-					<div
-						tabindex="0"
-						role="button"
-						class="btn gap-2 rounded-lg btn-ghost transition-all hover:bg-base-200"
-					>
-						<div class="online avatar">
-							<div
-								class="w-9 rounded-full ring-2 ring-primary/30 ring-offset-1 ring-offset-base-100"
-							>
-								<img src={data.user.image} alt="" />
-							</div>
-						</div>
-						<div class="flex max-w-[120px] flex-col items-start">
-							<span class="truncate text-sm font-semibold">{data.user.name}</span>
-							<span class="text-xs text-base-content/60 capitalize">{data.user.role}</span>
-						</div>
-					</div>
-					<ul
-						tabindex="-1"
-						class="dropdown-content menu z-50 mt-3 w-56 rounded-xl border border-base-300/50 bg-base-200 p-2 shadow-xl"
-					>
-						{#if data.discordId}
-							<li>
-								<button class="rounded-lg" onclick={() => goto(resolve(`/user/${data.discordId}`))}>
-									<User size={16} />
-									My Stats
-								</button>
-							</li>
-						{/if}
-						<li>
-							<button
-								class="rounded-lg text-error transition-colors hover:bg-error/10 hover:text-error"
-								onclick={() =>
-									authClient.signOut({
-										fetchOptions: {
-											onSuccess: () => {
-												goto(resolve('/'), {
-													invalidateAll: true,
-												});
-											},
-										},
-									})}
-							>
-								<LogOut size={16} />
-								Logout
+				<DropdownMenu.Root>
+					<DropdownMenu.Trigger>
+						{#snippet child({ props })}
+							<button {...props} class="flex gap-2">
+								<div class="flex max-w-30 flex-col items-start">
+									<span class="truncate text-sm font-semibold">{data.user.name}</span>
+									<span class="text-base-content/60 text-xs capitalize">{data.user.role}</span>
+								</div>
+								<Avatar.Root>
+									<Avatar.Image src={data.user.image} alt={data.user.name} />
+									<Avatar.Fallback>{data.user.name.charAt(0)}</Avatar.Fallback>
+								</Avatar.Root>
 							</button>
-						</li>
-					</ul>
-				</div>
+						{/snippet}
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content align="end">
+						<DropdownMenu.Label>My Account</DropdownMenu.Label>
+						<DropdownMenu.Item onclick={() => goto(resolve(`/user/${data.discordId}`))}>
+							<ChartColumnIcon />
+							Stats
+						</DropdownMenu.Item>
+						<DropdownMenu.Separator />
+						<DropdownMenu.Item
+							variant="destructive"
+							onclick={() => {
+								authClient.signOut({
+									fetchOptions: {
+										onSuccess: () => {
+											goto(resolve('/'), {
+												invalidateAll: true,
+											});
+										},
+									},
+								});
+							}}
+						>
+							<LogOutIcon />
+							Log out
+						</DropdownMenu.Item>
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
 			{:else}
-				<button
-					class="btn gap-2 rounded-lg shadow-md transition-all btn-primary hover:shadow-lg"
+				<Button
 					onclick={() =>
 						authClient.signIn.social({
 							provider: 'discord',
+							callbackURL: window.location.pathname,
 						})}
 				>
 					<svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -98,47 +88,12 @@
 						/>
 					</svg>
 					Login with Discord
-				</button>
+				</Button>
 			{/if}
 		</div>
 	</div>
 
-	<main class="flex-1">
+	<main class="flex min-h-[calc(100vh-49px)]">
 		{@render children()}
 	</main>
-
-	<footer class="mt-auto border-t border-base-300/50 bg-base-100/50 backdrop-blur-sm">
-		<div
-			class="container mx-auto flex flex-col items-center justify-between gap-4 px-4 py-6 sm:flex-row"
-		>
-			<div class="flex items-center gap-2 text-sm text-base-content/60">
-				<div class="rounded bg-linear-to-br from-primary/20 to-secondary/20 p-1">
-					<Bot size={14} class="text-primary" />
-				</div>
-				<span>jessjessbot Dashboard</span>
-			</div>
-			<div class="text-sm text-base-content/50">
-				&copy; {new Date().getFullYear()} All rights reserved
-			</div>
-		</div>
-	</footer>
 </div>
-
-<Toaster
-	theme="dark"
-	position="bottom-right"
-	style="font-family: inherit;"
-	toastOptions={{
-		classes: {
-			toast: 'bg-base-200! text-base-content! border border-base-300/50!',
-			error: 'bg-error! text-error-content! border-error/50!',
-			success: 'bg-success! text-success-content! border-success/50!',
-			warning: 'bg-warning! text-warning-content! border-warning/50!',
-			info: 'bg-info! text-info-content! border-info/50!',
-			loader: 'animate-spin',
-			actionButton: 'bg-neutral! text-neutral-content!',
-			description: 'text-neutral!',
-		},
-		duration: 4000,
-	}}
-/>

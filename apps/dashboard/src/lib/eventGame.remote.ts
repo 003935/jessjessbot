@@ -1,10 +1,10 @@
 import * as v from 'valibot';
-import { query, command, getRequestEvent } from '$app/server';
+import { query, command, requested } from '$app/server';
 import { db } from '$lib/server/db';
 import { auth } from '$lib/server/auth';
 import { error } from '@sveltejs/kit';
-import { EventGame_Schema } from './components/EventGameDialog.svelte';
 import { throwIfNotLoggedIn } from './server/permission.utils';
+import { EventGame_Schema } from './eventGame.utils';
 
 export const getEventGames = query(async () => {
 	const user = throwIfNotLoggedIn();
@@ -38,6 +38,8 @@ export const removeEventGame = command(v.string(), async (gameName) => {
 	if (!can_manage_games.success) error(403, 'Not authorized');
 
 	await db.games.deleteGame(gameName);
+
+	await requested(getEventGames, 1).refreshAll();
 });
 
 const addEventGame_Schema = v.object({
@@ -69,6 +71,8 @@ export const addEventGame = command(addEventGame_Schema, async (game) => {
 		name: game.name,
 		icon: game.icon,
 	});
+
+	await requested(getEventGames, 1).refreshAll();
 });
 
 const updateEventGame_Schema = v.intersect([
@@ -98,4 +102,6 @@ export const updateEventGame = command(updateEventGame_Schema, async (game) => {
 		name: game.name,
 		icon: game.icon,
 	});
+
+	await requested(getEventGames, 1).refreshAll();
 });

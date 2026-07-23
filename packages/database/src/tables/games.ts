@@ -12,6 +12,10 @@ export class GamesTable extends DatabaseConnection {
 		return await this._db.customGame.findMany();
 	}
 
+	async get(gameName: string): Promise<CustomGame | null> {
+		return await this._db.customGame.findUnique({ where: { name: gameName } });
+	}
+
 	async insert(event: { name: string; icon?: string | null }): Promise<void> {
 		await this._db.customGame.create({ data: event });
 	}

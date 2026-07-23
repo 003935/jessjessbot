@@ -1,5 +1,4 @@
 import { Constants } from 'twisted';
-import { type Tiers } from 'twisted/dist/constants';
 import { DatabaseConnection } from '../connection';
 import type { LeagueAccount, Region } from '../generated/prisma/client';
 import { Prisma } from '../generated/prisma/client';
@@ -15,7 +14,9 @@ export function romanToNumeral(roman: string) {
 	return accumulator;
 }
 
-const TiersSorted = [
+type Tier = (typeof Constants.Tiers)[keyof typeof Constants.Tiers];
+
+const TiersSorted: Tier[] = [
 	Constants.Tiers.IRON,
 	Constants.Tiers.BRONZE,
 	Constants.Tiers.SILVER,
@@ -32,7 +33,7 @@ type LeagueData = {
 	soloq?: {
 		wins: number;
 		rank: string;
-		tier: Tiers;
+		tier: Tier;
 		lp: number;
 	};
 };
@@ -112,8 +113,8 @@ export class LeagueTable extends DatabaseConnection {
 
 			if (!asoloq || !bsoloq) return 0;
 
-			const aTierIndexOf = TiersSorted.indexOf(asoloq.tier as Tiers);
-			const bTierIndexOf = TiersSorted.indexOf(bsoloq.tier as Tiers);
+			const aTierIndexOf = TiersSorted.indexOf(asoloq.tier as Tier);
+			const bTierIndexOf = TiersSorted.indexOf(bsoloq.tier as Tier);
 			if (aTierIndexOf !== bTierIndexOf) {
 				return bTierIndexOf > aTierIndexOf ? 1 : -1;
 			}

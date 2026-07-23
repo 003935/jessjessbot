@@ -10,232 +10,165 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import WordleScoreDist from '$lib/components/WordleScoreDist.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { BarChart3, Gamepad2, ImageIcon, UsersIcon } from '@lucide/svelte';
+	import StatCard from '$lib/components/stat-card.svelte';
+	import * as Card from '$lib/components/ui/card/index.js';
+	import * as Empty from '$lib/components/ui/empty/index.js';
+	import { cn } from '$lib/utils';
 
 	let { data }: PageProps = $props();
+
+	let totalScores = $derived(
+		data.stats.scoreDistribution.reduce((prev, curr) => prev + curr.count, 0)
+	);
 </script>
 
-<div class="min-h-screen bg-linear-to-br from-base-300/20 via-base-200/30 to-base-100">
-	<div class="container mx-auto max-w-7xl px-4 py-8">
-		<div class="animate-in fade-in slide-in-from-top-4 mb-6 duration-300">
-			{#if data.serverId}
-				<button
-					class="btn gap-2 rounded-lg text-base-content/70 btn-ghost btn-sm hover:text-base-content"
-					onclick={() => goto(resolve(`/server/${data.serverId}`))}
-				>
-					<ArrowLeft size={16} />
-					Back to server
-				</button>
-			{:else}
-				<button
-					class="btn gap-2 rounded-lg text-base-content/70 btn-ghost btn-sm hover:text-base-content"
-					onclick={() => goto(resolve('/'))}
-				>
-					<ArrowLeft size={16} />
-					Back to home
-				</button>
-			{/if}
+<div class="container mx-auto h-fit max-w-7xl px-4 py-8">
+	<div class="mb-12 flex items-center justify-between">
+		{#if data.serverId}
+			<Button onclick={() => goto(resolve(`/server/${data.serverId}`))} variant="ghost">
+				<ArrowLeft />
+				Back to server
+			</Button>
+		{:else}
+			<Button onclick={() => goto(resolve(`/`))} variant="ghost">
+				<ArrowLeft />
+				Back to home
+			</Button>{/if}
+		<div class="flex items-center gap-4">
+			<div class="text-end text-2xl font-bold">
+				{data.displayName}
+			</div>
+			<div class="size-20">
+				{#if data.avatarUrl}
+					<img src={data.avatarUrl} alt="" class="rounded-lg" />
+				{:else}
+					<ImageIcon />
+				{/if}
+			</div>
+		</div>
+	</div>
+	<div class="grid grid-cols-2 gap-4">
+		<div class="col-span-2 flex items-center gap-3">
+			<div>
+				<BarChart3 size={22} />
+			</div>
+			<h2 class="text-2xl font-bold">Wordle Statistics</h2>
 		</div>
 
-		<section
-			class="animate-in fade-in slide-in-from-bottom-4 card mb-8 border border-base-300/50 bg-base-100 shadow-lg duration-500"
-		>
-			<div class="card-body">
-				<div class="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
-					<div class="avatar shrink-0">
-						<div class="mask w-20 rounded-2xl mask-squircle shadow-lg ring-2 ring-primary/30">
-							{#if data.avatarUrl}
-								<img src={data.avatarUrl} alt="" />
-							{:else}
-								<div class="flex h-20 w-20 items-center justify-center bg-base-300">
-									<User size={32} class="text-base-content/40" />
-								</div>
-							{/if}
-						</div>
-					</div>
-					<div class="flex-1">
-						<h1
-							class="bg-linear-to-r from-primary to-secondary bg-clip-text text-3xl font-bold text-transparent"
+		<div class="col-span-2">
+			<div class="grid grid-cols-2 gap-4 md:grid-cols-5">
+				<StatCard icon={{ component: Trophy }} title="Wins / Played" data={data.stats}>
+					{#snippet value({ totalWins, totalGames })}
+						{totalWins}
+						<span class="text-sm font-normal text-muted-foreground">
+							/ {totalGames}
+						</span>
+					{/snippet}
+				</StatCard>
+
+				<StatCard icon={{ component: Percent }} title="Win Rate" data={data.stats}>
+					{#snippet value({ winRate })}
+						{winRate.toFixed(1)}%
+					{/snippet}
+				</StatCard>
+
+				<StatCard icon={{ component: Target }} title="Avg Score" data={data.stats}>
+					{#snippet value({ averageScore })}
+						{averageScore !== null ? averageScore.toFixed(1) : 'N/A'}
+					{/snippet}
+				</StatCard>
+
+				<StatCard icon={{ component: Flame }} title="Best Streak" data={data.stats}>
+					{#snippet value({ bestStreak })}
+						{bestStreak}
+					{/snippet}
+				</StatCard>
+
+				<StatCard icon={{ component: Flame }} title="Current Streak" data={data.stats}>
+					{#snippet value({ currentStreak })}
+						{currentStreak}
+					{/snippet}
+				</StatCard>
+			</div>
+		</div>
+
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Score Distribution</Card.Title>
+				<Card.Description>
+					{#if totalScores > 0}
+						{totalScores} total scores{:else}No data{/if}
+				</Card.Description>
+			</Card.Header>
+			<Card.Content class="flex h-64">
+				{#if totalScores > 0}
+					<WordleScoreDist
+						class="h-full w-full"
+						data={data.stats.scoreDistribution.map((d) => ({
+							score: d.score,
+							value: d.count,
+						}))}
+					/>
+				{:else}
+					<Empty.Root>
+						<Empty.Header>
+							<Empty.Title>No data</Empty.Title>
+							<Empty.Description>No wordle results recorded yet</Empty.Description>
+						</Empty.Header>
+					</Empty.Root>
+				{/if}
+			</Card.Content>
+		</Card.Root>
+
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Recent Activity</Card.Title>
+				<Card.Description>Last 30 games played</Card.Description>
+			</Card.Header>
+			<Card.Content
+				class={cn('flex h-64 flex-col gap-2 overflow-y-auto', {
+					'py-0.5': data.stats.recentActivity.length > 0,
+				})}
+			>
+				{#if data.stats.recentActivity.length === 0}
+					<Empty.Root>
+						<Empty.Header>
+							<Empty.Title>No data</Empty.Title>
+							<Empty.Description>No recent activity</Empty.Description>
+						</Empty.Header>
+					</Empty.Root>
+				{:else}
+					{#each data.stats.recentActivity as activity (activity.date)}
+						<div
+							class="flex items-center justify-between rounded-lg bg-accent px-3 py-1.5 text-accent-foreground ring ring-border"
 						>
-							{data.displayName}
-						</h1>
-					</div>
-				</div>
-			</div>
-		</section>
-
-		<section class="mb-8">
-			<h2 class="mb-4 text-2xl font-bold">Wordle Statistics</h2>
-
-			<div class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-5">
-				<div
-					class="animate-in fade-in slide-in-from-bottom-4 card border border-base-300/50 bg-base-100 shadow-lg delay-100 duration-500"
-				>
-					<div class="card-body p-4">
-						<div class="flex items-center gap-2">
-							<div class="rounded-lg bg-primary/10 p-1.5">
-								<Trophy size={18} class="text-primary" />
+							<div class="flex items-center gap-3">
+								<span
+									class={cn('font-mono text-sm font-semibold', {
+										'text-yellow-300': activity.winner,
+										'text-gray-500': activity.score === 7,
+									})}
+								>
+									{activity.score === 7 ? 'DNF' : activity.score + '/6'}
+								</span>
+								<span class="text-xs">
+									{activity.winner ? 'Won' : 'Lost'}
+								</span>
 							</div>
-							<span class="text-xs text-base-content/60">Wins / Played</span>
-						</div>
-						<p class="mt-2 text-2xl font-bold">
-							{data.stats.totalWins}
-							<span class="text-sm font-normal text-base-content/50">
-								/ {data.stats.totalGames}
+							<span class="text-xs text-muted-foreground">
+								{new Date(activity.date).toLocaleDateString(undefined, {
+									month: 'short',
+									day: 'numeric',
+									hour: '2-digit',
+									minute: '2-digit',
+								})}
 							</span>
-						</p>
-					</div>
-				</div>
-
-				<div
-					class="animate-in fade-in slide-in-from-bottom-4 card border border-base-300/50 bg-base-100 shadow-lg delay-150 duration-500"
-				>
-					<div class="card-body p-4">
-						<div class="flex items-center gap-2">
-							<div class="rounded-lg bg-accent/10 p-1.5">
-								<Percent size={18} class="text-accent" />
-							</div>
-							<span class="text-xs text-base-content/60">Win Rate</span>
 						</div>
-						<p class="mt-2 text-2xl font-bold">{data.stats.winRate.toFixed(1)}%</p>
-					</div>
-				</div>
-
-				<div
-					class="animate-in fade-in slide-in-from-bottom-4 card border border-base-300/50 bg-base-100 shadow-lg delay-200 duration-500"
-				>
-					<div class="card-body p-4">
-						<div class="flex items-center gap-2">
-							<div class="rounded-lg bg-warning/10 p-1.5">
-								<Target size={18} class="text-warning" />
-							</div>
-							<span class="text-xs text-base-content/60">Avg Score</span>
-						</div>
-						<p class="mt-2 text-2xl font-bold">
-							{#if data.stats.averageScore !== null}
-								{data.stats.averageScore.toFixed(1)}
-							{:else}
-								N/A
-							{/if}
-						</p>
-					</div>
-				</div>
-
-				<div
-					class="animate-in fade-in slide-in-from-bottom-4 card border border-base-300/50 bg-base-100 shadow-lg delay-250 duration-500"
-				>
-					<div class="card-body p-4">
-						<div class="flex items-center gap-2">
-							<div class="rounded-lg bg-error/10 p-1.5">
-								<Flame size={18} class="text-error" />
-							</div>
-							<span class="text-xs text-base-content/60">Best Streak</span>
-						</div>
-						<p class="mt-2 text-2xl font-bold">{data.stats.bestStreak}</p>
-					</div>
-				</div>
-
-				<div
-					class="animate-in fade-in slide-in-from-bottom-4 card border border-base-300/50 bg-base-100 shadow-lg delay-300 duration-500"
-				>
-					<div class="card-body p-4">
-						<div class="flex items-center gap-2">
-							<div class="rounded-lg bg-info/10 p-1.5">
-								<Flame size={18} class="text-info" />
-							</div>
-							<span class="text-xs text-base-content/60">Current Streak</span>
-						</div>
-						<p class="mt-2 text-2xl font-bold">{data.stats.currentStreak}</p>
-					</div>
-				</div>
-			</div>
-
-			<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-				<section
-					class="animate-in fade-in slide-in-from-bottom-4 card border border-base-300/50 bg-base-100 shadow-lg delay-400 duration-500"
-				>
-					<div class="card-body">
-						<div class="mb-2 flex items-center gap-3">
-							<div class="rounded-xl bg-linear-to-br from-info/20 to-secondary/20 p-2">
-								<TrendingUp size={22} class="text-info" />
-							</div>
-							<div>
-								<h2 class="card-title text-xl">Score Distribution</h2>
-								<p class="text-xs text-base-content/50">All games played</p>
-							</div>
-						</div>
-						<div class="mb-3 h-px bg-linear-to-r from-info/20 to-transparent"></div>
-
-						{#if data.stats}
-							<div class="h-64">
-								<WordleScoreDist
-									data={data.stats.scoreDistribution.map((d) => ({
-										score: d.score,
-										value: d.count,
-									}))}
-								/>
-							</div>
-						{:else}
-							<div class="py-10 text-center text-base-content/60">
-								<p class="text-base font-medium">No data available</p>
-							</div>
-						{/if}
-					</div>
-				</section>
-
-				<section
-					class="animate-in fade-in slide-in-from-bottom-4 card border border-base-300/50 bg-base-100 shadow-lg delay-500 duration-500"
-				>
-					<div class="card-body">
-						<div class="mb-2 flex items-center gap-3">
-							<div class="rounded-xl bg-linear-to-br from-success/20 to-secondary/20 p-2">
-								<TrendingUp size={22} class="text-success" />
-							</div>
-							<div>
-								<h2 class="card-title text-xl">Recent Activity</h2>
-								<p class="text-xs text-base-content/50">Last 30 games played</p>
-							</div>
-						</div>
-						<div class="mb-3 h-px bg-linear-to-r from-success/20 to-transparent"></div>
-
-						{#if data.stats.recentActivity.length === 0}
-							<div class="py-10 text-center text-base-content/60">
-								<p class="text-base font-medium">No recent activity</p>
-							</div>
-						{:else}
-							<div class="max-h-64 overflow-y-auto">
-								<div class="flex flex-col gap-2">
-									{#each data.stats.recentActivity as activity (activity.date)}
-										<div
-											class="flex items-center justify-between rounded-lg bg-base-200/50 px-4 py-2"
-										>
-											<div class="flex items-center gap-3">
-												<span
-													class="font-mono text-sm font-semibold {activity.winner
-														? 'text-success'
-														: 'text-base-content/40'}"
-												>
-													{activity.score === 7 ? 'DNF' : activity.score + '/6'}
-												</span>
-												<span class="text-xs text-base-content/50">
-													{activity.winner ? 'Won' : 'Lost'}
-												</span>
-											</div>
-											<span class="text-xs text-base-content/50">
-												{new Date(activity.date).toLocaleDateString(undefined, {
-													month: 'short',
-													day: 'numeric',
-													hour: '2-digit',
-													minute: '2-digit',
-												})}
-											</span>
-										</div>
-									{/each}
-								</div>
-							</div>
-						{/if}
-					</div>
-				</section>
-			</div>
-		</section>
+					{/each}
+				{/if}
+			</Card.Content>
+		</Card.Root>
 	</div>
 </div>

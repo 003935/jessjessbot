@@ -14,7 +14,8 @@
 		"@prisma/adapter-pg": "^7.7.0",
 		"@prisma/client": "^7.7.0",
 		"@types/pg": "^8.20.0",
-		"pg": "^8.20.0"
+		"pg": "^8.20.0",
+		"valibot": "^1.4.2"
 	},
 	"devDependencies": {
 		"@repo/typescript-config": "workspace:*",
@@ -22,6 +23,6 @@
 		"prisma": "^7.7.0",
 		"prisma-json-types-generator": "^4.1.1",
 		"twisted": "^1.72.2",
-		"typescript": "^5.9.3"
+		"typescript": "^7.0.2"
 	}
 }

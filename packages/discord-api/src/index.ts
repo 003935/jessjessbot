@@ -15,6 +15,7 @@ import {
 	type APIUser,
 	type RESTGetAPIUserResult,
 	type RESTGetAPIGuildMembersSearchResult,
+	type RESTGetAPIGuildChannelsResult,
 } from 'discord-api-types/v10';
 
 class DiscordApi {
@@ -122,6 +123,97 @@ class DiscordApi {
 		const fetched = await this.fetchUserGuilds(accessToken);
 		await this.cache.user_guilds.set(userId, fetched);
 		return fetched;
+	}
+
+	async getGuildChannels(guildId: string) {
+		const res = (await await this.api.get(
+			Routes.guildChannels(guildId)
+		)) as RESTGetAPIGuildChannelsResult;
+
+		return res;
+	}
+
+	async reactToMessage(channelId: string, messageID: string, emojiId: string) {
+		await this.api.put(Routes.channelMessageOwnReaction(channelId, messageID, emojiId));
+	}
+
+	async sendCustomMessage(
+		channelId: string,
+		content: {
+			roleId?: string;
+			emojiId?: string;
+			gameName: string;
+			time: string;
+			name?: string;
+		}
+	) {
+		let emoji: APIApplicationEmoji | undefined;
+		if (content.emojiId) {
+			const emojis = await this.getEmojis(); // FIXME change to single fetch?
+			emoji = emojis.find((e) => e.id === content.emojiId);
+		}
+
+		const text_components = [
+			{
+				type: 10,
+				content: `# ${content.name ?? content.gameName}`,
+			},
+		];
+
+		const date = new Date(content.time);
+		const scheduledTime = Math.floor(date.getTime() / 1000);
+
+		text_components.push({
+			type: 10,
+			content: `${content.roleId ? `<@&${content.roleId}>` : ''} <t:${scheduledTime}:t> `,
+		});
+
+		text_components.push({
+			type: 10,
+			content: `React with ✅ to sign up!`,
+		});
+
+		const ret = await this.api.post(Routes.channelMessages(channelId), {
+			body: {
+				components: [
+					{
+						type: 17,
+						accent_color: null,
+						spoiler: false,
+						components: emoji
+							? [
+									{
+										type: 9,
+										components: text_components,
+										accessory: {
+											type: 11,
+											media: {
+												url: `https://cdn.discordapp.com/emojis/${emoji.id}.webp?animated=${emoji.animated}`,
+											},
+										},
+									},
+								]
+							: text_components,
+					},
+				],
+				flags: 32768,
+			},
+		});
+		return (ret as { id: string }).id;
+	}
+
+	getMemberAvatar(member: APIGuildMember, guildId: string): string {
+		if (member.avatar)
+			return `https://cdn.discordapp.com/guilds/${guildId}/users/${member.user.id}/avatars/${member.avatar}.png`;
+
+		if (member.user.avatar)
+			return `https://cdn.discordapp.com/avatars/${member.user.id}/${member.user.avatar}.png`;
+
+		if (!Object.hasOwn(member.user, 'discriminator') || member.user.discriminator === '0') {
+			return `https://cdn.discordapp.com/embed/avatars/${(parseInt(member.user.id) >> 22) % 6}.png`;
+		} else {
+			return `https://cdn.discordapp.com/embed/avatars/${parseInt(member.user.discriminator) % 5}.png`;
+		}
 	}
 }
 
