@@ -43,14 +43,14 @@ export class RequestCommand extends Command {
 				const imdbId = interaction.options.getString('imdb_id', true);
 
 				try {
-					const { movie, created, req_count } = await db.movie.request(
+					const { movie, created } = await db.movie.request(
 						imdbId,
 						interaction.guildId,
 						interaction.user.id
 					);
 
 					return await interaction.editReply({
-						content: `${created ? 'Added request for' : 'You already requested the'} movie: ${movie.title} (${movie.year})\nThere ${req_count !== 1 ? 'are' : 'is'} ${req_count} request${req_count !== 1 ? 's' : ''} for this movie.`,
+						content: `${created ? 'Added request for' : 'You already requested the'} movie: ${movie.title} (${movie.year})`,
 					});
 				} catch (e) {
 					console.error(e);

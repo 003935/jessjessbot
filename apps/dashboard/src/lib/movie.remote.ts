@@ -1,5 +1,5 @@
 import * as v from 'valibot';
-import { query, getRequestEvent } from '$app/server';
+import { query, getRequestEvent, command, requested } from '$app/server';
 import { db } from '$lib/server/db';
 import { error } from '@sveltejs/kit';
 import { getDiscordAcc, throwIfNotLoggedIn } from './server/permission.utils';
@@ -55,4 +55,30 @@ export const getServerMovies = query(query_params_schema, async ({ limit, page }
 		})),
 		count: await movieCountPromise,
 	};
+});
+
+export const add_request = command(v.string(), async (imdbId) => {
+	const { locals, params } = getRequestEvent();
+
+	if (!params.serverId) return error(500);
+
+	const user = throwIfNotLoggedIn(locals);
+	const { guild, discordID } = await getDiscordAcc(user, params.serverId);
+
+	await db.movie.request(imdbId, guild.id, discordID);
+
+	await requested(getServerMovies, 1).refreshAll();
+});
+
+export const remove_request = command(v.string(), async (imdbId) => {
+	const { locals, params } = getRequestEvent();
+
+	if (!params.serverId) return error(500);
+
+	const user = throwIfNotLoggedIn(locals);
+	const { guild, discordID } = await getDiscordAcc(user, params.serverId);
+
+	await db.movie.removeRequest(imdbId, guild.id, discordID);
+
+	await requested(getServerMovies, 1).refreshAll();
 });

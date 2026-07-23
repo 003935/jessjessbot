@@ -84,6 +84,8 @@ export class RequestCommand extends Command {
 			await interaction.editReply({
 				content: 'Created poll successfully',
 			});
+
+			await db.movie.deleteServerMovieRequests(imdbId, interaction.guildId);
 		} else {
 			await interaction.editReply({
 				content: 'Failed to create poll',

@@ -29,9 +29,9 @@ export class MovieTable extends DatabaseConnection {
 		super(db_conn);
 	}
 
-	private async _getMovie(imdbId: string): Promise<{ movie: Movie; new: boolean }> {
+	private async _getMovie(imdbId: string): Promise<{ movie: Movie }> {
 		let movie = await this._db.movie.findUnique({ where: { imdbId } });
-		if (movie !== null) return { movie, new: false };
+		if (movie !== null) return { movie };
 
 		const details = await get_movie(imdbId);
 
@@ -49,19 +49,16 @@ export class MovieTable extends DatabaseConnection {
 			data: movie,
 		});
 
-		return { movie, new: true };
+		return { movie };
 	}
 
 	async request(imdbId: string, dServerId: string, dUserID: string) {
-		let { movie, new: newMovie } = await this._getMovie(imdbId);
+		let { movie } = await this._getMovie(imdbId);
 		let request = await this._db.request.findUnique({
 			where: { dServerId_dUserID_imdbId: { dServerId, dUserID, imdbId } },
 		});
-		let req_count = 0;
 
-		if (!newMovie) req_count = await this._db.request.count({ where: { dServerId, imdbId } });
-
-		if (request) return { movie, created: false, req_count };
+		if (request) return { movie, created: false };
 
 		await this._db.request.create({
 			data: {
@@ -71,7 +68,27 @@ export class MovieTable extends DatabaseConnection {
 			},
 		});
 
-		return { movie, created: true, req_count: req_count + 1 };
+		return { movie, created: true };
+	}
+
+	async removeRequest(imdbId: string, dServerId: string, dUserID: string) {
+		await this._db.request.delete({
+			where: {
+				dServerId_dUserID_imdbId: {
+					dServerId,
+					dUserID,
+					imdbId,
+				},
+			},
+		});
+	}
+
+	async deleteServerMovieRequests(imdbId: string, dServerId: string) {
+		const { count } = await this._db.request.deleteMany({
+			where: { dServerId, imdbId },
+		});
+
+		return count;
 	}
 
 	async searchServerMovies(dServerId: string, query: string, limit: number = 5) {
