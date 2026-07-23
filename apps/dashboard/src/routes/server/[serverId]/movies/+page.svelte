@@ -5,7 +5,7 @@
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import * as Pagination from '$lib/components/ui/pagination/index.js';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import { ThumbsDownIcon, ThumbsUpIcon } from '@lucide/svelte';
+	import { ThumbsDownIcon, ThumbsUpIcon, XIcon } from '@lucide/svelte';
 
 	let { data }: PageProps = $props();
 
@@ -62,7 +62,7 @@
 										await remove_request(movie.imdbId).updates(movie_query);
 									}}
 								>
-									<ThumbsDownIcon />
+									<XIcon />
 								</Button>
 							{:else}
 								<Button
