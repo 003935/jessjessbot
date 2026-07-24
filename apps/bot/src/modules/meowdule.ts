@@ -212,6 +212,7 @@ export class Meowdule {
 
 	handleMsg(msg: Message<true>) {
 		if (!msg.mentions.has(this.bot_user_id)) return;
+		if (msg.author.id === this.bot_user_id) return;
 
 		const pool: Pool = this.randomPool();
 
