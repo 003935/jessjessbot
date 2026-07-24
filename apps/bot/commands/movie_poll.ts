@@ -7,7 +7,6 @@ export class RequestCommand extends Command {
 		super(context, {
 			...options,
 			preconditions: ['GuildTextOnly'],
-			requiredUserPermissions: ['Administrator'],
 			requiredClientPermissions: ['SendPolls'],
 		});
 	}
