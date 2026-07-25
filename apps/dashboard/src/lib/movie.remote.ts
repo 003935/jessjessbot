@@ -57,7 +57,7 @@ export const getServerMovies = query(query_params_schema, async ({ limit, page }
 	};
 });
 
-export const add_request = command(v.string(), async (imdbId) => {
+export const add_request = command(v.pipe(v.number(), v.integer()), async (tmdbId) => {
 	const { locals, params } = getRequestEvent();
 
 	if (!params.serverId) return error(500);
@@ -65,12 +65,12 @@ export const add_request = command(v.string(), async (imdbId) => {
 	const user = throwIfNotLoggedIn(locals);
 	const { guild, discordID } = await getDiscordAcc(user, params.serverId);
 
-	await db.movie.request(imdbId, guild.id, discordID);
+	await db.movie.request(tmdbId, guild.id, discordID);
 
 	await requested(getServerMovies, 1).refreshAll();
 });
 
-export const remove_request = command(v.string(), async (imdbId) => {
+export const remove_request = command(v.pipe(v.number(), v.integer()), async (tmdbId) => {
 	const { locals, params } = getRequestEvent();
 
 	if (!params.serverId) return error(500);
@@ -78,7 +78,7 @@ export const remove_request = command(v.string(), async (imdbId) => {
 	const user = throwIfNotLoggedIn(locals);
 	const { guild, discordID } = await getDiscordAcc(user, params.serverId);
 
-	await db.movie.removeRequest(imdbId, guild.id, discordID);
+	await db.movie.removeRequest(tmdbId, guild.id, discordID);
 
 	await requested(getServerMovies, 1).refreshAll();
 });

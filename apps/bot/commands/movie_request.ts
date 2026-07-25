@@ -1,6 +1,8 @@
 import { Command } from '@sapphire/framework';
-import { MessageFlags } from 'discord.js';
+import { AutocompleteInteraction, MessageFlags } from 'discord.js';
 import { db } from '@/db';
+import { get_movie } from '@/lib/omdb';
+import { tmdb } from '@/lib/tmdb';
 
 export class RequestCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -16,10 +18,11 @@ export class RequestCommand extends Command {
 					subcommand
 						.setName('request')
 						.setDescription('Request a movie')
-						.addStringOption((option) =>
+						.addIntegerOption((option) =>
 							option
-								.setName('imdb_id')
-								.setDescription('id from the imdb url (e.g.: "tt0080339")')
+								.setName('title')
+								.setDescription('Movie Title')
+								.setAutocomplete(true)
 								.setRequired(true)
 						)
 				)
@@ -27,6 +30,30 @@ export class RequestCommand extends Command {
 					subcommand.setName('list').setDescription('List movie requests')
 				)
 		);
+	}
+
+	public override async autocompleteRun(interaction: AutocompleteInteraction) {
+		const subcommand = interaction.options.getSubcommand(true);
+		const focusedOption = interaction.options.getFocused(true);
+
+		switch (`${subcommand}-${focusedOption.name}`) {
+			case 'request-title': {
+				const movie_list = await tmdb.search.movies({
+					query: focusedOption.value,
+				});
+
+				const display = movie_list.results.slice(0, 3);
+
+				return await interaction.respond(
+					display.map((movie) => ({
+						name: `${movie.title} (${new Date(movie.release_date).getFullYear()})`,
+						value: movie.id,
+					}))
+				);
+			}
+			default:
+				return await interaction.respond([]);
+		}
 	}
 
 	public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
@@ -40,17 +67,38 @@ export class RequestCommand extends Command {
 		const subcommand = interaction.options.getSubcommand(true);
 		switch (subcommand) {
 			case 'request': {
-				const imdbId = interaction.options.getString('imdb_id', true);
+				const tmdbId = interaction.options.getInteger('title', true);
 
 				try {
-					const { movie, created } = await db.movie.request(
-						imdbId,
-						interaction.guildId,
-						interaction.user.id
-					);
+					let movie = await db.movie.getMovie(tmdbId);
+
+					if (!movie) {
+						const details = await tmdb.movies.details({
+							movie_id: tmdbId,
+						});
+						let omdb: Awaited<ReturnType<typeof get_movie>> | undefined;
+						if (details.imdb_id) omdb = await get_movie(details.imdb_id);
+
+						movie = {
+							genres: details.genres.map((g) => g.name).join(', '),
+							imdbId: details.imdb_id ?? null,
+							imdbRating: omdb ? parseFloat(omdb.imdbRating) : null,
+							original_title: details.original_title,
+							title: details.title,
+							poster_path: details.poster_path ?? null,
+							release_date: details.release_date,
+							runtime: details.runtime ?? null,
+							tmdbId: details.id,
+							updatedAt: new Date(),
+						};
+
+						await db.movie.addMovie(movie);
+					}
+
+					const created = await db.movie.request(tmdbId, interaction.guildId, interaction.user.id);
 
 					return await interaction.editReply({
-						content: `${created ? 'Added request for' : 'You already requested the'} movie: ${movie.title} (${movie.year})`,
+						content: `${created ? 'Added request for' : 'You already requested the'} movie: ${movie.title} (${new Date(movie.release_date).getFullYear()})`,
 					});
 				} catch (e) {
 					console.error(e);
@@ -61,10 +109,14 @@ export class RequestCommand extends Command {
 			}
 			case 'list': {
 				const list = await db.movie.getServerMovies(interaction.guildId);
+
 				return await interaction.editReply({
 					content:
 						list
-							.map((movie) => `${movie._count.requests} | ${movie.title} (${movie.year})`)
+							.map(
+								(movie) =>
+									`${movie._count.requests} | ${movie.title} (${new Date(movie.release_date).getFullYear()})`
+							)
 							.join('\n') +
 						`\nFull list [here](https://dash.jessawg.space/server/${interaction.guildId}/movies)`,
 				});

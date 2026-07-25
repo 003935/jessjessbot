@@ -6,10 +6,12 @@
 		"check": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@lorenzopant/tmdb": "^1.25.0",
 		"@sapphire/framework": "^5.5.0",
 		"discord.js": "^14.27.0",
 		"drizzle-orm": "^0.45.2",
-		"twisted": "^1.82.0"
+		"twisted": "^1.82.0",
+		"valibot": "^1.4.2"
 	},
 	"devDependencies": {
 		"@repo/database": "workspace:*",
