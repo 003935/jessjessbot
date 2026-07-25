@@ -1,91 +1,54 @@
 import { DatabaseConnection } from '../connection';
-import * as v from 'valibot';
-import { Movie } from '../generated/prisma/client';
-import { MovieWhereInput } from '../generated/prisma/models';
-
-const OMDB_API_KEY = process.env.OMDB_API_KEY;
-
-const movie_details_schema = v.object({
-	imdbID: v.string(),
-	imdbRating: v.string(),
-	Type: v.string(),
-	Title: v.string(),
-	Year: v.string(),
-	Runtime: v.string(),
-	Genre: v.string(),
-	Poster: v.string(),
-});
-
-async function get_movie(imdbId: string) {
-	const ret = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${imdbId}`);
-	if (!ret.ok) throw new Error(`Failed to query omdb ${ret.status}`, { cause: await ret.text() });
-	const ret_j = await ret.json();
-	const details = v.parse(movie_details_schema, ret_j);
-	return details;
-}
+import { MovieCreateInput } from '../generated/prisma/models';
 
 export class MovieTable extends DatabaseConnection {
 	constructor(db_conn: DatabaseConnection) {
 		super(db_conn);
 	}
 
-	private async _getMovie(imdbId: string): Promise<{ movie: Movie }> {
-		let movie = await this._db.movie.findUnique({ where: { imdbId } });
-		if (movie !== null) return { movie };
-
-		const details = await get_movie(imdbId);
-
-		movie = {
-			genre: details.Genre,
-			imdbId: details.imdbID,
-			imdbRating: parseFloat(details.imdbRating),
-			poster: details.Poster,
-			runtime: details.Runtime,
-			title: details.Title,
-			year: parseInt(details.Year),
-		} satisfies Movie;
-
+	async addMovie(movie: MovieCreateInput) {
 		await this._db.movie.create({
 			data: movie,
 		});
-
-		return { movie };
 	}
 
-	async request(imdbId: string, dServerId: string, dUserID: string) {
-		let { movie } = await this._getMovie(imdbId);
+	async hasMovie(tmdbId: number) {
+		const ret = await this._db.movie.findUnique({
+			where: { tmdbId },
+			select: { tmdbId: true },
+		});
+		return ret !== null;
+	}
+
+	async request(tmdbId: number, dServerId: string, dUserID: string) {
 		let request = await this._db.request.findUnique({
-			where: { dServerId_dUserID_imdbId: { dServerId, dUserID, imdbId } },
+			where: { dServerId_dUserID_tmdbId: { dServerId, dUserID, tmdbId } },
 		});
 
-		if (request) return { movie, created: false };
+		if (request) return false;
 
 		await this._db.request.create({
 			data: {
 				dServerId,
 				dUserID,
-				imdbId,
+				tmdbId,
 			},
 		});
 
-		return { movie, created: true };
+		return true;
 	}
 
-	async removeRequest(imdbId: string, dServerId: string, dUserID: string) {
+	async removeRequest(tmdbId: number, dServerId: string, dUserID: string) {
 		await this._db.request.delete({
 			where: {
-				dServerId_dUserID_imdbId: {
-					dServerId,
-					dUserID,
-					imdbId,
-				},
+				dServerId_dUserID_tmdbId: { dServerId, dUserID, tmdbId },
 			},
 		});
 	}
 
-	async deleteServerMovieRequests(imdbId: string, dServerId: string) {
+	async deleteServerMovieRequests(tmdbId: number, dServerId: string) {
 		const { count } = await this._db.request.deleteMany({
-			where: { dServerId, imdbId },
+			where: { dServerId, tmdbId },
 		});
 
 		return count;
@@ -103,9 +66,9 @@ export class MovieTable extends DatabaseConnection {
 		});
 	}
 
-	async getMovie(imdbId: string) {
+	async getMovie(tmdbId: number) {
 		return await this._db.movie.findUnique({
-			where: { imdbId },
+			where: { tmdbId },
 		});
 	}
 

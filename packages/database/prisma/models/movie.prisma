@@ -1,11 +1,20 @@
 model Movie {
-  imdbId     String @id
-  imdbRating Float
-  title      String
-  year       Int    @db.SmallInt
-  runtime    String
-  genre      String
-  poster     String
+  tmdbId Int @id
+
+  imdbId     String?
+  imdbRating Float?
+
+  title          String
+  original_title String
+
+  release_date String
+  runtime      Int?
+
+  genres String
+
+  poster_path String?
+
+  updatedAt DateTime @updatedAt
 
   requests Request[]
 
@@ -16,8 +25,8 @@ model Request {
   dServerId String
   dUserID   String
 
-  imdbId String
-  movie  Movie  @relation(fields: [imdbId], references: [imdbId], onDelete: Cascade, onUpdate: Cascade)
+  tmdbId Int
+  movie  Movie @relation(fields: [tmdbId], references: [tmdbId], onDelete: Cascade, onUpdate: Cascade)
 
-  @@id([dServerId, dUserID, imdbId])
+  @@id([dServerId, dUserID, tmdbId])
 }

@@ -1,5 +1,5 @@
 import { Command } from '@sapphire/framework';
-import { AutocompleteInteraction, Guild, MessageFlags } from 'discord.js';
+import { AutocompleteInteraction, MessageFlags } from 'discord.js';
 import { db } from '@/db';
 
 export class RequestCommand extends Command {
@@ -16,7 +16,7 @@ export class RequestCommand extends Command {
 			builder
 				.setName('poll')
 				.setDescription('Poll a movie')
-				.addStringOption((option) =>
+				.addIntegerOption((option) =>
 					option
 						.setName('title')
 						.setDescription('Movie Title')
@@ -38,8 +38,8 @@ export class RequestCommand extends Command {
 
 				return await interaction.respond(
 					movie_list.map((movie) => ({
-						name: `${movie.title} (${movie.year})`,
-						value: movie.imdbId,
+						name: `${movie.title} (${movie.release_date})`,
+						value: movie.tmdbId,
 					}))
 				);
 			}
@@ -56,9 +56,9 @@ export class RequestCommand extends Command {
 			return;
 		}
 
-		const imdbId = interaction.options.getString('title', true);
+		const tmdbId = interaction.options.getInteger('title', true);
 
-		const movie = await db.movie.getMovie(imdbId);
+		const movie = await db.movie.getMovie(tmdbId);
 		if (movie === null)
 			return await interaction.editReply({
 				content: 'Movie does not exist.',
@@ -67,7 +67,7 @@ export class RequestCommand extends Command {
 		if (interaction.channel && interaction.channel.isSendable()) {
 			await interaction.channel.send({
 				poll: {
-					question: { text: `${movie.title} (${movie.year})` },
+					question: { text: `${movie.title} (${new Date(movie.release_date).getFullYear()})` },
 					allowMultiselect: false,
 					answers: [
 						{ emoji: '🔥', text: 'good ass movie' },
@@ -84,7 +84,7 @@ export class RequestCommand extends Command {
 				content: 'Created poll successfully',
 			});
 
-			await db.movie.deleteServerMovieRequests(imdbId, interaction.guildId);
+			await db.movie.deleteServerMovieRequests(tmdbId, interaction.guildId);
 		} else {
 			await interaction.editReply({
 				content: 'Failed to create poll',
