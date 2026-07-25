@@ -1,5 +1,11 @@
 import { Command } from '@sapphire/framework';
-import { AutocompleteInteraction, MessageFlags } from 'discord.js';
+import {
+	AutocompleteInteraction,
+	ButtonBuilder,
+	ButtonStyle,
+	ContainerBuilder,
+	MessageFlags,
+} from 'discord.js';
 import { db } from '@/db';
 import { get_movie } from '@/lib/omdb';
 import { tmdb } from '@/lib/tmdb';
@@ -97,9 +103,33 @@ export class RequestCommand extends Command {
 
 					const created = await db.movie.request(tmdbId, interaction.guildId, interaction.user.id);
 
-					return await interaction.editReply({
-						content: `${created ? 'Added request for' : 'You already requested the'} movie: ${movie.title} (${new Date(movie.release_date).getFullYear()})`,
-					});
+					if (created)
+						return await interaction.editReply({
+							components: [
+								new ContainerBuilder().addSectionComponents((section) =>
+									section
+										.setThumbnailAccessory((thumb) =>
+											thumb.setURL(`https://image.tmdb.org/t/p/w300${movie.poster_path}`)
+										)
+										.addTextDisplayComponents((textDisplay) => {
+											let desc_items = new Array<string>();
+											if (movie.release_date)
+												desc_items.push(new Date(movie.release_date).getFullYear().toString());
+											if (movie.runtime) desc_items.push(`${movie.runtime}m`);
+											if (movie.imdbRating) desc_items.push(`${movie.imdbRating}★`);
+											textDisplay.setContent(
+												`### ${movie.title}\n${desc_items.join(' | ')}\n\nRequested successfully`
+											);
+											return textDisplay;
+										})
+								),
+							],
+							flags: MessageFlags.IsComponentsV2,
+						});
+					else
+						return await interaction.editReply({
+							content: `You have already requested this movie.`,
+						});
 				} catch (e) {
 					console.error(e);
 					return await interaction.editReply({
@@ -111,14 +141,29 @@ export class RequestCommand extends Command {
 				const list = await db.movie.getServerMovies(interaction.guildId);
 
 				return await interaction.editReply({
-					content:
-						list
-							.map(
-								(movie) =>
-									`${movie._count.requests} | ${movie.title} (${new Date(movie.release_date).getFullYear()})`
+					components: [
+						new ContainerBuilder()
+							.addTextDisplayComponents((textDisplay) =>
+								textDisplay.setContent(
+									`### Top ${list.length} most requested movies\n` +
+										list
+											.map(
+												(movie, idx) =>
+													`${idx + 1}. ${movie.title} (${new Date(movie.release_date).getFullYear()})`
+											)
+											.join('\n')
+								)
 							)
-							.join('\n') +
-						`\nFull list [here](https://dash.jessawg.space/server/${interaction.guildId}/movies)`,
+							.addActionRowComponents((idk) =>
+								idk.addComponents(
+									new ButtonBuilder()
+										.setLabel('Full list')
+										.setURL(`https://dash.jessawg.space/server/${interaction.guildId}/movies`)
+										.setStyle(ButtonStyle.Link)
+								)
+							),
+					],
+					flags: MessageFlags.IsComponentsV2,
 				});
 			}
 			default:
