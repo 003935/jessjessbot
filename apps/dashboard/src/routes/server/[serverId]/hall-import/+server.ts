@@ -50,9 +50,20 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 		let scanned = 0;
 		let imported = 0;
 		let channelsCompleted = 0;
+		const emitProgress = (isDone: boolean) =>
+			emit(
+				'message',
+				JSON.stringify({
+					isDone,
+					scanned,
+					imported,
+					channelsCompleted,
+					totalChannels: channels.length,
+				} satisfies HallImportMessage)
+			);
 
 		try {
-			for (const channel of channels) {
+			const importChannel = async (channel: (typeof channels)[number]) => {
 				let before: string | undefined;
 				let reachedPrevious = false;
 				let latestMessageId: string | null = null;
@@ -92,16 +103,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 					before = messages.at(-1)?.id;
 					if (messages.length < 100) break;
 
-					emit(
-						'message',
-						JSON.stringify({
-							isDone: false,
-							scanned,
-							imported,
-							channelsCompleted,
-							totalChannels: channels.length,
-						} satisfies HallImportMessage)
-					);
+					emitProgress(false);
 				}
 
 				await db.hall.updateCursor(
@@ -112,29 +114,24 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 					true
 				);
 				channelsCompleted++;
-				emit(
-					'message',
-					JSON.stringify({
-						isDone: false,
-						scanned,
-						imported,
-						channelsCompleted,
-						totalChannels: channels.length,
-					} satisfies HallImportMessage)
-				);
-			}
+				emitProgress(false);
+			};
+
+			let nextChannel = 0;
+			const worker = async () => {
+				while (nextChannel < channels.length) {
+					const channel = channels[nextChannel++]!;
+					await importChannel(channel);
+				}
+			};
+			const results = await Promise.allSettled(
+				Array.from({ length: Math.min(3, channels.length) }, worker)
+			);
+			const failed = results.find((result) => result.status === 'rejected');
+			if (failed?.status === 'rejected') throw failed.reason;
 
 			await db.hall.saveImport(serverId, discordID, scanned, imported);
-			emit(
-				'message',
-				JSON.stringify({
-					isDone: true,
-					scanned,
-					imported,
-					channelsCompleted,
-					totalChannels: channels.length,
-				} satisfies HallImportMessage)
-			);
+			emitProgress(true);
 		} catch (caught) {
 			console.error('Hall of Fame import failed:', caught);
 			emit('error', caught instanceof Error ? caught.message : 'Unknown error');

@@ -109,7 +109,8 @@ async function scanChannel(channel: GuildBasedChannel, cursor: HallChannel): Pro
 export async function showFame(
 	interaction: Command.ChatInputCommandInteraction,
 	selectedChannelId?: string,
-	selectedUserId?: string
+	selectedUserId?: string,
+	period: 'all' | 'month' = 'all'
 ) {
 	const guild = interaction.guild;
 	if (!guild) return;
@@ -153,6 +154,7 @@ export async function showFame(
 		const requester = await guild.members.fetch(interaction.user.id);
 		const botMember = guild.members.me ?? (await guild.members.fetchMe());
 		const visibleChannelIds: string[] = [];
+		const readableChannels: Array<{ channel: TextChannel | NewsChannel; cursor: HallChannel }> = [];
 		for (const [index, cursor] of cursors.entries()) {
 			const channel = channels[index];
 			if (
@@ -169,10 +171,22 @@ export async function showFame(
 				continue;
 			}
 			visibleChannelIds.push(channel.id);
-			checked += await scanChannel(channel, cursor);
-			if (!cursor.backfillComplete) incomplete++;
+			readableChannels.push({ channel, cursor });
 		}
-		const winners = await topMessages(guildId, visibleChannelIds, selectedUserId);
+		for (let index = 0; index < readableChannels.length; index += 3) {
+			const results = await Promise.allSettled(
+				readableChannels
+					.slice(index, index + 3)
+					.map(({ channel, cursor }) => scanChannel(channel, cursor))
+			);
+			for (const result of results) {
+				if (result.status === 'rejected') throw result.reason;
+				checked += result.value;
+			}
+		}
+		incomplete = readableChannels.filter(({ cursor }) => !cursor.backfillComplete).length;
+		const since = period === 'month' ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) : undefined;
+		const winners = await topMessages(guildId, visibleChannelIds, selectedUserId, since);
 		const lines = await Promise.all(
 			winners.map(async (entry, index) => {
 				const preview = escapeMarkdown(entry.preview.slice(0, MAX_PREVIEW));
@@ -192,7 +206,10 @@ export async function showFame(
 		]
 			.filter(Boolean)
 			.join(' · ');
-		const heading = filters ? `🏆 Hall of Fame · ${filters}` : '🏆 Server Hall of Fame';
+		const range = period === 'month' ? 'Past 30 days' : 'All time';
+		const heading = filters
+			? `🏆 Hall of Fame · ${filters} · ${range}`
+			: `🏆 Server Hall of Fame · ${range}`;
 		const status = `${checked} messages checked${incomplete ? ` · ${incomplete} channel${incomplete === 1 ? '' : 's'} still scanning old history, run this command again` : ''}${inaccessible ? ` · ${inaccessible} inaccessible channel${inaccessible === 1 ? '' : 's'}` : ''}`;
 		const container = new ContainerBuilder()
 			.setAccentColor(0xad66f2)
@@ -229,11 +246,21 @@ export class FameCommand extends Command {
 
 	public override registerApplicationCommands(registry: Command.Registry) {
 		registry.registerChatInputCommand((builder) =>
-			builder.setName('fame').setDescription('Show the server hall of fame')
+			builder
+				.setName('fame')
+				.setDescription('Show the server hall of fame')
+				.addStringOption((option) =>
+					option
+						.setName('period')
+						.setDescription('Which messages to include')
+						.addChoices({ name: 'All time', value: 'all' }, { name: 'Past month', value: 'month' })
+						.setRequired(true)
+				)
 		);
 	}
 
 	public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
-		await showFame(interaction);
+		const period = interaction.options.getString('period', true);
+		await showFame(interaction, undefined, undefined, period === 'month' ? 'month' : 'all');
 	}
 }

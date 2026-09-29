@@ -68,8 +68,13 @@ export async function removeMessage(channelId: string, messageId: string): Promi
 	await db.hall.removeMessage(channelId, messageId);
 }
 
-export async function topMessages(guildId: string, channelIds: string[], authorId?: string) {
-	return await db.hall.getTopMessages(guildId, channelIds, authorId);
+export async function topMessages(
+	guildId: string,
+	channelIds: string[],
+	authorId?: string,
+	since?: Date
+) {
+	return await db.hall.getTopMessages(guildId, channelIds, authorId, since);
 }
 
 export async function refreshReaction(
