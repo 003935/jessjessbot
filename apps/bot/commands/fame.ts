@@ -2,6 +2,7 @@ import { Command } from '@sapphire/framework';
 import {
 	ChannelType,
 	Collection,
+	ContainerBuilder,
 	MessageFlags,
 	PermissionFlagsBits,
 	type GuildBasedChannel,
@@ -13,9 +14,7 @@ import {
 	saveCursor,
 	saveMessage,
 	topMessages,
-	trackChannel,
 	trackedChannels,
-	untrackChannel,
 	type HallChannel,
 } from '@/modules/hall';
 
@@ -86,99 +85,23 @@ async function scanChannel(channel: GuildBasedChannel, cursor: HallChannel): Pro
 	return checked;
 }
 
-export class HallCommand extends Command {
-	public constructor(context: Command.LoaderContext, options: Command.Options) {
-		super(context, { ...options, preconditions: ['GuildTextOnly'] });
-	}
-
-	public override registerApplicationCommands(registry: Command.Registry) {
-		registry.registerChatInputCommand((builder) =>
-			builder
-				.setName('hall')
-				.setDescription('Most reacted messages in your chosen channels')
-				.addSubcommand((sub) =>
-					sub
-						.setName('show')
-						.setDescription('Show the server hall of fame, or filter to one tracked channel')
-						.addChannelOption((option) =>
-							option
-								.setName('channel')
-								.setDescription('Optional channel filter')
-								.addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-						)
-						.addUserOption((option) =>
-							option.setName('user').setDescription('Optional person filter')
-						)
-				)
-				.addSubcommand((sub) =>
-					sub
-						.setName('track')
-						.setDescription('Add a channel to the hall of fame (server managers)')
-						.addChannelOption((option) =>
-							option
-								.setName('channel')
-								.setDescription('Channel to add')
-								.addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-								.setRequired(true)
-						)
-				)
-				.addSubcommand((sub) =>
-					sub
-						.setName('untrack')
-						.setDescription('Remove a channel from the hall of fame (server managers)')
-						.addChannelOption((option) =>
-							option
-								.setName('channel')
-								.setDescription('Channel to remove')
-								.addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-								.setRequired(true)
-						)
-				)
-		);
-	}
-
-	public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
+export async function showFame(
+	interaction: Command.ChatInputCommandInteraction,
+	selectedChannelId?: string,
+	selectedUserId?: string
+) {
 		const guild = interaction.guild;
 		if (!guild) return;
 		const guildId = guild.id;
-		const action = interaction.options.getSubcommand();
-		const selected = interaction.options.getChannel('channel');
-		const selectedUser = interaction.options.getUser('user');
-		if (action === 'track' || action === 'untrack') {
-			if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-				await interaction.reply({
-					content: 'Only server managers can change tracked channels.',
-					flags: MessageFlags.Ephemeral,
-				});
-				return;
-			}
-			if (!selected) return;
-			const selectedChannel = await guild.channels.fetch(selected.id).catch(() => null);
-			if (!selectedChannel || !canRead(selectedChannel)) return;
-			if (action === 'track') {
-				await trackChannel(guildId, selected.id);
-				await interaction.reply({
-					content: `Okay, I’ll include <#${selected.id}> in the hall of fame. Run /hall show to start scanning its history (˶ᵔ ᵕ ᵔ˶)`,
-					allowedMentions: { parse: [] },
-				});
-			} else {
-				await untrackChannel(guildId, selected.id);
-				await interaction.reply({
-					content: `Removed <#${selected.id}> from the hall of fame.`,
-					allowedMentions: { parse: [] },
-				});
-			}
-			return;
-		}
 
 		const cursors = (await trackedChannels(guildId)).filter(
-			(channel) => !selected || channel.channelId === selected.id
+			(channel) => !selectedChannelId || channel.channelId === selectedChannelId
 		);
 		if (cursors.length === 0) {
 			await interaction.reply({
-				content: selected
-					? 'That channel is not tracked yet. Ask a server manager to use /hall track.'
-					: 'No channels are tracked yet. A server manager can add one with /hall track.',
+				content: selectedChannelId
+					? 'That channel is not in the hall of fame yet. A server manager can add it in the dashboard.'
+					: 'No channels are in the hall of fame yet. A server manager can add some in the dashboard.',
 				flags: MessageFlags.Ephemeral,
 			});
 			return;
@@ -228,26 +151,36 @@ export class HallCommand extends Command {
 				checked += await scanChannel(channel, cursor);
 				if (!cursor.backfillComplete) incomplete++;
 			}
-			const winners = await topMessages(guildId, visibleChannelIds, selectedUser?.id);
+			const winners = await topMessages(guildId, visibleChannelIds, selectedUserId);
 			const lines = winners.map((entry, index) => {
 				const preview = escapeMarkdown(entry.preview.slice(0, MAX_PREVIEW));
 				const link = `https://discord.com/channels/${guildId}/${entry.channelId}/${entry.messageId}`;
-				return `${index + 1}. <@${entry.authorId}> “${preview}${entry.preview.length > MAX_PREVIEW ? '…' : ''}” ${entry.reactions} 🔥 [jump](${link})`;
+				return `${index + 1}. “${preview}${entry.preview.length > MAX_PREVIEW ? '…' : ''}” - <@${entry.authorId}> · ${entry.reactions} reactions · [link](${link})`;
 			});
 			const filters = [
-				selected ? `<#${selected.id}>` : null,
-				selectedUser ? `<@${selectedUser.id}>` : null,
+				selectedChannelId ? `<#${selectedChannelId}>` : null,
+				selectedUserId ? `<@${selectedUserId}>` : null,
 			]
 				.filter(Boolean)
 				.join(' · ');
-			const heading = filters ? `**🏆 Hall of Fame · ${filters}**` : '**🏆 Server Hall of Fame**';
-			const status = `${checked} messages checked${incomplete ? ` · ${incomplete} channel${incomplete === 1 ? '' : 's'} still scanning old history, run /hall show again` : ''}${inaccessible ? ` · ${inaccessible} inaccessible channel${inaccessible === 1 ? '' : 's'}` : ''}`;
+			const heading = filters ? `🏆 Hall of Fame · ${filters}` : '🏆 Server Hall of Fame';
+			const status = `${checked} messages checked${incomplete ? ` · ${incomplete} channel${incomplete === 1 ? '' : 's'} still scanning old history, run this command again` : ''}${inaccessible ? ` · ${inaccessible} inaccessible channel${inaccessible === 1 ? '' : 's'}` : ''}`;
+			const container = new ContainerBuilder()
+				.setAccentColor(0xad66f2)
+				.addTextDisplayComponents((textDisplay) => textDisplay.setContent(`## ${heading}`))
+				.addTextDisplayComponents((textDisplay) =>
+					textDisplay.setContent(
+						lines.length ? lines.join('\n') : 'No reacted messages found yet (｡•́︿•̀｡)'
+					)
+				)
+				.addTextDisplayComponents((textDisplay) => textDisplay.setContent(`-# ${status}`));
 			await interaction.editReply({
-				content: `${heading}\n${lines.length ? lines.join('\n') : 'No reacted messages found yet (｡•́︿•̀｡)'}\n_${status}_`,
+				components: [container],
+				flags: MessageFlags.IsComponentsV2,
 				allowedMentions: { parse: [] },
 			});
 		} catch (error) {
-			this.container.logger.error('Hall of Fame failed', error);
+			console.error('Hall of Fame failed', error);
 			if (interaction.deferred || interaction.replied)
 				await interaction.editReply('wehh i could not check the reactions right now ;-;');
 			else
@@ -258,5 +191,20 @@ export class HallCommand extends Command {
 		} finally {
 			activeGuilds.delete(guildId);
 		}
+}
+
+export class FameCommand extends Command {
+	public constructor(context: Command.LoaderContext, options: Command.Options) {
+		super(context, { ...options, preconditions: ['GuildTextOnly'] });
+	}
+
+	public override registerApplicationCommands(registry: Command.Registry) {
+		registry.registerChatInputCommand((builder) =>
+			builder.setName('fame').setDescription('Show the server hall of fame')
+		);
+	}
+
+	public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
+		await showFame(interaction);
 	}
 }
