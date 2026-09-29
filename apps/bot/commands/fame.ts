@@ -14,6 +14,7 @@ import {
 	saveCursor,
 	saveMessage,
 	topMessages,
+	totalReactions,
 	trackedChannels,
 	type HallChannel,
 } from '@/modules/hall';
@@ -45,6 +46,15 @@ function topReactionEmoji(message: Message): string | null {
 	return top?.emoji ?? null;
 }
 
+async function saveQualifyingMessages(messages: Iterable<Message<true>>): Promise<void> {
+	const qualifying = [...messages].filter(
+		(message) => !message.author.bot && totalReactions(message) > 2
+	);
+	for (let index = 0; index < qualifying.length; index += 10) {
+		await Promise.all(qualifying.slice(index, index + 10).map(saveMessage));
+	}
+}
+
 async function scanChannel(channel: GuildBasedChannel, cursor: HallChannel): Promise<number> {
 	if (!canRead(channel)) return 0;
 	let checked = 0;
@@ -59,7 +69,7 @@ async function scanChannel(channel: GuildBasedChannel, cursor: HallChannel): Pro
 			const ordered: Message<true>[] = [...batch.values()].sort((a, b) =>
 				Number(BigInt(a.id) - BigInt(b.id))
 			);
-			for (const message of ordered) await saveMessage(message);
+			await saveQualifyingMessages(ordered);
 			cursor.newestSeen = ordered.at(-1)!.id;
 			checked += batch.size;
 			remaining -= batch.size;
@@ -86,7 +96,7 @@ async function scanChannel(channel: GuildBasedChannel, cursor: HallChannel): Pro
 			await saveCursor(cursor);
 			break;
 		}
-		for (const message of batch.values()) await saveMessage(message);
+		await saveQualifyingMessages(batch.values());
 		cursor.oldestBefore = batch.last()!.id;
 		checked += batch.size;
 		remaining -= batch.size;
