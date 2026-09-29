@@ -74,7 +74,12 @@ export class HallTable extends DatabaseConnection {
 
 	async saveMessages(messages: HallMessageInput[]) {
 		let imported = 0;
-		for (const message of messages) if (await this.saveMessage(message)) imported++;
+		for (let index = 0; index < messages.length; index += 10) {
+			const results = await Promise.all(
+				messages.slice(index, index + 10).map((message) => this.saveMessage(message))
+			);
+			imported += results.filter(Boolean).length;
+		}
 		return imported;
 	}
 
@@ -82,10 +87,15 @@ export class HallTable extends DatabaseConnection {
 		await this._db.hallMessage.deleteMany({ where: { channelId, messageId } });
 	}
 
-	async getTopMessages(guildId: string, channelIds: string[], authorId?: string) {
+	async getTopMessages(guildId: string, channelIds: string[], authorId?: string, since?: Date) {
 		if (channelIds.length === 0) return [];
 		return await this._db.hallMessage.findMany({
-			where: { guildId, channelId: { in: channelIds }, ...(authorId ? { authorId } : {}) },
+			where: {
+				guildId,
+				channelId: { in: channelIds },
+				...(authorId ? { authorId } : {}),
+				...(since ? { createdAt: { gte: since } } : {}),
+			},
 			orderBy: [{ reactions: 'desc' }, { createdAt: 'desc' }],
 			take: 10,
 		});
