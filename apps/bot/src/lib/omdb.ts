@@ -30,6 +30,7 @@ const movie_details_schema = v.object({
 });
 
 export async function get_movie(imdbId: string) {
+	if (!OMDB_API_KEY) return undefined;
 	const res = await fetch(`http://www.omdbapi.com/?apikey=${OMDB_API_KEY}&i=${imdbId}`, {
 		method: 'GET',
 		headers: {

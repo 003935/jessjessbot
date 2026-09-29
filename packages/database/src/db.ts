@@ -11,6 +11,7 @@ export class Database extends DatabaseConnection {
 	readonly failedMentions: t.FailedMentionsTable;
 	readonly config: t.ConfigTable;
 	readonly movie: t.MovieTable;
+	readonly hall: t.HallTable;
 
 	constructor(db_url: string, poolConfig?: PoolConfig, logger?: DatabaseLogger) {
 		super(db_url, poolConfig, logger);
@@ -23,5 +24,6 @@ export class Database extends DatabaseConnection {
 		this.failedMentions = new t.FailedMentionsTable(this);
 		this.config = new t.ConfigTable(this);
 		this.movie = new t.MovieTable(this);
+		this.hall = new t.HallTable(this);
 	}
 }
