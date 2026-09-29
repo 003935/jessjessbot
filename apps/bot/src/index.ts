@@ -1,4 +1,4 @@
-import { GatewayIntentBits, Message } from 'discord.js';
+import { GatewayIntentBits, Message, Partials } from 'discord.js';
 import { BOT_TOKEN } from '@/environment';
 import { LogLevel, SapphireClient } from '@sapphire/framework';
 import { wordle_module } from '@/modules/wordle';
@@ -7,6 +7,7 @@ import { start_background_event_checker } from '@/modules/events';
 import { Check_Attachments } from '@/modules/reaction';
 import { Logger } from '@/utils';
 import { db } from '@/db';
+import { refreshReaction, removeMessage } from '@/modules/hall';
 import { Meowdule } from './modules/meowdule';
 
 const logger = new Logger('Bot', LogLevel.Info);
@@ -16,7 +17,9 @@ const client = new SapphireClient({
 		GatewayIntentBits.GuildMessages,
 		GatewayIntentBits.MessageContent,
 		GatewayIntentBits.GuildMembers,
+		GatewayIntentBits.GuildMessageReactions,
 	],
+	partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 	loadMessageCommandListeners: true,
 	logger: {
 		level: LogLevel.Info,
@@ -81,6 +84,18 @@ function messageparser(message: Message<boolean>) {
 }
 
 client.on('messageCreate', messageparser);
+
+client.on('messageReactionAdd', (reaction) => {
+	refreshReaction(reaction).catch((error) => logger.error('Hall reaction update failed', error));
+});
+client.on('messageReactionRemove', (reaction) => {
+	refreshReaction(reaction).catch((error) => logger.error('Hall reaction update failed', error));
+});
+client.on('messageDelete', (message) => {
+	removeMessage(message.channelId, message.id).catch((error) =>
+		logger.error('Hall message removal failed', error)
+	);
+});
 
 client.login(BOT_TOKEN).catch((error) => {
 	logger.fatal('Failed to login:', error);

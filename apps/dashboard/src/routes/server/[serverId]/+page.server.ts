@@ -15,10 +15,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	let channels: null | Awaited<ReturnType<typeof discordApi.getGuildChannels>> = null;
 	let wordleImport: null | Awaited<ReturnType<typeof db.wordleImport.getGuildImport>> = null;
 	let config: null | Awaited<ReturnType<typeof db.config.getConfig>> = null;
+	let hallChannels: Awaited<ReturnType<typeof db.hall.getChannels>> = [];
+	let hallImport: Awaited<ReturnType<typeof db.hall.getImport>> = null;
 	if (isAdmin) {
 		channels = await discordApi.getGuildChannels(guild.id);
 		wordleImport = await db.wordleImport.getGuildImport(params.serverId);
 		config = await db.config.getConfig(guild.id);
+		hallChannels = await db.hall.getChannels(guild.id, true);
+		hallImport = await db.hall.getImport(guild.id);
 	}
 
 	return {
@@ -32,7 +36,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		emojis: await emojis,
 		isAdmin,
 		channels: channels
-			?.filter((c) => c.type === ChannelType.GuildText)
+			?.filter((c) => c.type === ChannelType.GuildText || c.type === ChannelType.GuildAnnouncement)
 			.map((c) => ({ id: c.id, name: c.name })),
 		config,
 		wordleImport: wordleImport
@@ -40,6 +44,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 					lastImport: wordleImport.lastImport,
 					importedBy: wordleImport.importedBy,
 					messagesImported: wordleImport.messagesImported,
+				}
+			: null,
+		hallChannelIds: hallChannels.map((channel) => channel.channelId),
+		hallImport: hallImport
+			? {
+					lastImport: hallImport.lastImport,
+					messagesScanned: hallImport.messagesScanned,
+					messagesImported: hallImport.messagesImported,
 				}
 			: null,
 	};

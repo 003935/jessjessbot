@@ -39,6 +39,7 @@ export class RequestCommand extends Command {
 	}
 
 	public override async autocompleteRun(interaction: AutocompleteInteraction) {
+		if (!tmdb) return await interaction.respond([]);
 		const subcommand = interaction.options.getSubcommand(true);
 		const focusedOption = interaction.options.getFocused(true);
 
@@ -73,6 +74,8 @@ export class RequestCommand extends Command {
 		const subcommand = interaction.options.getSubcommand(true);
 		switch (subcommand) {
 			case 'request': {
+				if (!tmdb)
+					return await interaction.editReply('Movie requests are not configured on this bot.');
 				const tmdbId = interaction.options.getInteger('title', true);
 
 				try {

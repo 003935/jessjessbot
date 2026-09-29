@@ -1,0 +1,38 @@
+model HallChannel {
+  guildId          String
+  channelId        String
+  enabled          Boolean  @default(true)
+  newestSeen       String?
+  oldestBefore     String?
+  backfillComplete Boolean  @default(false)
+
+  @@id([guildId, channelId])
+  @@index([guildId, enabled])
+  @@map("hall_channels")
+}
+
+model HallMessage {
+  guildId     String
+  channelId   String
+  messageId   String
+  authorId    String
+  displayName String
+  preview     String
+  reactions   Int
+  createdAt   DateTime
+
+  @@id([channelId, messageId])
+  @@index([guildId, reactions])
+  @@index([guildId, authorId, reactions])
+  @@map("hall_messages")
+}
+
+model HallImport {
+  guildId          String   @id
+  lastImport       DateTime
+  importedBy       String
+  messagesScanned  Int
+  messagesImported Int
+
+  @@map("hall_imports")
+}

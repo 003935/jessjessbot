@@ -3,6 +3,7 @@
 	import { getGameRoles } from '$lib/gameRole.remote';
 	import GameRoleDialog from '$lib/components/GameRoleDialog.svelte';
 	import WordleImport from '$lib/components/WordleImport.svelte';
+	import HallOfFameAdmin from '$lib/components/HallOfFameAdmin.svelte';
 	import WordleScoreDist from '$lib/components/WordleScoreDist.svelte';
 	import WordleLeaderboard from '$lib/components/WordleLeaderboard.svelte';
 	import FailedMentionsTable from '$lib/components/FailedMentionsTable.svelte';
@@ -269,6 +270,12 @@
 			</Card.Root>
 
 			<WordleImport serverId={data.guild.id} wordleImport={data.wordleImport} />
+			<HallOfFameAdmin
+				serverId={data.guild.id}
+				channels={data.channels ?? []}
+				selectedChannelIds={data.hallChannelIds}
+				hallImport={data.hallImport}
+			/>
 		</div>
 	{/if}
 </div>
