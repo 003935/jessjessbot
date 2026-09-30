@@ -12,10 +12,38 @@ export type HallMessageInput = {
 };
 
 export class HallTable extends DatabaseConnection {
+	async getSavedMessages(guildId: string) {
+		return await this._db.hallMessage.findMany({
+			where: { guildId },
+			select: { channelId: true, messageId: true },
+		});
+	}
+
+	async rescoreMessage(
+		guildId: string,
+		channelId: string,
+		messageId: string,
+		reactions: number,
+		preview: string
+	) {
+		return await this._db.hallMessage.updateMany({
+			where: { guildId, channelId, messageId },
+			data: { reactions, preview },
+		});
+	}
+
 	async getChannels(guildId: string, enabledOnly = false) {
 		return await this._db.hallChannel.findMany({
 			where: { guildId, ...(enabledOnly ? { enabled: true } : {}) },
 			orderBy: { channelId: 'asc' },
+		});
+	}
+
+	async ensureChannels(guildId: string, channelIds: string[]) {
+		if (channelIds.length === 0) return;
+		await this._db.hallChannel.createMany({
+			data: channelIds.map((channelId) => ({ guildId, channelId, enabled: false })),
+			skipDuplicates: true,
 		});
 	}
 
@@ -55,7 +83,6 @@ export class HallTable extends DatabaseConnection {
 
 	async saveMessage(message: HallMessageInput) {
 		if (message.reactions <= 2) {
-			await this.removeMessage(message.channelId, message.messageId);
 			return false;
 		}
 		await this._db.hallMessage.upsert({
@@ -97,7 +124,7 @@ export class HallTable extends DatabaseConnection {
 				...(since ? { createdAt: { gte: since } } : {}),
 			},
 			orderBy: [{ reactions: 'desc' }, { createdAt: 'desc' }],
-			take: 10,
+			take: 500,
 		});
 	}
 

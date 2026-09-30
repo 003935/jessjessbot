@@ -226,7 +226,7 @@
 							{@const timer = format_countdown(custom.scheduledTime)}
 							{@const server = data.servers?.find((s) => s.id === custom.guildId)}
 							{#if timer !== null}
-								<div class="flex items-center justify-between gap-2 rounded-lg border bg-muted p-2">
+								<a href={resolve(`/server/${custom.guildId}/customs/${custom.id}`)} class="flex items-center justify-between gap-2 rounded-lg border bg-muted p-2 hover:bg-accent">
 									<div class="flex items-center gap-3">
 										<Avatar.Root size="sm">
 											<Avatar.Image class="rounded-lg" src={server?.icon} alt={server?.name} />
@@ -250,7 +250,7 @@
 											{#if timer.h === 0}{timer.s.toString().padStart(2, '0')}s{/if}
 										</div>
 									{/if}
-								</div>
+								</a>
 							{/if}
 						{/each}
 					</div>

@@ -6,9 +6,25 @@ model Custom {
   scheduledTime DateTime
   gameName      String
   name          String?
+  teamCount     Int        @default(0)
   game          CustomGame @relation(fields: [gameName], references: [name], onDelete: Cascade, onUpdate: Cascade)
+  signups       CustomSignup[]
 
   @@map("customs")
+}
+
+model CustomSignup {
+  id        Int      @id @default(autoincrement())
+  eventId   Int
+  userId    String
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  event     Custom   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId, status])
+  @@map("custom_signups")
 }
 
 model CustomGame {

@@ -46,6 +46,7 @@
 			time: new Date().toISOString(),
 			gameName: '',
 			name: '',
+			teamCount: 0,
 		},
 	});
 
@@ -259,6 +260,23 @@
 						<Field.Description>
 							The event name will default to the game name if this field is not filled.
 						</Field.Description>
+					</Field.Field>
+				{/snippet}
+			</SField>
+			<SField of={form} path={['teamCount']}>
+				{#snippet children(field)}
+					<Field.Field>
+						<Field.Label>Teams</Field.Label>
+						<Select.Root type="single" value={String(field.input)} onValueChange={(value) => field.onInput(Number(value))}>
+							<Select.Trigger>{field.input === 0 ? 'No teams' : `${field.input} teams`}</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="0">No teams</Select.Item>
+								<Select.Item value="2">2 teams</Select.Item>
+								<Select.Item value="3">3 teams</Select.Item>
+								<Select.Item value="4">4 teams</Select.Item>
+							</Select.Content>
+						</Select.Root>
+						<Field.Description>People choose a team by reacting 1️⃣, 2️⃣, 3️⃣, or 4️⃣.</Field.Description>
 					</Field.Field>
 				{/snippet}
 			</SField>

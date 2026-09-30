@@ -116,6 +116,32 @@
 		</div>
 	</div>
 
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>Upcoming customs</Card.Title>
+			<Card.Description>Open an event to see its signups.</Card.Description>
+		</Card.Header>
+		<Card.Content class="flex flex-col gap-3">
+			{#if data.upcomingCustoms.length === 0}
+				<p class="text-muted-foreground">No customs scheduled yet.</p>
+			{:else}
+				{#each data.upcomingCustoms as custom (custom.id)}
+					<a
+						href={resolve(`/server/${data.guild.id}/customs/${custom.id}`)}
+						class="flex items-center justify-between gap-4 rounded-lg border p-3 hover:bg-accent"
+					>
+						<span class="font-medium">
+							{custom.name || custom.gameName} · {custom.joinedCount} joined · {custom.maybeCount} maybe
+						</span>
+						<time datetime={custom.scheduledTime} class="text-sm text-muted-foreground">
+							{new Date(custom.scheduledTime).toLocaleString()}
+						</time>
+					</a>
+				{/each}
+			{/if}
+		</Card.Content>
+	</Card.Root>
+
 	<div class="grid grid-cols-2 gap-4">
 		<div class="col-span-2 flex items-center gap-3">
 			<div>
