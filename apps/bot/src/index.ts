@@ -96,6 +96,10 @@ client.on('interactionCreate', (interaction) => {
 			await interaction
 				.reply({ content: 'I could not update your signup right now.', ephemeral: true })
 				.catch(() => undefined);
+		else
+			await interaction
+				.followUp({ content: 'I could not update the signup post right now.', ephemeral: true })
+				.catch(() => undefined);
 	});
 });
 

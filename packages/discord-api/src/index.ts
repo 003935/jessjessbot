@@ -183,7 +183,7 @@ class DiscordApi {
 		const text_components: DiscordComponentPayload[] = [
 			{
 				type: 10,
-				content: `# ${content.name ?? content.gameName}`,
+				content: `## ${(content.name ?? `${content.gameName} customs`).replaceAll('@', '@\u200b')}`,
 			},
 		];
 
@@ -192,16 +192,19 @@ class DiscordApi {
 
 		text_components.push({
 			type: 10,
-			content: `<@&${content.roleId}> <t:${scheduledTime}:t> `,
+			content: `<@&${content.roleId}> · <t:${scheduledTime}:F>`,
 		});
 
-		text_components.push({
-			type: 10,
-			content: content.teamCount
-				? `React with ${['1️⃣', '2️⃣', '3️⃣', '4️⃣'].slice(0, content.teamCount).join(' ')} to pick a team. Choose one!`
-				: `Join, leave, or mark maybe using the buttons below.`,
-		});
+		if (content.teamCount)
+			text_components.push({
+				type: 10,
+				content: `React with ${['1️⃣', '2️⃣', '3️⃣', '4️⃣'].slice(0, content.teamCount).join(' ')} to pick a team. Choose one!`,
+			});
 		if (!content.teamCount) {
+			text_components.push(
+				{ type: 10, content: '**Joined (0)**\nNo one yet' },
+				{ type: 10, content: '**Maybe (0)**\nNo one yet' }
+			);
 			text_components.push({
 				type: 1,
 				components: [
@@ -218,13 +221,13 @@ class DiscordApi {
 				components: [
 					{
 						type: 17,
-						accent_color: null,
+						accent_color: 0xad66f2,
 						spoiler: false,
 						components: emoji
 							? [
 									{
 										type: 9,
-										components: text_components,
+										components: text_components.slice(0, 2),
 										accessory: {
 											type: 11,
 											media: {
@@ -232,6 +235,7 @@ class DiscordApi {
 											},
 										},
 									},
+									...text_components.slice(2),
 								]
 							: text_components,
 					},

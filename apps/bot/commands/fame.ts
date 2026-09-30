@@ -9,7 +9,8 @@ import {
 	type NewsChannel,
 	type TextChannel,
 } from 'discord.js';
-import { quoteFromHallPreview, topMessages, trackedChannels } from '@/modules/hall';
+import { highestReactionCount, quoteFromHallPreview, topMessages, trackedChannels } from '@/modules/hall';
+import { db } from '@/db';
 
 const MAX_PREVIEW = 120;
 
@@ -92,8 +93,8 @@ export async function showFame(
 		}
 		const since = period === 'month' ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) : undefined;
 		const winners = await topMessages(guildId, visibleChannelIds, selectedUserId, since);
-		const lines = await Promise.all(
-			winners.map(async (entry, index) => {
+		const refreshed = await Promise.all(
+			winners.map(async (entry) => {
 				const readable = quoteFromHallPreview(entry.preview)!;
 				const preview = escapeMarkdown(readable.slice(0, MAX_PREVIEW));
 				const link = `https://discord.com/channels/${guildId}/${entry.channelId}/${entry.messageId}`;
@@ -102,10 +103,21 @@ export async function showFame(
 					channel && canRead(channel)
 						? await channel.messages.fetch(entry.messageId).catch(() => null)
 						: null;
-				const emoji = message ? topReactionEmoji(message) : null;
-				return `${index + 1}. “${preview}${readable.length > MAX_PREVIEW ? '…' : ''}” - <@${entry.authorId}> · ${entry.reactions}${emoji ? ` ${emoji}` : ' top reactions'} · [link](${link})`;
+				if (!message) return null;
+				const reactions = highestReactionCount(message);
+				if (reactions !== entry.reactions)
+					await db.hall.rescoreMessage(guildId, entry.channelId, entry.messageId, reactions, entry.preview);
+				const emoji = topReactionEmoji(message);
+				return {
+					reactions,
+					text: `“${preview}${readable.length > MAX_PREVIEW ? '…' : ''}” - <@${entry.authorId}> · ${reactions}${emoji ? ` ${emoji}` : ' top reactions'} · [link](${link})`,
+				};
 			})
 		);
+		const lines = refreshed
+			.filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+			.sort((a, b) => b.reactions - a.reactions)
+			.map((entry, index) => `${index + 1}. ${entry.text}`);
 		const filters = [
 			selectedChannelId ? `<#${selectedChannelId}>` : null,
 			selectedUserId ? `<@${selectedUserId}>` : null,
@@ -113,9 +125,7 @@ export async function showFame(
 			.filter(Boolean)
 			.join(' · ');
 		const range = period === 'month' ? 'Past 30 days' : 'All time';
-		const heading = filters
-			? `🏆 Hall of Fame · ${filters} · ${range}`
-			: `🏆 Server Hall of Fame · ${range}`;
+		const heading = `🏆 Fatark Hall of Fame${filters ? ` · ${filters}` : ''} · ${range}`;
 		const status = `Saved results from ${visibleChannelIds.length} channel${visibleChannelIds.length === 1 ? '' : 's'}${inaccessible ? ` · ${inaccessible} inaccessible channel${inaccessible === 1 ? '' : 's'}` : ''}`;
 		const container = new ContainerBuilder()
 			.setAccentColor(0xad66f2)
@@ -152,7 +162,7 @@ export class FameCommand extends Command {
 		registry.registerChatInputCommand((builder) =>
 			builder
 				.setName('fame')
-				.setDescription('Show the server hall of fame')
+				.setDescription('Show the Fatark Hall of Fame')
 				.addStringOption((option) =>
 					option
 						.setName('period')

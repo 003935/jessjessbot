@@ -1,6 +1,6 @@
-import { ChannelType, Message, PermissionsBitField } from 'discord.js';
+import { ChannelType, Message, MessageFlags, PermissionsBitField } from 'discord.js';
 import { db } from '@/db';
-import { signupButtons } from '@/modules/custom-signups';
+import { signupCard } from '@/modules/custom-signups';
 
 export type CustomRequest = { game?: unknown; time?: unknown; title?: unknown; channel?: unknown };
 export type PreparedCustom = {
@@ -53,7 +53,8 @@ function londonTime(
 }
 
 function parseTime(input: string, now = new Date()): Date | null {
-	const text = input.trim();
+	const text = input.trim()
+		.replace(/^at\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s+(today|tonight|tomorrow)$/iu, '$2 at $1');
 	const inDuration = text.match(
 		/^in\s+(\d+(?:\.\d+)?)\s*(minutes?|mins?|min|m|hours?|hrs?|hr|h)$/iu
 	);
@@ -251,10 +252,18 @@ export async function scheduleCustom(
 	if (!role) return 'The linked game role is missing now.';
 	const timestamp = Number((time as string).match(/^<t:(\d+)>$/u)?.[1]);
 	if (!Number.isFinite(timestamp)) return 'That time is no longer valid.';
+	const gameInfo = await db.games.get(game as string);
 	const sent = await channel.send({
-		content: `**${title || `${game} customs`}**\n<@&${role.id}> · <t:${timestamp}:F>\nJoin, leave, or mark maybe below.`,
-		components: [signupButtons()],
-		allowedMentions: { parse: [], roles: [role.id] },
+		components: [
+			signupCard({
+				title: (title as string | undefined) || `${game} customs`,
+				timestamp,
+				roleId: role.id,
+				iconId: gameInfo?.icon,
+			}),
+		],
+		flags: MessageFlags.IsComponentsV2,
+		allowedMentions: { roles: [role.id] },
 	});
 	try {
 		await db.events.insert({
