@@ -1,7 +1,6 @@
 import { Command } from '@sapphire/framework';
 import {
 	ChannelType,
-	Collection,
 	ContainerBuilder,
 	MessageFlags,
 	PermissionFlagsBits,
@@ -10,19 +9,9 @@ import {
 	type NewsChannel,
 	type TextChannel,
 } from 'discord.js';
-import {
-	saveCursor,
-	saveMessage,
-	topMessages,
-	totalReactions,
-	trackedChannels,
-	type HallChannel,
-} from '@/modules/hall';
+import { quoteFromHallPreview, topMessages, trackedChannels } from '@/modules/hall';
 
-const PAGE_SIZE = 100;
-const MAX_PER_CHANNEL = 1_000;
 const MAX_PREVIEW = 120;
-const activeGuilds = new Set<string>();
 
 function canRead(channel: GuildBasedChannel): channel is TextChannel | NewsChannel {
 	return (
@@ -44,66 +33,6 @@ function topReactionEmoji(message: Message): string | null {
 		.filter((reaction) => reaction.count > 0)
 		.sort((a, b) => b.count - a.count || a.emoji.localeCompare(b.emoji))[0];
 	return top?.emoji ?? null;
-}
-
-async function saveQualifyingMessages(messages: Iterable<Message<true>>): Promise<void> {
-	const qualifying = [...messages].filter(
-		(message) => !message.author.bot && totalReactions(message) > 2
-	);
-	for (let index = 0; index < qualifying.length; index += 10) {
-		await Promise.all(qualifying.slice(index, index + 10).map(saveMessage));
-	}
-}
-
-async function scanChannel(channel: GuildBasedChannel, cursor: HallChannel): Promise<number> {
-	if (!canRead(channel)) return 0;
-	let checked = 0;
-	let remaining = MAX_PER_CHANNEL;
-	if (cursor.newestSeen) {
-		while (remaining > 0) {
-			const batch: Collection<string, Message<true>> = await channel.messages.fetch({
-				after: cursor.newestSeen,
-				limit: Math.min(PAGE_SIZE, remaining),
-			});
-			if (batch.size === 0) break;
-			const ordered: Message<true>[] = [...batch.values()].sort((a, b) =>
-				Number(BigInt(a.id) - BigInt(b.id))
-			);
-			await saveQualifyingMessages(ordered);
-			cursor.newestSeen = ordered.at(-1)!.id;
-			checked += batch.size;
-			remaining -= batch.size;
-			await saveCursor(cursor);
-			if (batch.size < PAGE_SIZE) break;
-		}
-	}
-	if (!cursor.newestSeen && remaining > 0) {
-		const newest = await channel.messages.fetch({ limit: 1 });
-		cursor.newestSeen = newest.first()?.id ?? null;
-		if (cursor.newestSeen && cursor.backfillComplete) {
-			cursor.backfillComplete = false;
-			cursor.oldestBefore = null;
-		}
-		await saveCursor(cursor);
-	}
-	while (!cursor.backfillComplete && remaining > 0) {
-		const batch = await channel.messages.fetch({
-			limit: Math.min(PAGE_SIZE, remaining),
-			...(cursor.oldestBefore ? { before: cursor.oldestBefore } : {}),
-		});
-		if (batch.size === 0) {
-			cursor.backfillComplete = true;
-			await saveCursor(cursor);
-			break;
-		}
-		await saveQualifyingMessages(batch.values());
-		cursor.oldestBefore = batch.last()!.id;
-		checked += batch.size;
-		remaining -= batch.size;
-		if (batch.size < PAGE_SIZE) cursor.backfillComplete = true;
-		await saveCursor(cursor);
-	}
-	return checked;
 }
 
 export async function showFame(
@@ -128,14 +57,6 @@ export async function showFame(
 		});
 		return;
 	}
-	if (activeGuilds.has(guildId)) {
-		await interaction.reply({
-			content: 'I’m already refreshing the hall of fame. Try again in a moment (˶ᵔ ᵕ ᵔ˶)',
-			flags: MessageFlags.Ephemeral,
-		});
-		return;
-	}
-	activeGuilds.add(guildId);
 	try {
 		const channels = await Promise.all(
 			cursors.map((cursor) => guild.channels.fetch(cursor.channelId).catch(() => null))
@@ -148,14 +69,11 @@ export async function showFame(
 		await interaction.deferReply({
 			flags: includesPrivateChannel ? MessageFlags.Ephemeral : undefined,
 		});
-		let checked = 0;
-		let incomplete = 0;
 		let inaccessible = 0;
 		const requester = await guild.members.fetch(interaction.user.id);
 		const botMember = guild.members.me ?? (await guild.members.fetchMe());
 		const visibleChannelIds: string[] = [];
-		const readableChannels: Array<{ channel: TextChannel | NewsChannel; cursor: HallChannel }> = [];
-		for (const [index, cursor] of cursors.entries()) {
+		for (const [index] of cursors.entries()) {
 			const channel = channels[index];
 			if (
 				!channel ||
@@ -171,25 +89,13 @@ export async function showFame(
 				continue;
 			}
 			visibleChannelIds.push(channel.id);
-			readableChannels.push({ channel, cursor });
 		}
-		for (let index = 0; index < readableChannels.length; index += 3) {
-			const results = await Promise.allSettled(
-				readableChannels
-					.slice(index, index + 3)
-					.map(({ channel, cursor }) => scanChannel(channel, cursor))
-			);
-			for (const result of results) {
-				if (result.status === 'rejected') throw result.reason;
-				checked += result.value;
-			}
-		}
-		incomplete = readableChannels.filter(({ cursor }) => !cursor.backfillComplete).length;
 		const since = period === 'month' ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) : undefined;
 		const winners = await topMessages(guildId, visibleChannelIds, selectedUserId, since);
 		const lines = await Promise.all(
 			winners.map(async (entry, index) => {
-				const preview = escapeMarkdown(entry.preview.slice(0, MAX_PREVIEW));
+				const readable = quoteFromHallPreview(entry.preview)!;
+				const preview = escapeMarkdown(readable.slice(0, MAX_PREVIEW));
 				const link = `https://discord.com/channels/${guildId}/${entry.channelId}/${entry.messageId}`;
 				const channel = channels.find((channel) => channel?.id === entry.channelId);
 				const message =
@@ -197,7 +103,7 @@ export async function showFame(
 						? await channel.messages.fetch(entry.messageId).catch(() => null)
 						: null;
 				const emoji = message ? topReactionEmoji(message) : null;
-				return `${index + 1}. “${preview}${entry.preview.length > MAX_PREVIEW ? '…' : ''}” - <@${entry.authorId}> · ${entry.reactions}${emoji ? ` ${emoji}` : ' reactions'} · [link](${link})`;
+				return `${index + 1}. “${preview}${readable.length > MAX_PREVIEW ? '…' : ''}” - <@${entry.authorId}> · ${entry.reactions}${emoji ? ` ${emoji}` : ' top reactions'} · [link](${link})`;
 			})
 		);
 		const filters = [
@@ -210,7 +116,7 @@ export async function showFame(
 		const heading = filters
 			? `🏆 Hall of Fame · ${filters} · ${range}`
 			: `🏆 Server Hall of Fame · ${range}`;
-		const status = `${checked} messages checked${incomplete ? ` · ${incomplete} channel${incomplete === 1 ? '' : 's'} still scanning old history, run this command again` : ''}${inaccessible ? ` · ${inaccessible} inaccessible channel${inaccessible === 1 ? '' : 's'}` : ''}`;
+		const status = `Saved results from ${visibleChannelIds.length} channel${visibleChannelIds.length === 1 ? '' : 's'}${inaccessible ? ` · ${inaccessible} inaccessible channel${inaccessible === 1 ? '' : 's'}` : ''}`;
 		const container = new ContainerBuilder()
 			.setAccentColor(0xad66f2)
 			.addTextDisplayComponents((textDisplay) => textDisplay.setContent(`## ${heading}`))
@@ -234,8 +140,6 @@ export async function showFame(
 				content: 'wehh i could not check the reactions right now ;-;',
 				flags: MessageFlags.Ephemeral,
 			});
-	} finally {
-		activeGuilds.delete(guildId);
 	}
 }
 

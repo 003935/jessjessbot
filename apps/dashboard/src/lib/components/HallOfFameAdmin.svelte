@@ -6,6 +6,7 @@
 		scanned: v.number(),
 		imported: v.number(),
 		channelsCompleted: v.number(),
+		channelsSkipped: v.number(),
 		totalChannels: v.number(),
 	});
 
@@ -24,7 +25,6 @@
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import Progress from '$lib/components/ui/progress/progress.svelte';
 
 	type Channel = { id: string; name: string };
 	type ImportData = {
@@ -50,6 +50,8 @@
 	let initialized = $state(false);
 	let saving = $state(false);
 	let importing = $state(false);
+	let rechecking = $state(false);
+	let hasImported = $state(Boolean(hallImport));
 	let error = $state<string | null>(null);
 	let progress = $state<HallImportMessage | null>(null);
 	let connection: ReturnType<typeof source> | null = $state(null);
@@ -58,11 +60,7 @@
 	let hasChanges = $derived(
 		selected.length !== saved.length || selected.some((id) => !saved.includes(id))
 	);
-	let percentage = $derived(
-		progress && progress.totalChannels > 0
-			? Math.round((progress.channelsCompleted / progress.totalChannels) * 100)
-			: 0
-	);
+	let lastImported = $derived(progress?.isDone ? progress.imported : hallImport?.messagesImported);
 
 	$effect(() => {
 		if (initialized) return;
@@ -105,21 +103,25 @@
 		connection = null;
 	}
 
-	async function startImport() {
-		if (importing || selected.length === 0) return;
+	async function startImport(recheckSaved = false) {
+		if (importing) return;
 		if (hasChanges && !(await saveChannels())) return;
 		clearConnection();
 		error = null;
 		progress = null;
 		importing = true;
-		connection = source(`/server/${serverId}/hall-import`);
+		rechecking = recheckSaved;
+		connection = source(`/server/${serverId}/hall-import${recheckSaved ? '?recheck=1' : ''}`);
 		const unsubscribers: Array<() => void> = [];
 		unsubscribers.push(
 			connection.select('message').subscribe((value) => {
 				if (!value) return;
 				try {
 					progress = v.parse(import_message_schema, JSON.parse(value));
-					if (progress.isDone) importing = false;
+					if (progress.isDone) {
+						hasImported = true;
+						importing = false;
+					}
 				} catch {
 					error = 'The import returned an unexpected response';
 					importing = false;
@@ -148,10 +150,10 @@
 			<div>
 				<Card.Title>Hall of Fame Import</Card.Title>
 				<Card.Description>
-					{#if hallImport}
-						Last: {hallImport.messagesImported.toLocaleString()} qualifying messages imported
+					{#if lastImported !== undefined}
+						Last update: {lastImported.toLocaleString()} qualifying messages imported
 					{:else}
-						Choose where the bot should look for legendary messages
+						Build a server-wide database of reacted messages
 					{/if}
 				</Card.Description>
 			</div>
@@ -163,8 +165,8 @@
 						<Info class="text-muted-foreground" />
 					</Tooltip.Trigger>
 					<Tooltip.Content class="max-w-72">
-						Imports messages with at least three human reactions. Later imports only scan messages
-						sent since the previous import.
+						Scans readable text channels across the server. Later updates check new messages. The
+						channel checkboxes only control what appears in the leaderboard.
 					</Tooltip.Content>
 				</Tooltip.Root>
 			</Tooltip.Provider>
@@ -174,7 +176,7 @@
 	<Card.Content class="flex min-h-96 flex-col gap-5 pt-5">
 		<div class="flex items-center justify-between gap-3">
 			<div>
-				<p class="text-sm font-semibold">Included channels</p>
+				<p class="text-sm font-semibold">Leaderboard channels</p>
 				<p class="text-xs text-muted-foreground">{selected.length} of {channels.length} selected</p>
 			</div>
 			<Button
@@ -217,14 +219,28 @@
 		{:else if importing}
 			<div class="rounded-xl bg-muted/60 p-4">
 				<div class="mb-3 flex items-center justify-between text-sm">
-					<span class="font-medium">Scanning reacted messages…</span>
-					<span class="font-mono font-semibold text-primary">{percentage}%</span>
+					<span class="font-medium">
+						{rechecking ? 'Rechecking saved messages…' : 'Scanning server messages…'}
+					</span>
+					{#if progress}
+						<span class="font-mono font-semibold text-primary">
+							{#if rechecking}
+								{progress.scanned.toLocaleString()} messages checked
+							{:else}
+								{progress.channelsCompleted} of {progress.totalChannels} channels finished
+							{/if}
+						</span>
+					{/if}
 				</div>
-				<Progress value={percentage} max={100} />
 				{#if progress}
-					<p class="mt-3 text-xs text-muted-foreground">
+					<p class="text-xs text-muted-foreground">
 						{progress.scanned.toLocaleString()} checked · {progress.imported.toLocaleString()}
-						with 3+ reactions
+						{rechecking ? 'scores updated' : 'with 3+ reactions'}
+						{#if progress.channelsSkipped > 0}
+							· {progress.channelsSkipped} inaccessible channel{progress.channelsSkipped === 1
+								? ''
+								: 's'} skipped
+						{/if}
 					</p>
 				{/if}
 			</div>
@@ -234,20 +250,42 @@
 					<CheckCircle class="text-primary" />
 					<Empty.Title>Hall of Fame updated</Empty.Title>
 					<Empty.Description>
-						Checked {progress.scanned.toLocaleString()} new messages and imported
-						{progress.imported.toLocaleString()} with 3+ reactions.
+						{#if rechecking}
+							Rechecked {progress.scanned.toLocaleString()} saved messages and updated
+							{progress.imported.toLocaleString()} scores.
+						{:else}
+							Checked {progress.scanned.toLocaleString()} new messages and imported
+							{progress.imported.toLocaleString()} with 3+ reactions.
+						{/if}
+						{#if progress.channelsSkipped > 0}
+							{progress.channelsSkipped} inaccessible channel{progress.channelsSkipped === 1
+								? ' was'
+								: 's were'} skipped.
+						{/if}
 					</Empty.Description>
 				</Empty.Header>
 			</Empty.Root>
 		{/if}
 
+		{#if hasImported}
+			<Button
+				variant="outline"
+				class="w-full"
+				onclick={() => startImport(true)}
+				disabled={importing || saving}
+			>
+				<Download />
+				Recheck saved messages for reaction scores
+			</Button>
+		{/if}
+
 		<Button
 			class="mt-auto h-14 w-full"
-			onclick={startImport}
-			disabled={importing || saving || selected.length === 0}
+			onclick={() => startImport()}
+			disabled={importing || saving}
 		>
 			<Download />
-			{importing ? 'Importing…' : 'Import reacted messages'}
+			{importing ? 'Updating…' : hasImported ? 'Update database' : 'Import reacted messages'}
 		</Button>
 	</Card.Content>
 </Card.Root>

@@ -10,6 +10,41 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const { isAdmin, guild } = await getDiscordAcc(user, params.serverId);
 
 	const eventGames = await db.games.getAll();
+	const upcomingCustoms = await Promise.all(
+		(await db.events.getEventsByGuildIds([guild.id]))
+			.filter((event) => event.scheduledTime.getTime() > Date.now())
+			.sort((a, b) => a.scheduledTime.getTime() - b.scheduledTime.getTime())
+			.slice(0, 10)
+			.map(async (event) => {
+				const signups = await db.events.getSignups(event.id);
+				const overrides = new Map(signups.map((signup) => [signup.userId, signup.status]));
+				const teamEmoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'].slice(0, event.teamCount || 0);
+				const reactionUsers = await Promise.all(
+					(event.teamCount ? teamEmoji : ['✅']).map((emoji) =>
+						discordApi.getReactionUsers(event.channelId, event.messageId, emoji).catch(() => [])
+					)
+				);
+				const legacyIds = new Set(
+					reactionUsers
+						.flat()
+						.filter((member) => !overrides.has(member.id))
+						.map((member) => member.id)
+				);
+				const storedJoinedIds = new Set(
+					signups.filter((signup) => signup.status === 'JOINED').map((signup) => signup.userId)
+				);
+				return {
+					id: event.id,
+					gameName: event.gameName,
+					name: event.name,
+					channelId: event.channelId,
+					messageId: event.messageId,
+					scheduledTime: event.scheduledTime.toISOString(),
+					joinedCount: new Set([...legacyIds, ...storedJoinedIds]).size,
+					maybeCount: signups.filter((signup) => signup.status === 'MAYBE').length,
+				};
+			})
+	);
 	const emojis = await discordApi.getEmojis();
 
 	let channels: null | Awaited<ReturnType<typeof discordApi.getGuildChannels>> = null;
@@ -33,6 +68,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 				: null,
 		},
 		games: eventGames,
+		upcomingCustoms,
 		emojis: await emojis,
 		isAdmin,
 		channels: channels

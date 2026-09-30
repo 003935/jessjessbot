@@ -9,6 +9,8 @@ import { Logger } from '@/utils';
 import { db } from '@/db';
 import { refreshReaction, removeMessage } from '@/modules/hall';
 import { Meowdule } from './modules/meowdule';
+import { handleMention } from '@/modules/mention';
+import { handleCustomSignup } from '@/modules/custom-signups';
 
 const logger = new Logger('Bot', LogLevel.Info);
 const client = new SapphireClient({
@@ -81,9 +83,21 @@ function messageparser(message: Message<boolean>) {
 	wordle_module(message);
 	Check_Attachments(message);
 	meowdule?.handleMsg(message);
+	handleMention(message).catch((error) => logger.error('Mention handling failed', error));
 }
 
 client.on('messageCreate', messageparser);
+
+client.on('interactionCreate', (interaction) => {
+	if (!interaction.isButton() || !interaction.customId.startsWith('custom:')) return;
+	handleCustomSignup(interaction).catch(async (error) => {
+		logger.error('Custom signup button failed', error);
+		if (!interaction.replied && !interaction.deferred)
+			await interaction
+				.reply({ content: 'I could not update your signup right now.', ephemeral: true })
+				.catch(() => undefined);
+	});
+});
 
 client.on('messageReactionAdd', (reaction) => {
 	refreshReaction(reaction).catch((error) => logger.error('Hall reaction update failed', error));

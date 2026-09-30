@@ -11,7 +11,65 @@ type Event = {
 	messageId: string;
 	scheduledTime: Date;
 	gameName: string;
+	teamCount: number;
 };
+
+const teamEmoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'];
+
+export async function getEventSignups(client: Client<true>, event: Event) {
+	const channel = await client.channels.fetch(event.channelId);
+	if (!channel?.isTextBased() || !('messages' in channel))
+		throw new Error('Signup channel unavailable');
+	const message = await channel.messages.fetch(event.messageId);
+	const emojis = event.teamCount ? teamEmoji.slice(0, event.teamCount) : ['✅'];
+	const seen = new Set<string>();
+	const groups = [];
+	for (const emoji of emojis) {
+		const reaction = message.reactions.resolve(emoji);
+		const users: User[] = [];
+		let after: string | undefined;
+		if (reaction) {
+			while (true) {
+				const page = await reaction.users.fetch({ limit: 100, ...(after ? { after } : {}) });
+				for (const user of page.values()) {
+					if (!user.bot && !seen.has(user.id)) {
+						seen.add(user.id);
+						users.push(user);
+					}
+				}
+				if (page.size < 100) break;
+				after = page.last()?.id;
+			}
+		}
+		groups.push({ emoji, users });
+	}
+	if (!event.teamCount) {
+		const joined = groups[0]!.users;
+		const records = await db.events.getSignups(event.id);
+		const overrides = new Map(records.map((record) => [record.userId, record.status]));
+		const filteredLegacy = joined.filter((user) => !overrides.has(user.id));
+		joined.splice(0, joined.length, ...filteredLegacy);
+		const seenJoined = new Set(joined.map((user) => user.id));
+		for (const record of records) {
+			if (record.status !== 'JOINED' || seenJoined.has(record.userId)) continue;
+			const user = await client.users.fetch(record.userId).catch(() => null);
+			if (user && !user.bot) {
+				joined.push(user);
+				seenJoined.add(user.id);
+			}
+		}
+	}
+	return groups;
+}
+
+export async function getEventMaybeSignups(client: Client<true>, eventId: number) {
+	const records = await db.events.getSignups(eventId);
+	const maybe = records.filter((record) => record.status === 'MAYBE');
+	const users = await Promise.all(
+		maybe.map((record) => client.users.fetch(record.userId).catch(() => null))
+	);
+	return users.filter((user): user is User => Boolean(user && !user.bot));
+}
 
 async function send_alert(client: Client<true>, event: Event) {
 	try {
@@ -39,19 +97,8 @@ async function send_alert(client: Client<true>, event: Event) {
 			return;
 		}
 
-		const reaction = message.reactions.resolve('✅');
-
-		if (!reaction) {
-			logger.error(`Checkmark reaction not found on message ${event.messageId}`);
-			return;
-		}
-
-		const users = await reaction.users.fetch();
-
-		const mentions = users
-			.filter((u: User) => !u.bot)
-			.map((u: User) => `<@${u.id}>`)
-			.join(' ');
+		const groups = await getEventSignups(client, event);
+		const mentions = groups.flatMap(({ users }) => users.map((u) => `<@${u.id}>`)).join(' ');
 
 		if (!mentions) {
 			logger.warn(`No human reactions for event ${event.id}, skipping alert`);
