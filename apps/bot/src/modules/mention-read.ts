@@ -102,7 +102,7 @@ export async function answerReadRequest(
 		);
 		if (!entries.length)
 			return 'No reacted messages found in the public hall of fame channels yet.';
-		return `🏆 **Hall of Fame${month ? ' · past 30 days' : ''}**\n${entries
+		return `🏆 **Fatark Hall of Fame${month ? ' · past 30 days' : ''}**\n${entries
 			.slice(0, 5)
 			.map(
 				(entry, index) =>
