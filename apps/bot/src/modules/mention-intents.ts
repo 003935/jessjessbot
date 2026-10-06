@@ -34,16 +34,21 @@ export function allowsLongChatReply(prompt: string): boolean {
 }
 
 export function limitChatReply(reply: string, prompt: string): string {
-	if (allowsLongChatReply(prompt))
-		return reply.replace(/[ \t]+/gu, ' ').replace(/\n{3,}/gu, '\n\n').trim().slice(0, 800);
+	if (allowsLongChatReply(prompt)) {
+		const tidy = reply.replace(/[ \t]+/gu, ' ').replace(/\n{3,}/gu, '\n\n').trim();
+		if (tidy.length <= 1800) return tidy;
+		// Cut at the last full line so recipes don't end mid-word ("8. Si").
+		const cut = tidy.lastIndexOf('\n', 1800);
+		return tidy.slice(0, cut > 600 ? cut : 1800).trimEnd();
+	}
 	const oneLine = reply.replace(/\s+/gu, ' ').trim();
-	if (oneLine.length <= 500) return oneLine;
-	const leading = oneLine.slice(0, 501);
+	if (oneLine.length <= 280) return oneLine;
+	const leading = oneLine.slice(0, 281);
 	const sentenceEnds = [...leading.matchAll(/[.!?]+(?=\s|$)/gu)]
 		.map((match) => match.index! + match[0].length)
-		.filter((index) => index >= 200 && index <= 500);
+		.filter((index) => index >= 80 && index <= 280);
 	const lastSentence = sentenceEnds.at(-1);
 	if (lastSentence) return oneLine.slice(0, lastSentence).trim();
-	const lastSpace = leading.lastIndexOf(' ', 500);
-	return `${oneLine.slice(0, lastSpace > 200 ? lastSpace : 500).trimEnd()}…`;
+	const lastSpace = leading.lastIndexOf(' ', 280);
+	return `${oneLine.slice(0, lastSpace > 80 ? lastSpace : 280).trimEnd()}…`;
 }
