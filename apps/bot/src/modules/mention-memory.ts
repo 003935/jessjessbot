@@ -90,6 +90,17 @@ export async function handleMemberMemory(
 }
 
 export async function answerNicknameQuestion(message: Message<true>, prompt: string): Promise<string | null> {
+	const taggedPerson = prompt.trim().match(/^(?:what (?:do|should) i call|what(?:'s| is) (?:the )?name of)\s+<@!?(\d+)>\s*[?!.,]*$/iu);
+	if (taggedPerson) {
+		const userId = taggedPerson[1]!;
+		if (userId === message.client.user.id || !message.mentions.users.has(userId)) return null;
+		const member = await message.guild.members.fetch(userId).catch(() => null);
+		if (!member) return 'i cant find that person here';
+		const nickname = await db.botMemberPreference.getNickname(message.guildId, userId);
+		return nickname
+			? `${nickname}. ${member.displayName} asked me to call them that (¬_¬)`
+			: `${member.displayName} for now`;
+	}
 	const match = prompt.trim().match(/^who(?:'?s| is)\s+([\p{L}\p{N}_ '-]{2,30})\s*[?!.,]*$/iu);
 	if (!match) return null;
 	const nickname = match[1]!.trim().toLocaleLowerCase();
