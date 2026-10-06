@@ -1,4 +1,5 @@
 import { db } from '@/db';
+import type { Message } from 'discord.js';
 
 type PreferenceKind = 'like' | 'dislike';
 
@@ -31,6 +32,20 @@ export async function handleMemberMemory(
 	prompt: string
 ): Promise<string | null> {
 	const input = prompt.trim().replace(/^please\s+/iu, '');
+	const nicknameRequest = input.match(/^(?:call me|my nickname is)\s+(.+?)(?:\s+now)?\s*[.!?]*$/iu);
+	if (nicknameRequest) {
+		const nickname = nicknameRequest[1]!.trim().replace(/\s+/gu, ' ').toLocaleLowerCase();
+		if (!/^[\p{L}\p{N}][\p{L}\p{N}_ '-]{1,29}$/u.test(nickname) || nickname.split(' ').length > 3)
+			return 'pick a short nickname, like “call me chocbob”';
+		await db.botMemberPreference.setNickname(guildId, userId, nickname);
+		return `okie, ${nickname} it is. i actually saved it this time (¬_¬)`;
+	}
+	if (/^(?:forget|remove) (?:my )?nickname[.!?]*$/iu.test(input)) {
+		const oldNickname = await db.botMemberPreference.getNickname(guildId, userId);
+		if (!oldNickname) return 'i dont have a nickname saved for u';
+		await db.botMemberPreference.clearNickname(guildId, userId);
+		return 'okie, forgot ur nickname';
+	}
 	if (/^what (?:do|did) (?:you|u) (?:remember|know) about me\??$/iu.test(input)) {
 		const memories = await db.botMemberPreference.list(guildId, userId);
 		if (!memories.likes.length && !memories.dislikes.length)
@@ -44,7 +59,7 @@ export async function handleMemberMemory(
 	if (/^forget (?:everything|all)(?: (?:you|u) remember)? about me[.!?]*$/iu.test(input)) {
 		const count = await db.botMemberPreference.forgetAll(guildId, userId);
 		return count
-			? 'okie, i forgot ur saved likes and dislikes (ᵔ◡ᵔ)'
+			? 'okie, i forgot ur saved details (ᵔ◡ᵔ)'
 			: 'nothing saved to forget (ᵔ◡ᵔ)';
 	}
 	const remember = input.match(/^(remember|forget)\s+(.+)$/iu);
@@ -72,4 +87,18 @@ export async function handleMemberMemory(
 	return saved
 		? `okie, i'll remember that u ${preference.kind} ${preference.value} (｡•̀ᴗ-)✧`
 		: 'my memory is full for u. forget an old preference first (・_・;)';
+}
+
+export async function answerNicknameQuestion(message: Message<true>, prompt: string): Promise<string | null> {
+	const match = prompt.trim().match(/^who(?:'?s| is)\s+([\p{L}\p{N}_ '-]{2,30})\s*[?!.,]*$/iu);
+	if (!match) return null;
+	const nickname = match[1]!.trim().toLocaleLowerCase();
+	const ids = await db.botMemberPreference.findNicknameUsers(message.guildId, nickname);
+	if (!ids.length) return null;
+	const members = await Promise.all(ids.map((id) => message.guild.members.fetch(id).catch(() => null)));
+	const names = members.map((member) => member?.displayName).filter((name): name is string => !!name);
+	if (!names.length) return null;
+	return names.length === 1
+		? `${nickname} is ${names[0]} (¬_¬)`
+		: `${nickname}? ${names.join(' and ')} both asked me to use that name`;
 }

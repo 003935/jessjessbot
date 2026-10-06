@@ -7,9 +7,8 @@ import { db } from '@/db';
 import { answerUpcomingRequest, isUpcomingRequest } from '@/modules/custom-queries';
 import { handleTeamMention } from '@/modules/custom-teams';
 import { parseVaderMinutes, runVader } from '@/modules/vader';
-import { identifyPetFromMention, labelPetFromReply } from '@/modules/mention-pets';
 import { attitudeShift, isReunion, relationshipState, relationshipTone } from '@/modules/mention-relationship';
-import { handleMemberMemory } from '@/modules/mention-memory';
+import { answerNicknameQuestion, handleMemberMemory } from '@/modules/mention-memory';
 import { replyToGroupBlameBait } from '@/modules/mention-bait';
 import { answerWordleSuspicion } from '@/modules/mention-wordle';
 import { withServerEmoji } from '@/modules/server-emojis';
@@ -649,6 +648,7 @@ export async function handleMention(message: Message): Promise<void> {
 		let extraMessages: string[] = [];
 		let readAnswer: string | null = null;
 		let wordleAnswer: string | null = null;
+		let nicknameAnswer: string | null = null;
 		let casualReply = false;
 		let teamResponse: string[] | null = null;
 		const baitReply = replyToGroupBlameBait(message.guildId, message.author.id, prompt);
@@ -701,6 +701,8 @@ export async function handleMention(message: Message): Promise<void> {
 			extraMessages = teamResponse.slice(1);
 		} else if ((wordleAnswer = await answerWordleSuspicion(message as Message<true>, prompt))) {
 			content = wordleAnswer;
+		} else if ((nicknameAnswer = await answerNicknameQuestion(message as Message<true>, prompt))) {
+			content = nicknameAnswer;
 		} else if ((readAnswer = await answerReadRequest(message as Message<true>, prompt))) {
 			content = readAnswer;
 		} else if (isPublicChannel(message)) {
