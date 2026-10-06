@@ -6,7 +6,8 @@
 		".": "./src/index.ts"
 	},
 	"devDependencies": {
-		"@repo/typescript-config": "workspace:*"
+		"@repo/typescript-config": "workspace:*",
+		"typescript": "^7.0.2"
 	},
 	"scripts": {
 		"check": "tsc --noEmit"
