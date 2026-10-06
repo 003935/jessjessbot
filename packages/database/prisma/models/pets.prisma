@@ -1,0 +1,25 @@
+model Pet {
+  id        String     @id @default(cuid())
+  guildId   String
+  ownerId   String
+  name      String
+  nameKey   String
+  createdAt DateTime   @default(now())
+  photos    PetPhoto[]
+
+  @@unique([guildId, ownerId, nameKey])
+  @@index([guildId, ownerId])
+  @@map("pets")
+}
+
+model PetPhoto {
+  id              String   @id @default(cuid())
+  petId           String
+  fileId          String   @unique
+  sourceMessageId String?
+  createdAt       DateTime @default(now())
+  pet             Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@unique([petId, sourceMessageId])
+  @@map("pet_photos")
+}
