@@ -27,9 +27,23 @@ export class BotRelationshipTable extends DatabaseConnection {
 		);
 		await this._db.botRelationship.upsert({
 			where: { guildId_userId: { guildId, userId } },
-			create: { guildId, userId, score, updatedAt: now },
-			update: { score, updatedAt: now },
+			create: { guildId, userId, score, interactionCount: 1, updatedAt: now },
+			update: { score, interactionCount: { increment: 1 }, updatedAt: now },
 		});
 		return { score, lastInteractedAt: current?.updatedAt ?? null };
+	}
+
+	async favoriteCandidates(guildId: string): Promise<Array<{ userId: string; score: number; interactionCount: number }>> {
+		const now = new Date();
+		const rows = await this._db.botRelationship.findMany({
+			where: { guildId },
+			orderBy: { interactionCount: 'desc' },
+			take: 1000,
+		});
+		return rows.map((row) => ({
+			userId: row.userId,
+			score: decayedScore(row.score, row.updatedAt, now),
+			interactionCount: row.interactionCount,
+		}));
 	}
 }

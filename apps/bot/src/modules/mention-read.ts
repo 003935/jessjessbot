@@ -1,6 +1,8 @@
 import { ChannelType, Message, PermissionsBitField } from 'discord.js';
 import { db } from '@/db';
 import { quoteFromHallPreview, topMessages, trackedChannels } from '@/modules/hall';
+import { isRandomMemberRequest, isWordleLeaderboardRequest, isWordleWinsRequest } from '@/modules/mention-intents';
+import { WORDLE_BOT_ID } from '@/environment';
 
 function clean(text: string): string {
 	return text
@@ -14,10 +16,21 @@ export async function answerReadRequest(
 	prompt: string
 ): Promise<string | null> {
 	const text = prompt.toLocaleLowerCase();
-	if (
-		/\b(?:wordle|king)\b/u.test(text) &&
-		/\b(?:leaderboard|ranking|rank|top|king|winning)\b/u.test(text)
-	) {
+	const needsWordleContext = /\b(?:leaderboard|ranking|rank|top|king|winning|wins?)\b/u.test(text);
+	const referenced = needsWordleContext && message.reference?.messageId
+		? await message.fetchReference().catch(() => null)
+		: null;
+	const replyingToWordle = !!referenced &&
+		(referenced.author.id === WORDLE_BOT_ID || /\bwordle\b/iu.test(referenced.content));
+	if (isRandomMemberRequest(prompt)) {
+		const members = await message.guild.members.fetch().catch(() => null);
+		if (!members) return 'i cant load the member list right now';
+		const people = [...members.values()].filter((member) => !member.user.bot);
+		if (!people.length) return 'i cant find anyone to pick';
+		const chosen = people[Math.floor(Math.random() * people.length)]!;
+		return `i pick ${clean(chosen.displayName)} (¬_¬)`;
+	}
+	if (isWordleLeaderboardRequest(prompt, replyingToWordle)) {
 		const winners = await db.wordle.getSortedWinners(message.guild.id, 5);
 		if (!winners.length) return 'No one has won any Wordle games yet!';
 		const lines = await Promise.all(
@@ -48,10 +61,7 @@ export async function answerReadRequest(
 			})
 			.join('\n')}`;
 	}
-	if (
-		/\b(?:wordle\s+)?wins?\b/u.test(text) &&
-		/\b(?:my|mine|i|me|have|how many|check|show)\b/u.test(text)
-	) {
+	if (isWordleWinsRequest(prompt, replyingToWordle)) {
 		const mentioned = message.mentions.users
 			.filter((user) => user.id !== message.client.user.id)
 			.first();
