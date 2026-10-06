@@ -12,6 +12,8 @@ export class Database extends DatabaseConnection {
 	readonly config: t.ConfigTable;
 	readonly movie: t.MovieTable;
 	readonly hall: t.HallTable;
+	readonly botRelationship: t.BotRelationshipTable;
+	readonly botMemberPreference: t.BotMemberPreferenceTable;
 
 	constructor(db_url: string, poolConfig?: PoolConfig, logger?: DatabaseLogger) {
 		super(db_url, poolConfig, logger);
@@ -25,5 +27,7 @@ export class Database extends DatabaseConnection {
 		this.config = new t.ConfigTable(this);
 		this.movie = new t.MovieTable(this);
 		this.hall = new t.HallTable(this);
+		this.botRelationship = new t.BotRelationshipTable(this);
+		this.botMemberPreference = new t.BotMemberPreferenceTable(this);
 	}
 }

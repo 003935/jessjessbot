@@ -1,0 +1,11 @@
+model BotMemberPreference {
+  guildId   String
+  userId    String
+  kind      String
+  value     String
+  createdAt DateTime @default(now())
+
+  @@id([guildId, userId, kind, value])
+  @@index([guildId, userId])
+  @@map("bot_member_preferences")
+}

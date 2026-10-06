@@ -8,3 +8,5 @@ export * from './failed_mentions';
 export * from './config';
 export * from './movie';
 export * from './hall';
+export * from './bot_relationship';
+export * from './bot_member_preference';
