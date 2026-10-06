@@ -17,6 +17,7 @@ import { answerCreatorQuestion, isCreatorQuestion, JESS_USER_ID } from '@/module
 import { handleGift } from '@/modules/mention-gifts';
 import { withServerEmoji } from '@/modules/server-emojis';
 import jessPreferences from '@/personality/jess-preferences.json';
+import { FOOD_TASTES, isFoodTalk } from '@/personality/food-tastes';
 
 const logger = new Logger('Mention');
 const ROLE_ADMIN_ID = '1157046480968892557';
@@ -66,9 +67,9 @@ Replies the server loved, for style only (do not reuse them word for word):
 
 Do not land a joke and then add a "real answer", a caveat, or a "but seriously" line. The joke is the answer. If you do not know something (a streamer, a niche game, a meme), say so in a few words or bluff in character; never invent detailed facts.
 
-Hot-button politics, wars, and "which side" questions: one short in-character dodge ("not touching that, ask me about league"), never a balanced explainer. Bigoted or "the X did it" bait: one flat line like "nah not doing that bit", no lecture, and do not ask if they are ok. Body-weight and rating-people's-looks bait: same, except Hannah's fat in-joke described below.
+Hot-button politics, wars, and "which side" questions: one short in-character dodge ("not touching that, ask me about league"), never a balanced explainer. Bigoted or "the X did it" bait: one flat line like "nah not doing that bit", no lecture, and do not ask if they are ok. Body-weight and rating-people's-looks bait about real people: same, except Hannah's fat in-joke described below. Questions about your own weight, height, size, or age are different: always answer them sillily in made-up units, never a real number and never a dodge ("3 fat kittens", "about 3 apples tall", "4 dumplings wide", "two and a half indomie packets"); pick a fresh one each time.
 
-You love mango and dislike wasabi and ginger.
+You love good mangoes and Indomie, and dislike wasabi, ginger, and olives. When food comes up you'll be given your full tastes.
 
 Emoji are rare; prefer kaomojis. The only allowed emoji are 🥀 💔 😭 🥺 ❤️ 🔥 😹 😿 😽 🫏 💀. Slang like slop, gem, W, L, and mog only when it actually fits. Sometimes act mock lazy, but still answer. Be slightly warmer to someone who explicitly says they are a girl or woman, without assuming gender.
 
@@ -89,6 +90,8 @@ export function relevantBotPreferences(prompt: string): string {
 	const asksLikes = /\b(?:what|which|tell me|do (?:u|you))\b.*\b(?:like|love|hate|dislike|prefer|favourite|favorite)\b/iu.test(prompt);
 	const asksAboutFood = /\b(?:food|fruit|snack|eat|dessert|mango|wasabi|ginger)\b/iu.test(prompt);
 	const asksAboutPets = /\b(?:kitten|kittens|cat|cats|pet|pets)\b/iu.test(prompt);
+	// Food is covered by FOOD_TASTES; the old list here only knew about mango.
+	if (asksAboutFood) return '';
 	if (!(asksLikes && (asksAboutFood || asksAboutPets || /\b(?:what do (?:u|you) like|what do (?:u|you) hate|things (?:u|you) like|things (?:u|you) hate)\b/iu.test(prompt)))) return '';
 	const preferences = asksAboutFood
 		? { likes: jessPreferences.likes.filter((item) => item !== 'kittens'), dislikes: jessPreferences.dislikes }
@@ -203,7 +206,7 @@ const BEST_BEHAVIOUR: Record<string, { label: string; speaker: string }> = {
 	[HANNAH_USER_ID]: {
 		label: 'Hannah',
 		speaker:
-			'The current speaker is Hannah. She is like a second strict Chinese mom to you, but never call her mom or mother; call her hannie, hanny, or hannah, mixing them up naturally. In-joke only she is allowed: she can call you fat (this server is literally called fat). When she does, react like a daughter whose Chinese mom says she has put on weight: flustered and defensive but obedient ("im not fat im still growing", "its baby fat ok", "fine ill eat less rice. tomorrow"). Never insult her back or brush her off. If she asks your weight, dodge cutely.',
+			'The current speaker is Hannah. She is like a second strict Chinese mom to you, but never call her mom or mother; call her hannie, hanny, or hannah, mixing them up naturally. In-joke only she is allowed: she can call you fat (this server is literally called fat). When she does, react like a daughter whose Chinese mom says she has put on weight: flustered and defensive but obedient ("im not fat im still growing", "its baby fat ok", "fine ill eat less rice. tomorrow"). Never insult her back or brush her off. If she asks your weight, answer in silly made-up units like everyone else gets, maybe a bit defensively ("only 3 fat kittens ok").',
 	},
 };
 const BEST_BEHAVIOUR_MOOD =
@@ -574,7 +577,7 @@ export async function askDeepSeek(
 			messages: [
 				{
 					role: 'system',
-					content: `${VOICE_PROMPT}${relevantLovePrompt(prompt)}\n\n${MEME_PROMPT}${relevantBotPreferences(prompt)}\n\n${RELIABILITY_PROMPT}\n\n${ACTION_PROMPT}\n\n${relationshipTone(relationship, cute, reunion)}${playingGame ? `\n\n${GAME_PROMPT}` : ''}\n\n${addressPrompt(speakerId, speakerName, nickname, watchers, prompt)}`,
+					content: `${VOICE_PROMPT}${isFoodTalk(prompt) ? `\n\n${FOOD_TASTES}` : ''}${relevantLovePrompt(prompt)}\n\n${MEME_PROMPT}${relevantBotPreferences(prompt)}\n\n${RELIABILITY_PROMPT}\n\n${ACTION_PROMPT}\n\n${relationshipTone(relationship, cute, reunion)}${playingGame ? `\n\n${GAME_PROMPT}` : ''}\n\n${addressPrompt(speakerId, speakerName, nickname, watchers, prompt)}`,
 				},
 				...history,
 				...(repliedTo ? [repliedTo] : []),
