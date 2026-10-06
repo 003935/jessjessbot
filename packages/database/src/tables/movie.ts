@@ -1,5 +1,5 @@
 import { DatabaseConnection } from '../connection';
-import { MovieCreateInput } from '../generated/prisma/models';
+import type { MovieCreateInput } from '../generated/prisma/models';
 
 export class MovieTable extends DatabaseConnection {
 	constructor(db_conn: DatabaseConnection) {

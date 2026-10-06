@@ -6,7 +6,7 @@ import valkey from './valkey';
 let discordApi: DiscordApi;
 
 if (!building) {
-	discordApi = await DiscordApi.fromToken(env.DISCORD_BOT_TOKEN, valkey.discordModule);
+	discordApi = await DiscordApi.fromToken(env.DISCORD_BOT_TOKEN!, valkey.discordModule);
 }
 
 export { discordApi };

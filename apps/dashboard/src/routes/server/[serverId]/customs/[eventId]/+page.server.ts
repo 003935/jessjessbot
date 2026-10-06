@@ -58,13 +58,11 @@ export const load: PageServerLoad = async ({ params }) => {
 		groups: groups.map((group) => ({
 			emoji: group.emoji,
 			status: 'status' in group ? group.status : undefined,
-			users: group.users
-				.filter((member) => {
-					if (seen.has(member.id)) return false;
-					seen.add(member.id);
-					return true;
-				})
-				.map((member) => ({ id: member.id, name: member.global_name || member.username })),
+			users: group.users.flatMap((member) => {
+				if (!member || seen.has(member.id)) return [];
+				seen.add(member.id);
+				return [{ id: member.id, name: member.global_name || member.username }];
+			}),
 		})),
 	};
 };
