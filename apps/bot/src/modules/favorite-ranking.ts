@@ -6,7 +6,7 @@ export function rankFavorites(
 	currentUserId: string
 ): FavoriteCandidate[] {
 	const weight = (candidate: FavoriteCandidate): number =>
-		candidate.score * 2.5 +
+		(candidate.score / 20) * 2.5 +
 		Math.min(4, Math.log2(candidate.interactionCount + 1)) +
 		(recentUserIds.has(candidate.userId) ? 1.5 : 0) +
 		(candidate.userId === currentUserId ? 0.25 : 0);

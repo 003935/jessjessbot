@@ -56,6 +56,17 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 		return result.count;
 	}
 
+	// Single-value markers per member (e.g. the last day they gave jjb a gift).
+	async getValue(guildId: string, userId: string, kind: string): Promise<string | null> {
+		const row = await this._db.botMemberPreference.findFirst({ where: { guildId, userId, kind } });
+		return row?.value ?? null;
+	}
+
+	async setValue(guildId: string, userId: string, kind: string, value: string): Promise<void> {
+		await this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind } });
+		await this._db.botMemberPreference.create({ data: { guildId, userId, kind, value } });
+	}
+
 	async setNickname(guildId: string, userId: string, nickname: string): Promise<void> {
 		await this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind: 'nickname' } });
 		await this._db.botMemberPreference.create({ data: { guildId, userId, kind: 'nickname', value: nickname } });
