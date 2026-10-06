@@ -9,6 +9,7 @@ import { handleTeamMention } from '@/modules/custom-teams';
 import { parseVaderMinutes, runVader } from '@/modules/vader';
 import { attitudeShift, isReunion, relationshipState, relationshipTone } from '@/modules/mention-relationship';
 import { handleMemberMemory } from '@/modules/mention-memory';
+import { replyToGroupBlameBait } from '@/modules/mention-bait';
 import { answerWordleSuspicion } from '@/modules/mention-wordle';
 import { withServerEmoji } from '@/modules/server-emojis';
 import jessPreferences from '@/personality/jess-preferences.json';
@@ -640,8 +641,13 @@ export async function handleMention(message: Message): Promise<void> {
 		let wordleAnswer: string | null = null;
 		let casualReply = false;
 		let teamResponse: string[] | null = null;
-		const memoryAnswer = await handleMemberMemory(message.guildId, message.author.id, prompt);
-		if (memoryAnswer) {
+		const baitReply = replyToGroupBlameBait(message.guildId, message.author.id, prompt);
+		const memoryAnswer = baitReply
+			? null
+			: await handleMemberMemory(message.guildId, message.author.id, prompt);
+		if (baitReply) {
+			content = baitReply;
+		} else if (memoryAnswer) {
 			content = memoryAnswer;
 		} else if (
 			isCustomConfirmation(prompt) &&
