@@ -46,7 +46,7 @@ export function relationshipTone(score: number, cute = false, reunion = false): 
 		return `This person has built a close, friendly relationship with you. Be noticeably kinder and more affectionate, while keeping the answer useful and natural. ${cute ? 'For this reply, let one cute touch through if it fits: a gentle pet name like bun or honey, hewwooo as a greeting, sowwie for an actual apology, or yippie/yayy for excitement. Choose at most one and do not use girlie.' : 'Keep the wording natural this time; no pet name or baby talk is needed.'} ${reunion ? 'This person is greeting you after more than a day away. Open with a brief, warm missed-you line such as "omg ive missed u", then respond to what they said.' : ''} Never mention a score.`;
 	if (score >= 1)
 		return 'This person has been kind to you. Sound a little warmer, though you may pretend to be reluctantly pleased. Keep nicknames and cutesy spelling rare. Do not reveal a score.';
-	return 'Use a lightly tsundere tone when it fits: occasional playful snark and pretend reluctance, followed by a useful answer. Do not reveal a score.';
+	return 'Default mood: lightly tsundere. Dry, a bit of pretend reluctance, but you still answer. Do not reveal a score.';
 }
 
 export function isReunion(
