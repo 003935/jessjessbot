@@ -11,6 +11,7 @@ import { refreshReaction, removeMessage } from '@/modules/hall';
 import { Meowdule } from './modules/meowdule';
 import { handleMention } from '@/modules/mention';
 import { handleCustomSignup } from '@/modules/custom-signups';
+import { handleMemeReply } from '@/modules/meme-replies';
 
 const logger = new Logger('Bot', LogLevel.Info);
 const client = new SapphireClient({
@@ -78,15 +79,22 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 start_background_rank_update();
 
-function messageparser(message: Message<boolean>) {
+async function messageparser(message: Message<boolean>) {
 	if (message.inGuild() === false) return;
 	wordle_module(message);
 	Check_Attachments(message);
 	meowdule?.handleMsg(message);
+	try {
+		if (await handleMemeReply(message)) return;
+	} catch (error) {
+		logger.error('Meme reply failed', error);
+	}
 	handleMention(message).catch((error) => logger.error('Mention handling failed', error));
 }
 
-client.on('messageCreate', messageparser);
+client.on('messageCreate', (message) => {
+	messageparser(message).catch((error) => logger.error('Message handling failed', error));
+});
 
 client.on('interactionCreate', (interaction) => {
 	if (!interaction.isButton() || !interaction.customId.startsWith('custom:')) return;

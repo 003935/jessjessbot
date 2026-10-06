@@ -45,6 +45,41 @@ type LeaderboardEntry = {
 	avgScore: number | null;
 };
 
+type WordleComparisonStats = {
+	games: number;
+	solved: number;
+	quickSolves: number;
+	averageScore: number | null;
+};
+
+type WordleComparison = {
+	player: WordleComparisonStats;
+	server: WordleComparisonStats;
+	recentScores: number[];
+};
+
+function comparisonStats(rows: Array<{ score: number; _count: { score: number } }>): WordleComparisonStats {
+	let games = 0;
+	let solved = 0;
+	let quickSolves = 0;
+	let scoreTotal = 0;
+	for (const row of rows) {
+		const count = row._count.score;
+		games += count;
+		if (row.score >= 1 && row.score <= 6) {
+			solved += count;
+			scoreTotal += row.score * count;
+			if (row.score <= 3) quickSolves += count;
+		}
+	}
+	return {
+		games,
+		solved,
+		quickSolves,
+		averageScore: solved ? scoreTotal / solved : null,
+	};
+}
+
 export class WordleTable extends DatabaseConnection {
 	constructor(db_conn: DatabaseConnection) {
 		super(db_conn);
@@ -247,6 +282,32 @@ export class WordleTable extends DatabaseConnection {
 			totalWins,
 			avgScore,
 			avgWinningScore,
+		};
+	}
+
+	async getPlayerComparison(guildId: string, discordId: string): Promise<WordleComparison> {
+		const [playerRows, serverRows, recentEntries] = await Promise.all([
+			this._db.wordleResult.groupBy({
+				by: ['score'],
+				where: { discordId, message: { guildId } },
+				_count: { score: true },
+			}),
+			this._db.wordleResult.groupBy({
+				by: ['score'],
+				where: { discordId: { not: discordId }, message: { guildId } },
+				_count: { score: true },
+			}),
+			this._db.wordleResult.findMany({
+				where: { discordId, message: { guildId } },
+				select: { score: true },
+				orderBy: { message: { messageTimestamp: 'desc' } },
+				take: 10,
+			}),
+		]);
+		return {
+			player: comparisonStats(playerRows),
+			server: comparisonStats(serverRows),
+			recentScores: recentEntries.map((entry) => entry.score),
 		};
 	}
 
