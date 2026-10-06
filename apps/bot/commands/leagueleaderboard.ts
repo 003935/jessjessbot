@@ -59,6 +59,19 @@ function treat_soloq(soloq_data: { tier: string; rank: string; lp: number }): st
 	}
 }
 
+function isSoloq(value: unknown): value is { tier: string; rank: string; lp: number } {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		'tier' in value &&
+		typeof value.tier === 'string' &&
+		'rank' in value &&
+		typeof value.rank === 'string' &&
+		'lp' in value &&
+		typeof value.lp === 'number'
+	);
+}
+
 export class LeagueLeaderboardCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
 		super(context, { ...options, preconditions: ['GuildTextOnly'] });
@@ -107,9 +120,12 @@ export class LeagueLeaderboardCommand extends Command {
 								textDisplay.setContent(
 									leaderboard
 										.map((l, i) => {
-											const rank = l.leaguedata?.soloq
-												? treat_soloq(l.leaguedata.soloq)
-												: 'Unranked';
+											const data = l.leaguedata;
+											const soloq =
+												data && typeof data === 'object' && !Array.isArray(data) && 'soloq' in data
+													? data.soloq
+													: null;
+											const rank = isSoloq(soloq) ? treat_soloq(soloq) : 'Unranked';
 											return `${i + 1}. **${l.riotGamename}#${l.riotTagline}** ${rank}`;
 										})
 										.join('\n')
