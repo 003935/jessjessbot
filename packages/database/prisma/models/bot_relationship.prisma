@@ -2,6 +2,7 @@ model BotRelationship {
   guildId   String
   userId    String
   score     Int      @default(0)
+  interactionCount Int @default(0)
   updatedAt DateTime @updatedAt
 
   @@id([guildId, userId])
