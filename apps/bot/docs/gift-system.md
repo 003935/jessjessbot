@@ -86,6 +86,8 @@ Match both Chinese and English names. These are exempt from the "spicy = -6" rul
 | 烧茄子 | braised aubergine | +8 |
 | 水饺 | boiled dumplings | +8 (was dumplings +4) |
 
+Hot pot broth preference: tomato > bone broth = mushroom > chicken. Very spicy broth -6.
+
 ## Favourite ingredients — +5 on their own, +2 each when inside hot pot / noodles (cap +10)
 丸子 meatballs · 牛肉丸 beef balls · 鱼籽福袋 fish roe dumpling bags · 豆腐皮 tofu skin · 蘑菇 mushrooms · 青菜 leafy greens · 肥牛 fatty beef slices · eggs · seaweed · kimchi · udon · Chapagetti · chicken broth · Spam
 加多宝 Jiaduobao herbal tea (drink) +5 — the hot pot drink.
