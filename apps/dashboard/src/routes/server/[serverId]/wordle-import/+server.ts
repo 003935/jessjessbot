@@ -12,8 +12,8 @@ import { throwIfNotAdmin, throwIfNotLoggedIn } from '$lib/server/permission.util
 import type { WordleImportMessage } from '$lib/components/WordleImport.svelte';
 import type { WordleResultMessage } from '@repo/database/utils';
 
-const rest = new REST().setToken(env.DISCORD_BOT_TOKEN);
-const WORDLE_BOT_ID = env.WORDLE_BOT_ID;
+const rest = new REST().setToken(env.DISCORD_BOT_TOKEN!);
+const WORDLE_BOT_ID = env.WORDLE_BOT_ID!;
 
 // Rate limit: 24 hours between imports
 const RATE_LIMIT_MS = 24 * 60 * 60 * 1000;
