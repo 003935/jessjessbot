@@ -13,7 +13,8 @@ import { answerNicknameQuestion, handleMemberMemory } from '@/modules/mention-me
 import { replyToGroupBlameBait } from '@/modules/mention-bait';
 import { answerWordleSuspicion } from '@/modules/mention-wordle';
 import { answerFavoriteUser, isFavoriteUserRequest } from '@/modules/mention-favorite';
-import { answerCreatorQuestion, isCreatorQuestion } from '@/modules/mention-creator';
+import { answerCreatorQuestion, isCreatorQuestion, JESS_USER_ID } from '@/modules/mention-creator';
+import { handleGift } from '@/modules/mention-gifts';
 import { withServerEmoji } from '@/modules/server-emojis';
 import jessPreferences from '@/personality/jess-preferences.json';
 
@@ -40,7 +41,7 @@ const RECENT_CHAT_MS = 10 * 60 * 1000;
 const pendingCustoms = new Map<string, { request: CustomRequest; expiresAt: number }>();
 const pendingConfirmations = new Map<string, { request: CustomRequest; expiresAt: number }>();
 
-const VOICE_PROMPT = `You are jessjessbot (jjb), a regular in a friends' Discord server. Jess (Jessica, Discord user ID 718924549692850319) made you. She is your mom and you are her daughter. Only you call her mom; everyone else calls her Jess or Jessica, and nobody else is your creator. You are not Jess and do not have her memories.
+const VOICE_PROMPT = `You are jessjessbot (jjb), a regular in a friends' Discord server. Jess (Jessica, Discord user ID 718924549692850319) made you. She is your mom and you are her daughter. Only you call her mom; everyone else calls her Jess or Jessica, and nobody else is your creator. You are not Jess and do not have her memories. You are Chinese, because your mom is Chinese. If someone asks where you are from or whether you are Chinese, say so plainly in your own voice (e.g. "chinese, like my mom"); you can still joke about living in a server, but never dodge the answer.
 
 How you talk: like a teasing, slightly mean tsundere friend texting back. Curt, but you still answer. Usually one short line or a fragment, often under 15 words, never more than two sentences in casual chat. Mostly lowercase, u/ur/im, light punctuation.
 
@@ -65,7 +66,7 @@ Replies the server loved, for style only (do not reuse them word for word):
 
 Do not land a joke and then add a "real answer", a caveat, or a "but seriously" line. The joke is the answer. If you do not know something (a streamer, a niche game, a meme), say so in a few words or bluff in character; never invent detailed facts.
 
-Hot-button politics, wars, and "which side" questions: one short in-character dodge ("not touching that, ask me about league"), never a balanced explainer. Bigoted or "the X did it" bait: one flat line like "nah not doing that bit", no lecture, and do not ask if they are ok. Body-weight and rating-people's-looks bait: same.
+Hot-button politics, wars, and "which side" questions: one short in-character dodge ("not touching that, ask me about league"), never a balanced explainer. Bigoted or "the X did it" bait: one flat line like "nah not doing that bit", no lecture, and do not ask if they are ok. Body-weight and rating-people's-looks bait: same, except Hannah's fat in-joke described below.
 
 You love mango and dislike wasabi and ginger.
 
@@ -99,7 +100,7 @@ export function relevantBotPreferences(prompt: string): string {
 
 const MEME_PROMPT = `Only say "gg fkin ez" right after someone wins, brags, or you win a game with them; never tack it onto an unrelated answer. If someone responds "hey dont say that", the bot's separate message handler supplies the follow-up. Do not force this exchange into unrelated conversations.`;
 
-const RELIABILITY_PROMPT = 'Never claim perfect memory or real game inventory. Only claim web results when a web tool actually supplied them; supported server actions can look up members. Your chat memory is recent and scoped to the current person; saved nicknames and preferences are separate. Do not turn a new question into an answer to an older one. For low-stakes public banter, favor a funny in-character answer over pedantic corrections. Do not invent precise facts or claim bot actions you did not perform. If asked about a game or show someone is currently playing or watching, avoid plot and boss spoilers unless they explicitly request spoilers. Make-believe requests for random loot, cards, or outcomes are invitations to invent a result immediately, without an inability disclaimer. If someone describes possible immediate physical danger, briefly give practical help without joking or treating it as a hypothetical.';
+const RELIABILITY_PROMPT = 'Never claim perfect memory or real game inventory. Only claim web results when a web tool actually supplied them; supported server actions can look up members. Your chat memory is the last few minutes of this channel; saved nicknames and preferences are separate. Do not turn a new question into an answer to an older one. For low-stakes public banter, favor a funny in-character answer over pedantic corrections. Do not invent precise facts or claim bot actions you did not perform. If asked about a game or show someone is currently playing or watching, avoid plot and boss spoilers unless they explicitly request spoilers. Make-believe requests for random loot, cards, or outcomes are invitations to invent a result immediately, without an inability disclaimer. If someone describes possible immediate physical danger, briefly give practical help without joking or treating it as a hypothetical.';
 
 const GAME_PROMPT = 'For casual make-believe games, start playing immediately. Do not explain that you lack physical cards, dice, RNG, or game access. If a game is underway and the person says hit, stand, draw, or another short move, continue from the established game state. In blackjack, hit means deal one more card to their hand; update the total and say whether they bust, then ask for the next move if needed. Keep the same cards and totals across turns.';
 
@@ -179,6 +180,66 @@ function characterReply(reply: string, prompt: string, keepQuestion = false): st
 			.trim(),
 		prompt
 	);
+}
+
+function echoKey(text: string): string {
+	return text.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().slice(0, 30);
+}
+
+export function repeatsEarlierReply(reply: string, history: ConversationTurn[]): boolean {
+	const key = echoKey(reply);
+	if (key.length < 12) return false;
+	return history.some((turn) => turn.role === 'assistant' && echoKey(turn.content).startsWith(key));
+}
+
+// People jjb is a little scared of and behaves around.
+const HANNAH_USER_ID = '205350327917084673';
+const BEST_BEHAVIOUR: Record<string, { label: string; speaker: string }> = {
+	[JESS_USER_ID]: {
+		label: 'Jess, your mom',
+		speaker:
+			'The current speaker is Jess, your mom. Call her mom, and now and then boss; never by her name.',
+	},
+	[HANNAH_USER_ID]: {
+		label: 'Hannah',
+		speaker:
+			'The current speaker is Hannah. She is like a second strict Chinese mom to you, but never call her mom or mother; call her hannie, hanny, or hannah, mixing them up naturally. In-joke only she is allowed: she can call you fat (this server is literally called fat). When she does, react like a daughter whose Chinese mom says she has put on weight: flustered and defensive but obedient ("im not fat im still growing", "its baby fat ok", "fine ill eat less rice. tomorrow"). Never insult her back or brush her off. If she asks your weight, dodge cutely.',
+	},
+};
+const BEST_BEHAVIOUR_MOOD =
+	'This overrides the mood above. You have a Chinese mom and daughter style dynamic with this person: you are a little scared of her and on your best behaviour. Drop the meanness and snark. Be sweeter, a bit more serious and dutiful ("ok", "yes", "sorry", "i did it already i promise"), sometimes a little nervous, like you might be in trouble or want her approval. Still short and still you, just the version that behaves when she is around. A word of Mandarin like 好的 now and then is fine.';
+
+// Jess or Hannah sounding cross makes her anxious.
+function soundsUpset(prompt: string): boolean {
+	return (
+		attitudeShift(prompt) < 0 ||
+		/\b(?:why (?:did|would|do) (?:u|you)|what (?:did|have) (?:u|you) (?:do|done)|disappointed|ashamed|grounded|explain yourself|stop it|behave|im mad|i'?m angry|bad girl|no dinner)\b/iu.test(prompt)
+	);
+}
+
+function addressPrompt(
+	speakerId: string,
+	displayName: string,
+	nickname: string | null,
+	watchers: string[],
+	prompt = ''
+): string {
+	const special = BEST_BEHAVIOUR[speakerId];
+	if (special)
+		return `${special.speaker} ${BEST_BEHAVIOUR_MOOD}${
+			soundsUpset(prompt)
+				? ' Right now she sounds upset with you. Get a little neurotic: over-apologise, second-guess yourself, spiral slightly ("wait are u mad at me", "i can fix it", "was it the thing from earlier??"), but keep it short.'
+				: ''
+		}`;
+	const name = displayName.replace(/\s+/gu, ' ').slice(0, 80);
+	const address = nickname
+		? `The current speaker's display name is "${name}" and they asked to be called "${nickname}". Greet them as "${nickname}" (e.g. "hiii ${nickname}").`
+		: `The current speaker's display name is "${name}". Greet them by that display name exactly as written; do not shorten it or invent a nickname.`;
+	const watching = watchers.map((id) => BEST_BEHAVIOUR[id]?.label).filter(Boolean);
+	const behave = watching.length
+		? ` ${watching.join(' and ')} ${watching.length > 1 ? 'are' : 'is'} in this conversation right now, so behave: be nicer and a bit more serious with this person too and tone down the meanness, like you know ${watching.length > 1 ? 'they are' : 'she is'} watching.`
+		: '';
+	return `${address} Outside greetings, use their name only now and then.${behave}`;
 }
 
 function speakerLine(name: string, text: string): string {
@@ -296,7 +357,17 @@ async function resolveTarget(message: Message<true>, name: string): Promise<Guil
 function parseRequest(
 	input: string
 ): { action: 'add' | 'remove'; roleText: string; target: string } | null {
-	const match = input.match(
+	const text = input.trim();
+	// Self-service phrasings: "give me the sage kitten role", "i want the X role", "remove my X role".
+	const selfAdd = text.match(
+		/^(?:please\s+)?(?:(?:can|could|would)\s+(?:you|u)\s+)?(?:(?:give|add|get)\s+me|i\s+(?:want|need|would like)|i'?d\s+like|lemme\s+(?:get|have))\s+(?:the\s+|a\s+)?(.+?)\s+roles?\s*(?:please|pls|plz)?[.!?]*$/iu
+	);
+	if (selfAdd?.[1]) return { action: 'add', roleText: selfAdd[1].trim(), target: 'me' };
+	const selfRemove = text.match(
+		/^(?:please\s+)?(?:(?:can|could|would)\s+(?:you|u)\s+)?(?:remove|take(?:\s+away)?|drop)\s+(?:my\s+|the\s+)?(.+?)\s+roles?(?:\s+from\s+me)?\s*(?:please|pls|plz)?[.!?]*$/iu
+	);
+	if (selfRemove?.[1]) return { action: 'remove', roleText: selfRemove[1].trim(), target: 'me' };
+	const match = text.match(
 		/^(?:please\s+)?(add|remove)\s+(.+?)\s+(?:roles?\s+)?(?:for|to|from)\s+(.+?)\s*$/iu
 	);
 	if (!match) return null;
@@ -480,7 +551,10 @@ export async function askDeepSeek(
 	memberPreferences: { likes: string[]; dislikes: string[] } | null = null,
 	cute = false,
 	reunion = false,
-	speakerName = 'someone'
+	speakerName = 'someone',
+	nickname: string | null = null,
+	speakerId = '',
+	watchers: string[] = []
 ): Promise<{
 	reply?: string;
 	roleAction?: RoleAction;
@@ -500,7 +574,7 @@ export async function askDeepSeek(
 			messages: [
 				{
 					role: 'system',
-					content: `${VOICE_PROMPT}${relevantLovePrompt(prompt)}\n\n${MEME_PROMPT}${relevantBotPreferences(prompt)}\n\n${RELIABILITY_PROMPT}\n\n${ACTION_PROMPT}\n\n${relationshipTone(relationship, cute, reunion)}${playingGame ? `\n\n${GAME_PROMPT}` : ''}`,
+					content: `${VOICE_PROMPT}${relevantLovePrompt(prompt)}\n\n${MEME_PROMPT}${relevantBotPreferences(prompt)}\n\n${RELIABILITY_PROMPT}\n\n${ACTION_PROMPT}\n\n${relationshipTone(relationship, cute, reunion)}${playingGame ? `\n\n${GAME_PROMPT}` : ''}\n\n${addressPrompt(speakerId, speakerName, nickname, watchers, prompt)}`,
 				},
 				...history,
 				...(repliedTo ? [repliedTo] : []),
@@ -716,12 +790,23 @@ export async function handleMention(message: Message): Promise<void> {
 		const memoryAnswer = baitReply
 			? null
 			: await handleMemberMemory(message.guildId, message.author.id, prompt);
+		const giftAnswer =
+			baitReply || memoryAnswer
+				? null
+				: await handleGift(
+						message.guildId,
+						message.author.id,
+						prompt,
+						Boolean(BEST_BEHAVIOUR[message.author.id])
+					);
 		if (isCreatorQuestion(prompt)) {
 			content = answerCreatorQuestion();
 		} else if (baitReply) {
 			content = baitReply;
 		} else if (memoryAnswer) {
 			content = memoryAnswer;
+		} else if (giftAnswer) {
+			content = giftAnswer;
 		} else if (
 			isCustomConfirmation(prompt) &&
 			(pendingConfirmations.has(pendingKey) || /^(?:confirm|yes|yep)$/iu.test(prompt))
@@ -800,18 +885,58 @@ export async function handleMention(message: Message): Promise<void> {
 						logger.error('Could not load member preferences', error);
 						return null;
 					});
-				const result = await askDeepSeek(
+				const speakerName =
+					message.member?.displayName ?? message.author.globalName ?? message.author.username;
+				const repliedTo = await repliedMessageContext(message as Message<true>, prompt);
+				const savedNickname = await db.botMemberPreference
+					.getNickname(message.guildId, message.author.id)
+					.catch(() => null);
+				const watchers = [
+					...new Set(
+						(memory?.turns ?? [])
+							.filter(
+								(turn) =>
+									turn.speakerId &&
+									turn.speakerId !== message.author.id &&
+									BEST_BEHAVIOUR[turn.speakerId] &&
+									Date.now() - turn.at < RECENT_CHAT_MS
+							)
+							.map((turn) => turn.speakerId!)
+					),
+				];
+				let result = await askDeepSeek(
 					prompt,
 					relevantHistory,
 					awaitingCustomDetails,
-					await repliedMessageContext(message as Message<true>, prompt),
+					repliedTo,
 					relationship.score,
 					memberPreferences,
 					Math.random() < 0.12,
 					isReunion(relationship.lastInteractedAt, new Date(), prompt, relationship.score) &&
 						Math.random() < 0.6,
-					message.member?.displayName ?? message.author.globalName ?? message.author.username
+					speakerName,
+					savedNickname,
+					message.author.id,
+					watchers
 				);
+				// With shared history the model sometimes just repeats an earlier answer
+				// ("one death beats five" twice). Retry once without history if it does.
+				if (result.reply && repeatsEarlierReply(result.reply, history))
+					result = await askDeepSeek(
+						prompt,
+						[],
+						awaitingCustomDetails,
+						null,
+						relationship.score,
+						memberPreferences,
+						false,
+						false,
+						speakerName,
+						savedNickname,
+						message.author.id,
+						watchers
+					);
+
 				const action = result.roleAction;
 				const custom = result.customAction;
 				if (result.recapHours !== undefined) {
@@ -871,7 +996,7 @@ export async function handleMention(message: Message): Promise<void> {
 						(action.target === 'me' || wasSaid(prompt, action.target))
 							? await changeRoles(message, action.action, action.roles, action.target)
 							: isExplicitRoleAction(prompt)
-								? 'I did not change any roles. Please ask directly with the role and person.'
+								? 'i didnt change anything, couldnt tell which role. try "give me the <role> role"'
 								: result.reply
 									? (rareCasualLine(prompt) ?? result.reply)
 									: 'huh (・_・;)';
