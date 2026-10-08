@@ -1,4 +1,4 @@
-import type { PageServerLoad } from './$types';
+import { fail, type Actions, type PageServerLoad } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { getDiscordAcc, throwIfNotLoggedIn } from '$lib/server/permission.utils';
 import { discordApi } from '$lib/server/discord';
@@ -97,13 +97,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 				}),
 			]);
 		const ids = new Set<string>([
-			...relationships.map((row) => row.userId),
-			...preferences
-				.filter((row) => ['like', 'dislike', 'nickname'].includes(row.kind))
-				.map((row) => row.userId),
-			...pets.map((row) => row.ownerId),
-			...wordleRows.map((row) => row.discordId),
-			...signupRows.map((row) => row.userId),
+			...relationships.filter((row) => row.interactionCount > 0).map((row) => row.userId),
 		]);
 		const preferenceByUser = new Map<string, typeof preferences>();
 		for (const row of preferences) {
@@ -183,6 +177,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		upcomingCustoms,
 		emojis: await emojis,
 		isAdmin,
+		canResetLoot: user.role === 'admin',
 		channels: channels
 			?.filter((c) => c.type === ChannelType.GuildText || c.type === ChannelType.GuildAnnouncement)
 			.map((c) => ({ id: c.id, name: c.name })),
@@ -204,4 +199,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			: null,
 		savedUsers,
 	};
+};
+
+export const actions: Actions = {
+	resetLoot: async ({ locals }) => {
+		if (!locals.user) return fail(401, { message: 'Not logged in' });
+		if (locals.user.role !== 'admin') return fail(403, { message: 'Not admin' });
+		await db._db.lootInventory.updateMany({ data: { quantity: 0 } });
+		return { lootReset: true };
+	},
 };

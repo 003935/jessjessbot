@@ -18,13 +18,8 @@
 	import type { PageProps } from './$types';
 	import { Bot, ImageOffIcon } from '@lucide/svelte';
 	import NewEventDialog from '$lib/components/new-event-dialog.svelte';
-	import PackageOpen from '@lucide/svelte/icons/package-open';
-	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 
 	let { data }: PageProps = $props();
-	const lootLeaderboard = $derived(
-		[...(data.lootInventories ?? [])].sort((a, b) => b.totalDivines - a.totalDivines)
-	);
 
 	const canListGames = $derived(
 		data.user === null
@@ -202,62 +197,6 @@
 			</Card.Root>
 		{/if}
 
-		{#if data.user?.role === 'admin'}
-			<Card.Root class="col-span-2">
-				<Card.Header>
-					<Card.Title>Player Loot</Card.Title>
-					<Card.Description>Inventories with loot currently recorded</Card.Description>
-					<Card.Action>
-						<form method="POST" action="?/resetLoot" onsubmit={(event) => {
-							if (!confirm('Reset every player’s loot inventory to zero?')) event.preventDefault();
-						}}>
-							<Button type="submit" variant="destructive"><RotateCcw />Reset all loot</Button>
-						</form>
-					</Card.Action>
-				</Card.Header>
-				<Card.Content>
-					{#if data.lootInventories?.length}
-						<div class="mb-6 overflow-hidden rounded-lg border">
-							<div class="border-b px-4 py-3">
-								<h3 class="font-semibold">Loot Value Leaderboard</h3>
-								<p class="text-sm text-muted-foreground">Estimated current value, ranked in Divine Orbs</p>
-							</div>
-							<div class="divide-y">
-								{#each lootLeaderboard as player, index (player.discordId)}
-									<div class="flex items-center justify-between gap-4 px-4 py-3">
-										<div class="flex min-w-0 items-center gap-3">
-											<span class="w-7 shrink-0 text-sm text-muted-foreground">#{index + 1}</span>
-											<span class="truncate font-medium">{player.name}</span>
-										</div>
-										<div class="shrink-0 text-right">
-											<div class="font-semibold">{player.totalDivines.toLocaleString(undefined, { maximumFractionDigits: 2 })} Divine Orbs</div>
-											{#if player.unpricedItems > 0}
-												<div class="text-xs text-muted-foreground">{player.unpricedItems} item type{player.unpricedItems === 1 ? '' : 's'} without a price</div>
-											{/if}
-										</div>
-									</div>
-								{/each}
-							</div>
-						</div>
-						<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-							{#each data.lootInventories as player (player.discordId)}
-								<div class="rounded-lg border p-4">
-									<div class="mb-3 flex items-center gap-2 font-semibold"><PackageOpen size={18} />{player.name}</div>
-									<ul class="space-y-1 text-sm text-muted-foreground">
-										{#each player.inventory as item (item.itemName)}
-											<li class="flex justify-between gap-3"><span>{item.itemName}</span><span class="shrink-0 font-medium text-foreground">× {item.quantity}</span></li>
-										{/each}
-									</ul>
-								</div>
-							{/each}
-						</div>
-					{:else}
-						<p class="text-sm text-muted-foreground">No player loot has been recorded.</p>
-					{/if}
-				</Card.Content>
-			</Card.Root>
-		{/if}
-
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Upcoming Customs</Card.Title>
@@ -287,7 +226,10 @@
 							{@const timer = format_countdown(custom.scheduledTime)}
 							{@const server = data.servers?.find((s) => s.id === custom.guildId)}
 							{#if timer !== null}
-								<a href={resolve(`/server/${custom.guildId}/customs/${custom.id}`)} class="flex items-center justify-between gap-2 rounded-lg border bg-muted p-2 hover:bg-accent">
+								<a
+									href={resolve(`/server/${custom.guildId}/customs/${custom.id}`)}
+									class="flex items-center justify-between gap-2 rounded-lg border bg-muted p-2 hover:bg-accent"
+								>
 									<div class="flex items-center gap-3">
 										<Avatar.Root size="sm">
 											<Avatar.Image class="rounded-lg" src={server?.icon} alt={server?.name} />

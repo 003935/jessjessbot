@@ -312,6 +312,20 @@
 				<Card.Description>
 					Browse information jjb has saved for users in this server.
 				</Card.Description>
+				{#if data.canResetLoot}
+					<Card.Action>
+						<form
+							method="POST"
+							action="?/resetLoot"
+							onsubmit={(event) => {
+								if (!confirm('Reset every player’s loot inventory to zero?'))
+									event.preventDefault();
+							}}
+						>
+							<Button type="submit" variant="destructive">Reset all loot</Button>
+						</form>
+					</Card.Action>
+				{/if}
 			</Card.Header>
 			<Card.Content class="grid gap-5 md:grid-cols-[minmax(14rem,0.8fr)_2fr]">
 				<div class="flex max-h-[30rem] flex-col gap-2 overflow-y-auto">
