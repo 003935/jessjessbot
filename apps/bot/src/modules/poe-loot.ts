@@ -57,6 +57,11 @@ function lootEmojiMarkup(item: string): string {
 	return emoji ? `<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>` : '';
 }
 const imageByItem = new Map<string, string>();
+const rollLocks = new Map<string, Promise<void>>();
+const ROLL_LIMIT = 5;
+const ROLL_WINDOW_MS = 30 * 60 * 1000;
+const ROLL_COOLDOWN_SCOPE = 'poe-loot-global';
+const ROLL_COOLDOWN_KIND = 'roll_window';
 export function lootImageUrl(icon: string): string {
 	return new URL(icon, 'https://web.poecdn.com').href;
 }
@@ -195,7 +200,40 @@ export async function handleLootInventoryButton(interaction: ButtonInteraction):
 	return true;
 }
 
+async function reserveLootRoll(discordId: string): Promise<number> {
+	const previous = rollLocks.get(discordId) ?? Promise.resolve();
+	let release!: () => void;
+	const turn = new Promise<void>((resolve) => { release = resolve; });
+	const tail = previous.then(() => turn);
+	rollLocks.set(discordId, tail);
+	await previous;
+	try {
+		const now = Date.now();
+		const saved = await db.botMemberPreference.getValue(ROLL_COOLDOWN_SCOPE, discordId, ROLL_COOLDOWN_KIND);
+		let timestamps: number[] = [];
+		try {
+			const parsed: unknown = saved ? JSON.parse(saved) : [];
+			if (Array.isArray(parsed)) timestamps = parsed.filter((value): value is number => Number.isFinite(value));
+		} catch {
+			timestamps = [];
+		}
+		timestamps = timestamps.filter((timestamp) => timestamp <= now && now - timestamp < ROLL_WINDOW_MS);
+		if (timestamps.length >= ROLL_LIMIT) return Math.max(1, timestamps[0]! + ROLL_WINDOW_MS - now);
+		timestamps.push(now);
+		await db.botMemberPreference.setValue(ROLL_COOLDOWN_SCOPE, discordId, ROLL_COOLDOWN_KIND, JSON.stringify(timestamps));
+		return 0;
+	} finally {
+		release();
+		if (rollLocks.get(discordId) === tail) rollLocks.delete(discordId);
+	}
+}
+
 export async function lootReply(discordId: string) {
+	const waitMs = await reserveLootRoll(discordId);
+	if (waitMs > 0) {
+		const minutes = Math.ceil(waitMs / 60_000);
+		return `You’ve used all ${ROLL_LIMIT} loot rolls for now. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`;
+	}
 	const [name, weight] = rollLoot();
 	await db._db.lootInventory.upsert({
 		where: { discordId_itemName: { discordId, itemName: name } },
