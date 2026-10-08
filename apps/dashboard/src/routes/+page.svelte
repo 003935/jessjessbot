@@ -12,6 +12,8 @@
 	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Users from '@lucide/svelte/icons/users';
+	import PackageOpen from '@lucide/svelte/icons/package-open';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import { resolve } from '$app/paths';
 
 	let { data }: PageProps = $props();
@@ -324,6 +326,41 @@
 					{/if}
 				</div>
 			</section>
+
+			{#if data.user?.role === 'admin'}
+				<section class="animate-in fade-in card border border-base-300/50 bg-base-100 shadow-lg lg:col-span-2">
+					<div class="card-body pb-5">
+						<div class="mb-2 flex items-center justify-between gap-4">
+							<div>
+								<h2 class="card-title text-xl">Player Loot</h2>
+								<p class="text-xs text-base-content/50">Inventories with loot currently recorded</p>
+							</div>
+							<form method="POST" action="?/resetLoot" onsubmit={(event) => {
+								if (!confirm('Reset every player’s loot inventory to zero?')) event.preventDefault();
+							}}>
+								<button type="submit" class="btn btn-error btn-sm"><RotateCcw size={16} />Reset all loot</button>
+							</form>
+						</div>
+						<div class="mb-3 h-px bg-linear-to-r from-primary/20 to-transparent"></div>
+						{#if data.lootInventories?.length}
+							<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+								{#each data.lootInventories as player (player.discordId)}
+									<div class="rounded-xl border border-base-300/50 bg-base-200/30 p-4">
+										<div class="mb-3 flex items-center gap-2 font-semibold"><PackageOpen size={18} class="text-primary" />{player.name}</div>
+										<ul class="space-y-1 text-sm">
+											{#each player.inventory as item (item.itemName)}
+												<li class="flex justify-between gap-3"><span>{item.itemName}</span><span class="shrink-0 font-medium">× {item.quantity}</span></li>
+											{/each}
+										</ul>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<p class="text-sm text-base-content/60">No player loot has been recorded.</p>
+						{/if}
+					</div>
+				</section>
+			{/if}
 		</div>
 	</div>
 </div>
