@@ -1,0 +1,60 @@
+# JessJessBot project instructions
+
+## Requirements
+
+- Bun 1.3.11 or compatible
+- Docker Desktop with Docker Compose
+- Discord application and bot credentials
+- Riot API key
+
+TMDB, OMDb, and DeepSeek credentials are needed only for their related integrations.
+
+## Configure the environment
+
+From the repository root in PowerShell, copy the app environment templates:
+
+```powershell
+Copy-Item apps/bot/.env.example apps/bot/.env
+Copy-Item apps/dashboard/.env.example apps/dashboard/.env
+```
+
+Set the required values in each file. The bot requires `BOT_TOKEN`, `CLIENT_ID`, `BOT_ID`, `ROLE_ID`, and `RIOT_API_KEY`. The dashboard requires Discord OAuth credentials and `BETTER_AUTH_SECRET`. For Docker Compose, set `VALKEY_URL=redis://valkey:6379` and `ORIGIN=http://localhost:3000` in `apps/dashboard/.env`.
+
+Create `packages/database/.env` with the PostgreSQL settings:
+
+```dotenv
+POSTGRES_PASSWORD=mypassword
+DATABASE_URL=postgres://postgres:mypassword@localhost:5432/postgres
+DIRECT_URL=postgres://postgres:mypassword@localhost:5432/postgres
+```
+
+The Compose file uses `mypassword` in its database URLs. If you change the password, update the URLs in `docker-compose.yml` too. Keep environment files and credentials out of version control.
+
+## Run with Docker Compose
+
+```powershell
+bun install
+docker compose up --build
+```
+
+The dashboard is available at [http://localhost:3000](http://localhost:3000). The bot container applies pending database migrations before it starts.
+
+Stop the foreground services with `Ctrl+C`. To run them in the background, use `docker compose up --build -d`; stop them with `docker compose down`.
+
+## Development commands
+
+```powershell
+# Check the workspace
+bun run check
+
+# Run the dashboard development server
+bun run dash:dev
+
+# Build the dashboard
+bun run dash:build
+
+# Start the bot
+bun run bot:start
+```
+
+The bot and dashboard need their environment files and database services configured before running directly.
