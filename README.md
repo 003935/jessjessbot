@@ -1,4 +1,5 @@
-# JessJessBot
+# JessJessBot <img src="apps/dashboard/static/bunny-logo.png" alt="JessJessBot bunny logo" width="120">
+
 
 JessJessBot is a Discord bot and web dashboard for servers. Shes me and handles the annoying moderation like adding or removing roles and can join a conversation when someone says “jjb” or mentions her. She can chat, remember details people share, and respond to game and community requests.
 
