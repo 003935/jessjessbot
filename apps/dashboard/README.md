@@ -42,3 +42,14 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+
+## Demo chat API
+
+The server endpoint `POST /api/demo-chat` accepts `{ "messages": [{ "role": "user" | "assistant", "content": "..." }] }` and returns `{ "reply": "..." }`. Configure these server-side environment variables in the dashboard deployment:
+
+- `DEEPSEEK_API_KEY` — required; keep this secret and never expose it to browser code.
+- `DEEPSEEK_MODEL` — optional; defaults to `deepseek-flash`.
+- `JESSJESSBOT_DEMO_ALLOWED_ORIGIN` — required exact browser origin, currently `https://jessawg.space`.
+- `VALKEY_URL` — enables the endpoint's per-client rate limit when configured.
+
+The endpoint supports CORS preflight and limits request size, message count, and message length. See the repository's `llms.txt` for environment setup.

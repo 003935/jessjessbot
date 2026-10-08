@@ -30,6 +30,8 @@ DIRECT_URL=postgres://postgres:mypassword@localhost:5432/postgres
 
 The Compose file uses `mypassword` in its database URLs. If you change the password, update the URLs in `docker-compose.yml` too. Keep environment files and credentials out of version control.
 
+The dashboard's `/api/demo-chat` endpoint also requires `DEEPSEEK_API_KEY` and `JESSJESSBOT_DEMO_ALLOWED_ORIGIN` (set this to the exact origin allowed to call it, currently `https://jessawg.space`). `DEEPSEEK_MODEL` is optional and defaults to `deepseek-flash`. These are server-side dashboard variables; never add the DeepSeek key to client-side code or `PUBLIC_*` variables. The endpoint uses Valkey for rate limiting when `VALKEY_URL` is configured.
+
 ## Run with Docker Compose
 
 ```powershell
