@@ -22,6 +22,9 @@
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 
 	let { data }: PageProps = $props();
+	const lootLeaderboard = $derived(
+		[...(data.lootInventories ?? [])].sort((a, b) => b.totalDivines - a.totalDivines)
+	);
 
 	const canListGames = $derived(
 		data.user === null
@@ -214,6 +217,28 @@
 				</Card.Header>
 				<Card.Content>
 					{#if data.lootInventories?.length}
+						<div class="mb-6 overflow-hidden rounded-lg border">
+							<div class="border-b px-4 py-3">
+								<h3 class="font-semibold">Loot Value Leaderboard</h3>
+								<p class="text-sm text-muted-foreground">Estimated current value, ranked in Divine Orbs</p>
+							</div>
+							<div class="divide-y">
+								{#each lootLeaderboard as player, index (player.discordId)}
+									<div class="flex items-center justify-between gap-4 px-4 py-3">
+										<div class="flex min-w-0 items-center gap-3">
+											<span class="w-7 shrink-0 text-sm text-muted-foreground">#{index + 1}</span>
+											<span class="truncate font-medium">{player.name}</span>
+										</div>
+										<div class="shrink-0 text-right">
+											<div class="font-semibold">{player.totalDivines.toLocaleString(undefined, { maximumFractionDigits: 2 })} Divine Orbs</div>
+											{#if player.unpricedItems > 0}
+												<div class="text-xs text-muted-foreground">{player.unpricedItems} item type{player.unpricedItems === 1 ? '' : 's'} without a price</div>
+											{/if}
+										</div>
+									</div>
+								{/each}
+							</div>
+						</div>
 						<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 							{#each data.lootInventories as player (player.discordId)}
 								<div class="rounded-lg border p-4">

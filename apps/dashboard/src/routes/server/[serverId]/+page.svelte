@@ -41,6 +41,8 @@
 	let { data }: PageProps = $props();
 
 	let dialog: GameRoleDialog | undefined = $state();
+	let selectedSavedUserId = $state(data.savedUsers[0]?.id ?? '');
+	let savedUserView = $state<'info' | 'loot'>('info');
 
 	const grQuery = $derived(getGameRoles(data.guild.id));
 
@@ -303,6 +305,134 @@
 				hallImport={data.hallImport}
 			/>
 		</div>
+
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Saved user data</Card.Title>
+				<Card.Description>
+					Browse information jjb has saved for users in this server.
+				</Card.Description>
+			</Card.Header>
+			<Card.Content class="grid gap-5 md:grid-cols-[minmax(14rem,0.8fr)_2fr]">
+				<div class="flex max-h-[30rem] flex-col gap-2 overflow-y-auto">
+					{#if data.savedUsers.length === 0}
+						<p class="text-sm text-muted-foreground">No saved user data found.</p>
+					{:else}
+						{#each data.savedUsers as savedUser (savedUser.id)}
+							<button
+								class={`flex items-center gap-3 rounded-lg border p-2 text-left hover:bg-accent ${selectedSavedUserId === savedUser.id ? 'bg-accent' : ''}`}
+								onclick={() => {
+									selectedSavedUserId = savedUser.id;
+									savedUserView = 'info';
+								}}
+							>
+								{#if savedUser.avatar}
+									<img src={savedUser.avatar} alt="" class="size-9 rounded-full" />
+								{:else}
+									<span class="flex size-9 items-center justify-center rounded-full bg-muted">
+										<UsersIcon size={16} />
+									</span>
+								{/if}
+								<span class="min-w-0">
+									<span class="block truncate font-medium">{savedUser.name}</span>
+									<span class="block truncate text-xs text-muted-foreground">{savedUser.id}</span>
+								</span>
+							</button>
+						{/each}
+					{/if}
+				</div>
+				{@const selectedSavedUser =
+					data.savedUsers.find((user) => user.id === selectedSavedUserId) ?? data.savedUsers[0]}
+				{#if selectedSavedUser}
+					<div class="min-w-0">
+						<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+							<div>
+								<h3 class="text-lg font-semibold">{selectedSavedUser.name}</h3>
+								<p class="text-xs text-muted-foreground">Discord ID: {selectedSavedUser.id}</p>
+							</div>
+							<div class="flex gap-2">
+								<Button
+									variant={savedUserView === 'info' ? 'default' : 'outline'}
+									onclick={() => (savedUserView = 'info')}
+								>
+									User info
+								</Button>
+								<Button
+									variant={savedUserView === 'loot' ? 'default' : 'outline'}
+									onclick={() => (savedUserView = 'loot')}
+								>
+									Loot
+								</Button>
+							</div>
+						</div>
+						{#if savedUserView === 'loot'}
+							<div class="rounded-lg border p-4">
+								<h4 class="mb-3 font-medium">PoE 2 loot inventory</h4>
+								{#if selectedSavedUser.loot.length}
+									<ul class="flex flex-col gap-2">
+										{#each selectedSavedUser.loot as item (item.itemName)}
+											<li class="flex justify-between gap-3">
+												<span>{item.itemName}</span>
+												<span class="font-mono">× {item.quantity}</span>
+											</li>
+										{/each}
+									</ul>
+								{:else}
+									<p class="text-sm text-muted-foreground">No loot saved.</p>
+								{/if}
+							</div>
+						{:else}
+							<div class="grid gap-3 sm:grid-cols-2">
+								<div class="rounded-lg border p-4 sm:col-span-2">
+									<h4 class="mb-2 font-medium">JJB profile</h4>
+									<p class="text-sm">Nickname: {selectedSavedUser.nickname ?? 'None saved'}</p>
+									<p class="text-sm">
+										Relationship: {selectedSavedUser.relationship
+											? `${selectedSavedUser.relationship.score.toFixed(1)} / 100 · ${selectedSavedUser.relationship.interactionCount} interactions`
+											: 'No relationship data'}
+									</p>
+								</div>
+								<div class="rounded-lg border p-4">
+									<h4 class="mb-2 font-medium">Preferences</h4>
+									<p class="text-sm">
+										Likes: {selectedSavedUser.likes.length
+											? selectedSavedUser.likes.join(', ')
+											: 'None saved'}
+									</p>
+									<p class="text-sm">
+										Dislikes: {selectedSavedUser.dislikes.length
+											? selectedSavedUser.dislikes.join(', ')
+											: 'None saved'}
+									</p>
+								</div>
+								<div class="rounded-lg border p-4">
+									<h4 class="mb-2 font-medium">Other saved data</h4>
+									<p class="text-sm">Wordle games: {selectedSavedUser.wordleGames}</p>
+									<p class="text-sm">Custom signups: {selectedSavedUser.customSignups}</p>
+									<p class="text-sm">
+										Pets: {selectedSavedUser.pets.length
+											? selectedSavedUser.pets.join(', ')
+											: 'None saved'}
+									</p>
+									<p class="text-sm">
+										League accounts: {selectedSavedUser.leagueAccounts.length
+											? selectedSavedUser.leagueAccounts
+													.map(
+														(account) =>
+															`${account.gameName ?? 'Unnamed'}#${account.tagline ?? '—'} (${account.region})`
+													)
+													.join(', ')
+											: 'None saved'}
+									</p>
+								</div>
+							</div>
+						{/if}
+					</div>
+				{:else}
+					<p class="text-sm text-muted-foreground">Select a user to view their saved data.</p>
+				{/if}
+			</Card.Content>
+		</Card.Root>
 	{/if}
 </div>
 
