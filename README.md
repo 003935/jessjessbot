@@ -11,6 +11,21 @@ JessJessBot is a Discord bot and web dashboard for servers. The bot has a funny 
 - Movie requests, custom game events, and signups
 - A web dashboard for server settings, game roles, event management, and community statistics
 
+## Use JessJessBot
+
+Don’t want to host it yourself? [Add JessJessBot to your Discord server](https://discord.com/oauth2/authorize?client_id=1465304830011637811&scope=bot). You need to own the server or have the **Manage Server** permission to add it.
+
+## Host it yourself
+
+Requirements:
+
+- Bun 1.3.11 or compatible, and Docker Compose
+- A Discord application and bot token, plus the Wordle bot and role IDs; enable **Message Content** and **Server Members** intents in the Discord Developer Portal
+- A Riot API key
+- Discord OAuth credentials and a Better Auth secret to run the dashboard
+
+PostgreSQL and Valkey are included in the Compose stack. TMDB, OMDb, and DeepSeek keys are optional and only needed for their respective features. See [llms.txt](llms.txt) for environment setup and run instructions.
+
 ## Tech stack
 
 TypeScript, Bun workspaces, Discord.js, Sapphire, SvelteKit, PostgreSQL, Prisma, PgBouncer, Valkey, Better Auth, and Docker Compose.
@@ -25,5 +40,3 @@ packages/discord-api/
 packages/valkey/
 packages/config-typescript/
 ```
-
-See [llms.txt](llms.txt) for requirements, configuration, and instructions for running the project locally.
