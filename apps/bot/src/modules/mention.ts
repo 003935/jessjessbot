@@ -13,6 +13,7 @@ import { answerNicknameQuestion, handleMemberMemory } from '@/modules/mention-me
 import { replyToGroupBlameBait } from '@/modules/mention-bait';
 import { answerWordleSuspicion } from '@/modules/mention-wordle';
 import { answerFavoriteUser, isFavoriteUserRequest } from '@/modules/mention-favorite';
+import { botPrompt } from '@/modules/mention-trigger';
 import { answerCreatorQuestion, isCreatorQuestion, JESS_USER_ID } from '@/modules/mention-creator';
 import { handleGift } from '@/modules/mention-gifts';
 import { isLootInventoryRequest, isLootRequest, lootInventoryReply, lootReply } from '@/modules/poe-loot';
@@ -758,16 +759,13 @@ export async function askDeepSeek(
 }
 
 export async function handleMention(message: Message): Promise<void> {
-	if (
-		!message.inGuild() ||
-		message.author.bot ||
-		!message.mentions.users.has(message.client.user.id)
-	)
-		return;
-	const prompt = message.content
-		.replace(new RegExp(`<@!?${message.client.user.id}>`, 'gu'), '')
-		.trim();
-	if (!prompt) return;
+	if (!message.inGuild() || message.author.bot) return;
+	const prompt = botPrompt(
+		message.content,
+		message.client.user.id,
+		message.mentions.users.has(message.client.user.id)
+	);
+	if (prompt === null) return;
 	if (isLootInventoryRequest(prompt)) {
 		await message.reply(await lootInventoryReply(message.author.id));
 		return;
