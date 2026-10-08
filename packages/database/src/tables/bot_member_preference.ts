@@ -1,21 +1,66 @@
 import { DatabaseConnection } from '../connection';
 
 export type PreferenceKind = 'like' | 'dislike';
-export type MemberPreferences = { likes: string[]; dislikes: string[] };
+export type MemberPreferences = {
+	likes: string[];
+	dislikes: string[];
+	pets: string[];
+	birthday: string | null;
+	favourites: string[];
+};
 
 const MAX_PREFERENCES = 20;
 
 export class BotMemberPreferenceTable extends DatabaseConnection {
 	async list(guildId: string, userId: string): Promise<MemberPreferences> {
-		const rows = await this._db.botMemberPreference.findMany({
-			where: { guildId, userId, kind: { in: ['like', 'dislike'] } },
-			orderBy: { createdAt: 'asc' },
-			take: MAX_PREFERENCES,
-		});
+		const [rows, savedDetails] = await Promise.all([
+			this._db.botMemberPreference.findMany({
+				where: { guildId, userId, kind: { in: ['like', 'dislike'] } },
+				orderBy: { createdAt: 'asc' },
+				take: MAX_PREFERENCES,
+			}),
+			this._db.botMemberPreference.findMany({
+				where: { guildId, userId, kind: { startsWith: 'memory_' } },
+				orderBy: { createdAt: 'asc' },
+				take: 40,
+			}),
+		]);
+		const pets = savedDetails.filter((row) => row.kind.startsWith('memory_pet_')).map((row) => row.value);
+		const favourites = savedDetails
+			.filter((row) => row.kind.startsWith('memory_favourite_'))
+			.map((row) => row.value);
+		const birthday = savedDetails.find((row) => row.kind === 'memory_birthday')?.value ?? null;
 		return {
 			likes: rows.filter((row) => row.kind === 'like').map((row) => row.value),
 			dislikes: rows.filter((row) => row.kind === 'dislike').map((row) => row.value),
+			pets,
+			birthday,
+			favourites,
 		};
+	}
+
+	async saveDetail(guildId: string, userId: string, kind: string, value: string): Promise<boolean> {
+		const existing = await this._db.botMemberPreference.findFirst({ where: { guildId, userId, kind } });
+		if (!existing) {
+			const count = await this._db.botMemberPreference.count({
+				where: { guildId, userId, kind: { startsWith: 'memory_' } },
+			});
+			if (count >= 40) return false;
+		}
+		await this.setValue(guildId, userId, kind, value);
+		return true;
+	}
+
+	async forgetDetail(guildId: string, userId: string, kind: string): Promise<boolean> {
+		const result = await this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind } });
+		return result.count > 0;
+	}
+
+	async forgetDetailsByPrefix(guildId: string, userId: string, prefix: string): Promise<number> {
+		const result = await this._db.botMemberPreference.deleteMany({
+			where: { guildId, userId, kind: { startsWith: prefix } },
+		});
+		return result.count;
 	}
 
 	async save(
@@ -52,7 +97,16 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 	}
 
 	async forgetAll(guildId: string, userId: string): Promise<number> {
-		const result = await this._db.botMemberPreference.deleteMany({ where: { guildId, userId } });
+		const result = await this._db.botMemberPreference.deleteMany({
+			where: {
+				guildId,
+				userId,
+				OR: [
+					{ kind: { in: ['like', 'dislike', 'nickname'] } },
+					{ kind: { startsWith: 'memory_' } },
+				],
+			},
+		});
 		return result.count;
 	}
 

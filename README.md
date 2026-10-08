@@ -1,14 +1,15 @@
 # JessJessBot
 
-JessJessBot is a Discord bot and web dashboard for a gaming community. It includes community commands, server administration, event signups, and statistics.
+JessJessBot is a Discord bot and web dashboard for servers. The bot has a funny personality and can join a conversation when someone says “jjb” or mentions her. She can chat, remember details people share, and respond to game and community requests.
 
 ## Features
 
-- Wordle and League of Legends statistics
-- Movie requests and lists
-- Custom game event scheduling and signups
-- Server configuration, game roles, and community records
-- Discord OAuth sign-in for the dashboard
+- Conversational replies when summoned by name or mention, with saved preferences and community context
+- Path of Exile 2 loot rolls, inventories, and leaderboards
+- Wordle and Riot API powered League of Legends leaderboards
+- A Hall of Fame for the server's most reacted-to messages
+- Movie requests, custom game events, and signups
+- A web dashboard for server settings, game roles, event management, and community statistics
 
 ## Tech stack
 
