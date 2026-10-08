@@ -1,5 +1,5 @@
 // Custom simulator probabilities, in hundredths of a percent (10,000 total).
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, type ButtonInteraction } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, type ButtonInteraction, type Guild } from 'discord.js';
 import { db } from '@/db';
 
 export const LOOT = [
@@ -140,6 +140,39 @@ export async function lootImages(): Promise<Map<string, string>> {
 export function isLootInventoryRequest(prompt: string): boolean {
 	return /\b(?:my|check|show|view|what(?:'s| is)? in (?:my|the)?)\b/iu.test(prompt) &&
 		/\b(?:inventory|stash|bag|loot|drops?)\b/iu.test(prompt);
+}
+
+export function isLootLeaderboardRequest(prompt: string): boolean {
+	return /\b(?:poe\s*2?|path of exile\s*2)\b/iu.test(prompt) &&
+		/\b(?:loot|drop|inventory|stash)\b/iu.test(prompt) &&
+		/\b(?:leaderboard|ranking|rankings|rank|top|value|richest|wealth)\b/iu.test(prompt);
+}
+
+export async function lootLeaderboardReply(guild: Guild) {
+	const rows = await db._db.lootInventory.findMany({ where: { quantity: { gt: 0 } } });
+	if (!rows.length) return 'The PoE 2 loot leaderboard is empty so far. Ask jjb for a loot drop to get started.';
+	let prices: Snapshot | undefined;
+	try { prices = await ensurePriceSnapshot(); } catch { prices = snapshot; }
+	const totals = new Map<string, number>();
+	for (const row of rows) {
+		const value = prices?.prices.get(row.itemName)?.divineValue;
+		if (value !== undefined) totals.set(row.discordId, (totals.get(row.discordId) ?? 0) + value * row.quantity);
+	}
+	const ranked = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+	if (!ranked.length) return 'I can’t build the PoE 2 loot leaderboard because poe.ninja prices are unavailable right now.';
+	const divineEmoji = lootEmojiMarkup('Divine Orb') || '💠';
+	const lines = await Promise.all(ranked.map(async ([discordId, value], index) => {
+		const member = await guild.members.fetch(discordId).catch(() => null);
+		const user = member?.user ?? await guild.client.users.fetch(discordId).catch(() => null);
+		const name = member?.displayName ?? user?.globalName ?? user?.username ?? 'Unknown player';
+		return `${index + 1}. **${name.replace(/([\\`*_{}\[\]()#+.!>|~-])/gu, '\\$1')}** — **${Math.ceil(value).toLocaleString('en-US')}** ${divineEmoji}`;
+	}));
+	return {
+		allowedMentions: { parse: [] as never[] },
+		embeds: [new EmbedBuilder()
+			.setTitle('🏆 PoE 2 Loot Value Leaderboard')
+			.setDescription(lines.join('\n'))],
+	};
 }
 
 export async function lootInventoryReply(discordId: string, category: 'items' | 'currency' | 'equipment' = 'items') {
