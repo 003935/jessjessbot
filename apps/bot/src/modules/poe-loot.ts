@@ -12,10 +12,11 @@ export const LOOT = [
 	["Glassblower's Bauble",100], ["Blacksmith's Whetstone",100],
 	['Mirror of Kalandra',10], ["Hinekora's Lock",25], ['Temporalis',10], ['Mageblood',50],
 	['Headhunter',100], ['Preserved Cranium',100], ['Omen of Light',100], ['Fracturing Orb',100],
+	['Waistgate',100], ["Zerphi's Genesis",100], ['Ingenuity',100], ["Cat O' Nine Tails",100],
 	['Perfect Exalted Orb',200], ['Perfect Chaos Orb',150], ['Ancient Jawbone',150],
 	['Ancient Rib',150], ['Ancient Collarbone',150], ['Tabula Rasa',200],
 	["Kalandra's Touch",150], ["Ventor's Gamble",300],
-	['Scroll of Wisdom',455], ['Chance Shard',300], ["Artificer's Shard",300],
+	['Scroll of Wisdom',55], ['Chance Shard',300], ["Artificer's Shard",300],
 ] as const;
 
 export function isLootRequest(prompt: string): boolean {
@@ -146,7 +147,7 @@ export async function lootInventoryReply(discordId: string, category: 'items' | 
 		where: { discordId },
 		orderBy: [{ quantity: 'desc' }, { itemName: 'asc' }],
 	});
-	const equipment = new Set(['Temporalis', 'Tabula Rasa', 'Headhunter', 'Mageblood', "Kalandra's Touch", "Ventor's Gamble"]);
+	const equipment = new Set(['Temporalis', 'Tabula Rasa', 'Headhunter', 'Mageblood', "Kalandra's Touch", "Ventor's Gamble", 'Waistgate', "Zerphi's Genesis", 'Ingenuity', "Cat O' Nine Tails"]);
 	const categoryFor = (name: string) => equipment.has(name)
 		? 'equipment'
 		: /\b(?:orb|shard|scroll|bauble|whetstone)\b/iu.test(name) ? 'currency' : 'items';
