@@ -144,7 +144,7 @@ export function isLootInventoryRequest(prompt: string): boolean {
 
 export async function lootInventoryReply(discordId: string, category: 'items' | 'currency' | 'equipment' = 'items') {
 	const rows = await db._db.lootInventory.findMany({
-		where: { discordId },
+		where: { discordId, quantity: { gt: 0 } },
 		orderBy: [{ quantity: 'desc' }, { itemName: 'asc' }],
 	});
 	const equipment = new Set(['Temporalis', 'Tabula Rasa', 'Headhunter', 'Mageblood', "Kalandra's Touch", "Ventor's Gamble", 'Waistgate', "Zerphi's Genesis", 'Ingenuity', "Cat O' Nine Tails"]);
