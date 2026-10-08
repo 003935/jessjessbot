@@ -760,10 +760,14 @@ export async function askDeepSeek(
 
 export async function handleMention(message: Message): Promise<void> {
 	if (!message.inGuild() || message.author.bot) return;
+	const referencedMessage = message.reference?.messageId
+		? await message.fetchReference().catch(() => null)
+		: null;
 	const prompt = botPrompt(
 		message.content,
 		message.client.user.id,
-		message.mentions.users.has(message.client.user.id)
+		message.mentions.users.has(message.client.user.id),
+		referencedMessage?.author.id === message.client.user.id
 	);
 	if (prompt === null) return;
 	if (isLootInventoryRequest(prompt)) {
