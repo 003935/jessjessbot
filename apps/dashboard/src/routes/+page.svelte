@@ -18,6 +18,8 @@
 	import type { PageProps } from './$types';
 	import { Bot, ImageOffIcon } from '@lucide/svelte';
 	import NewEventDialog from '$lib/components/new-event-dialog.svelte';
+	import PackageOpen from '@lucide/svelte/icons/package-open';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 
 	let { data }: PageProps = $props();
 
@@ -192,6 +194,40 @@
 								</div>
 							{/each}
 						</div>
+					{/if}
+				</Card.Content>
+			</Card.Root>
+		{/if}
+
+		{#if data.user?.role === 'admin'}
+			<Card.Root class="col-span-2">
+				<Card.Header>
+					<Card.Title>Player Loot</Card.Title>
+					<Card.Description>Inventories with loot currently recorded</Card.Description>
+					<Card.Action>
+						<form method="POST" action="?/resetLoot" onsubmit={(event) => {
+							if (!confirm('Reset every player’s loot inventory to zero?')) event.preventDefault();
+						}}>
+							<Button type="submit" variant="destructive"><RotateCcw />Reset all loot</Button>
+						</form>
+					</Card.Action>
+				</Card.Header>
+				<Card.Content>
+					{#if data.lootInventories?.length}
+						<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+							{#each data.lootInventories as player (player.discordId)}
+								<div class="rounded-lg border p-4">
+									<div class="mb-3 flex items-center gap-2 font-semibold"><PackageOpen size={18} />{player.name}</div>
+									<ul class="space-y-1 text-sm text-muted-foreground">
+										{#each player.inventory as item (item.itemName)}
+											<li class="flex justify-between gap-3"><span>{item.itemName}</span><span class="shrink-0 font-medium text-foreground">× {item.quantity}</span></li>
+										{/each}
+									</ul>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="text-sm text-muted-foreground">No player loot has been recorded.</p>
 					{/if}
 				</Card.Content>
 			</Card.Root>
