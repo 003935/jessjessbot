@@ -12,6 +12,9 @@ import { Meowdule } from './modules/meowdule';
 import { handleMention } from '@/modules/mention';
 import { handleCustomSignup } from '@/modules/custom-signups';
 import { handleMemeReply } from '@/modules/meme-replies';
+import { startDailyTweets } from '@/modules/daily-tweets';
+import { uploadPoeLootEmojis } from '@/modules/poe-loot-emojis';
+import { handleLootInventoryButton } from '@/modules/poe-loot';
 
 const logger = new Logger('Bot', LogLevel.Info);
 const client = new SapphireClient({
@@ -32,6 +35,7 @@ const client = new SapphireClient({
 });
 
 let meowdule: undefined | Meowdule;
+let stopDailyTweets: (() => Promise<void>) | undefined;
 
 // Global error handlers to prevent crashes
 process.on('unhandledRejection', (reason, promise) => {
@@ -46,6 +50,10 @@ client.on('clientReady', (client) => {
 	logger.info(`${client.user?.tag} is online!`);
 	meowdule = new Meowdule(client);
 	start_background_event_checker(client);
+	stopDailyTweets ??= startDailyTweets(client);
+	void uploadPoeLootEmojis().catch(error =>
+		logger.error('PoE loot emoji startup sync failed', error)
+	);
 });
 
 let isShuttingDown = false;
@@ -55,6 +63,7 @@ async function gracefulShutdown(signal: string) {
 	isShuttingDown = true;
 
 	logger.info(`${signal} received. Shutting down gracefully...`);
+	await stopDailyTweets?.();
 
 	try {
 		await client.destroy();
@@ -97,7 +106,17 @@ client.on('messageCreate', (message) => {
 });
 
 client.on('interactionCreate', (interaction) => {
-	if (!interaction.isButton() || !interaction.customId.startsWith('custom:')) return;
+	if (!interaction.isButton()) return;
+	if (interaction.customId.startsWith('poe-inventory:')) {
+		handleLootInventoryButton(interaction).catch(async (error) => {
+			logger.error('Loot inventory button failed', error);
+			if (interaction.deferred || interaction.replied)
+				await interaction.editReply({ content: 'I could not load that inventory section right now.', embeds: [], components: [] }).catch(() => undefined);
+			else await interaction.reply({ content: 'I could not load that inventory section right now.', ephemeral: true }).catch(() => undefined);
+		});
+		return;
+	}
+	if (!interaction.customId.startsWith('custom:')) return;
 	handleCustomSignup(interaction).catch(async (error) => {
 		logger.error('Custom signup button failed', error);
 		if (!interaction.replied && !interaction.deferred)
