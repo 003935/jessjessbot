@@ -3,3 +3,4 @@ node_modules/
 AGENTS.md
 .opencode/
 docs/
+/apps/bot/tests/vision-images.test.ts

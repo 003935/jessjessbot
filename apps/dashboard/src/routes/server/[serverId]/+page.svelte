@@ -247,7 +247,10 @@
 
 			<ServerConfig
 				channels={data.channels ?? []}
-				config={{ custom_channel: data.config?.custom_channel ?? undefined }}
+				config={{
+					custom_channel: data.config?.custom_channel ?? undefined,
+					bot_ignored_channels: data.config?.bot_ignored_channels ?? [],
+				}}
 				guildId={data.guild.id}
 			/>
 

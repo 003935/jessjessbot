@@ -7,6 +7,7 @@ import * as v from 'valibot';
 const ConfigSchema = v.object({
 	guildId: v.string(),
 	custom_channel: v.optional(v.string()),
+	bot_ignored_channels: v.array(v.string()),
 });
 
 export const editConfig = command(ConfigSchema, async (config) => {
@@ -18,5 +19,6 @@ export const editConfig = command(ConfigSchema, async (config) => {
 
 	await db.config.setConfig(config.guildId, {
 		custom_channel: config.custom_channel,
+		bot_ignored_channels: config.bot_ignored_channels,
 	});
 });

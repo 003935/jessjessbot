@@ -1,6 +1,10 @@
 model ServerConfig {
-  guildId        String  @id
-  custom_channel String?
+	guildId                      String   @id
+	custom_channel               String?
+	bot_disabled_channels        String[] @default([])
+	bot_mention_only_channels    String[] @default([])
+	bot_reply_policy_configured  Boolean  @default(false)
+	bot_ignored_channels         String[] @default([])
 
   @@map("server_config")
 }

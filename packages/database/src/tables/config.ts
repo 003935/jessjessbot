@@ -5,6 +5,10 @@ type ConfigOptions = Omit<ServerConfig, 'guildId'>;
 
 const DEFAULT_CONFIG: ConfigOptions = {
 	custom_channel: null,
+	bot_disabled_channels: [],
+	bot_mention_only_channels: [],
+	bot_reply_policy_configured: false,
+	bot_ignored_channels: [],
 };
 
 export class ConfigTable extends DatabaseConnection {
