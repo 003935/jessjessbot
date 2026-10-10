@@ -1,4 +1,22 @@
 services:
+  kittentts:
+    build:
+      context: .
+      dockerfile: ./apps/tts/Dockerfile
+    restart: unless-stopped
+    environment:
+      - KITTENTTS_REFERENCE_FILE=/voice/reference.wav
+      - HF_HOME=/cache
+    volumes:
+      - ./.local/voice:/voice:ro
+      - ./.local/kittentts-cache:/cache
+    healthcheck:
+      test: ['CMD', 'python', '-c', 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/health", timeout=3)']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10m
+
   bot:
     container_name: bot
     build:
@@ -9,6 +27,7 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres:mypassword@pgbouncer:6432/postgres
       - DIRECT_URL=postgres://postgres:mypassword@db:5432/postgres
+      - KITTENTTS_URL=${KITTENTTS_URL:-http://kittentts:8080}
     depends_on:
       pgbouncer:
         condition: service_healthy
