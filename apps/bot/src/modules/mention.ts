@@ -1030,7 +1030,6 @@ export async function handleMention(message: Message): Promise<void> {
 					...message.attachments.values(),
 					...(referencedImageMessage ? referencedImageMessage.attachments.values() : []),
 				]);
-				let imageReadSkipped = imageCollection.skipped;
 				const imageOnlyMention =
 					imageCollection.images.length > 0 &&
 					!message.content.replace(new RegExp(`<@!?${message.client.user.id}>`, 'gu'), '').trim();
@@ -1137,8 +1136,6 @@ export async function handleMention(message: Message): Promise<void> {
 									? (rareCasualLine(prompt) ?? result.reply)
 									: 'huh (・_・;)';
 				}
-				if (imageReadSkipped)
-					content += "\n\n(i couldn't read one of the images)";
 			}
 		} else {
 			content =
