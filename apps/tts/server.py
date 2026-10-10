@@ -16,6 +16,7 @@ HOST = "0.0.0.0"
 PORT = 8080
 MODEL_NAME = "KittenML/kitten-tts-2"
 REFERENCE_FILE = Path(os.environ.get("KITTENTTS_REFERENCE_FILE", "/voice/reference.wav"))
+REFERENCE_TEXT = os.environ.get("KITTENTTS_REFERENCE_TEXT", "").strip()
 MAX_REQUEST_BYTES = 8_192
 MAX_TEXT_CHARS = 1_900
 MAX_AUDIO_BYTES = 16 * 1024 * 1024
@@ -109,7 +110,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(503, "speech service is busy")
                 return
             try:
-                audio = tts.generate(text.strip(), reference=str(REFERENCE_FILE))
+                audio = tts.generate(
+                    text.strip(),
+                    reference=str(REFERENCE_FILE),
+                    reference_text=REFERENCE_TEXT or None,
+                )
             finally:
                 inference_lock.release()
             output = io.BytesIO()
