@@ -6,6 +6,7 @@ services:
     restart: unless-stopped
     environment:
       - KITTENTTS_REFERENCE_FILE=/voice/reference.wav
+      - KITTENTTS_REFERENCE_TEXT=${KITTENTTS_REFERENCE_TEXT:-}
       - HF_HOME=/cache
     volumes:
       - ./.local/voice:/voice:ro

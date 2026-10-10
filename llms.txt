@@ -52,7 +52,9 @@ KittenTTS 2 runs locally in the `kittentts` Compose service. It needs Python 3.1
 3. Review the [KittenTTS 2 model license](https://huggingface.co/KittenML/kitten-tts-2) before use. The source code and model weights have separate licenses.
 4. Start the stack with `docker compose up --build`. The recording is mounted read-only, is not committed, and the TTS HTTP endpoint is only available to services on the Compose network. If the recording was added after the TTS service started, restart it with `docker compose restart kittentts`.
 
-The service exposes `/health` and `/synthesize` only inside Compose. Its health check stays unavailable until the reference recording is mounted and the model has loaded. To create a local smoke-check WAV through the service, run this from PowerShell after it is healthy:
+The service exposes `/health` and `/synthesize` only inside Compose. Its health check stays unavailable until the reference recording is mounted and the model has loaded. KittenTTS automatically transcribes a reference if `KITTENTTS_REFERENCE_TEXT` is not set; supplying the exact spoken words in `.env` skips the first-run Whisper large-v3 download. To create a local smoke-check WAV through the service, run this from PowerShell after it is healthy:
+
+Set `KITTENTTS_REFERENCE_TEXT` in the project `.env` to the words spoken in the WAV, then recreate `kittentts` to use the transcript. If unset, KittenTTS automatically transcribes the reference on first synthesis.
 
 ```powershell
 $python = @'
