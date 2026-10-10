@@ -37,6 +37,7 @@ import {
 import { withServerEmoji } from '@/modules/server-emojis';
 import jessPreferences from '@/personality/jess-preferences.json';
 import { FOOD_TASTES, isFoodTalk } from '@/personality/food-tastes';
+import { collectVisionImages, type VisionImageInput } from '@/modules/vision-images';
 
 const logger = new Logger('Mention');
 const ROLE_ADMIN_ID = '1157046480968892557';
@@ -52,6 +53,7 @@ type DeepSeekResponse = {
 
 type RoleAction = { action?: unknown; roles?: unknown; target?: unknown };
 type ConversationTurn = { role: 'user' | 'assistant'; content: string };
+type DeepSeekContentPart = { type: 'text'; text: string } | VisionImageInput;
 const CONVERSATION_TTL_MS = 30 * 60 * 1000;
 const CUSTOM_DETAILS_TTL_MS = 5 * 60 * 1000;
 // Shared per channel so jjb can follow a conversation when someone else joins in.
@@ -1012,6 +1014,14 @@ export async function handleMention(message: Message): Promise<void> {
 					message.author.username
 				);
 				const repliedTo = await repliedMessageContext(message as Message<true>, prompt);
+				const referencedImageMessage = message.reference?.messageId
+					? await message.fetchReference().catch(() => null)
+					: null;
+				const imageCollection = await collectVisionImages([
+					...message.attachments.values(),
+					...(referencedImageMessage ? referencedImageMessage.attachments.values() : []),
+				]);
+				let imageReadSkipped = imageCollection.skipped;
 				const savedNickname = await db.botMemberPreference
 					.getNickname(message.guildId, message.author.id)
 					.catch(() => null);
@@ -1112,6 +1122,8 @@ export async function handleMention(message: Message): Promise<void> {
 									? (rareCasualLine(prompt) ?? result.reply)
 									: 'huh (・_・;)';
 				}
+				if (imageReadSkipped)
+					content += "\n\n(i couldn't read one of the images)";
 			}
 		} else {
 			content =
