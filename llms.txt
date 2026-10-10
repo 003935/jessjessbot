@@ -43,6 +43,24 @@ The dashboard is available at [http://localhost:3000](http://localhost:3000). Th
 
 Stop the foreground services with `Ctrl+C`. To run them in the background, use `docker compose up --build -d`; stop them with `docker compose down`.
 
+## Give JessJessBot a cloned voice
+
+KittenTTS 2 runs locally in the `kittentts` Compose service. It needs Python 3.10+, about 6 GB of RAM for CPU inference, and about 1 GB of disk for model weights. The first startup downloads the model into `.local/kittentts-cache`.
+
+1. Make `.local/voice` in the repository root.
+2. Put a clean 5–30 second WAV recording of one speaker at `.local/voice/reference.wav`. A quiet room, one speaker, and no music or overlapping speech give the clone a better reference.
+3. Review the [KittenTTS 2 model license](https://huggingface.co/KittenML/kitten-tts-2) before use. The source code and model weights have separate licenses.
+4. Start the stack with `docker compose up --build`. The recording is mounted read-only, is not committed, and the TTS HTTP endpoint is only available to services on the Compose network. If the recording was added after the TTS service started, restart it with `docker compose restart kittentts`.
+
+The service exposes `/health` and `/synthesize` only inside Compose. To create a local smoke-check WAV through the service, run this from PowerShell after it is healthy:
+
+```powershell
+docker compose exec -T kittentts python -c "import urllib.request; req=urllib.request.Request('http://127.0.0.1:8080/synthesize', data=b'{\"text\":\"hello from my cloned voice\"}', headers={'Content-Type':'application/json'}); res=urllib.request.urlopen(req); open('/tmp/voice-check.wav','wb').write(res.read()); print(res.headers.get('Content-Type'))"
+docker compose cp kittentts:/tmp/voice-check.wav ./.local/voice/voice-check.wav
+```
+
+Replace the sample by stopping the service, replacing `reference.wav`, and starting the service again. Remove the local reference and generated WAVs when no longer needed. Use `/join` while connected to your voice channel to have Jess speak her summoned text replies; use `/leave` to disconnect. She does not listen to voice chat.
+
 ## Development commands
 
 ```powershell
