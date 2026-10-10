@@ -1,33 +1,43 @@
-# jessjessbot
+#  <img src="apps/dashboard/static/bunny-logo.png" alt="JessJessBot bunny logo" width="30"> JessJessBot
 
-A Discord bot I made for my server, with a dashboard for managing it.
 
-It can chat when mentioned, recap conversations with `/tldr`, and help run games and events. The dashboard shows server stats and upcoming events, and lets admins manage game roles and Hall of Fame channels.
+JessJessBot is a Discord bot and web dashboard for servers. She handles the annoying moderation like adding or removing roles and can join a conversation when someone says “jjb” or mentions her. She can chat, remember details people share, and respond to game and community requests.
 
-Built with Bun, TypeScript, discord.js, Sapphire, SvelteKit, PostgreSQL, and Valkey. It uses the Riot Games API for League data and the DeepSeek API for optional chat and recaps.
+## Features
 
-## What it does
+- Conversational replies when summoned by name or mention, with saved preferences and community context
+- Path of Exile 2 loot rolls, inventories, and leaderboards
+- Wordle and Riot API powered League of Legends leaderboards
+- A Hall of Fame for the server's most reacted-to messages
+- Movie requests, custom game events, and signups
+- A web dashboard for server settings, game roles, event management, and community statistics
 
-**Hall of Fame.** `/fame` ranks the server's most reacted messages. Each entry shows the quote, author, reaction count, top emoji, and a link back to the message. You can choose all time or the past month, or filter by channel or user.
+## Use JessJessBot
 
-![Hall of Fame in Discord](<screenshots/hall of fame.png>)
+Don’t want to host it yourself? [Add JessJessBot to your Discord server](https://discord.com/oauth2/authorize?client_id=1465304830011637811&scope=bot). You need to own the server or have the **Manage Server** permission to add it.
 
-**League and Wordle leaderboards.** `/lol` shows players' League ranks and LP using the Riot Games API. The bot also tracks posted Wordle results, and `/king` shows who has the most wins.
+## Host it yourself
 
-![League leaderboard in Discord](<screenshots/league leaderboard.png>)
+Requirements:
 
-![Wordle leaderboard in Discord](<screenshots/wordle leaderboard.png>)
+- Bun 1.3.11 or compatible, and Docker Compose
+- A Discord application and bot token, plus the Wordle bot and role IDs; enable **Message Content** and **Server Members** intents in the Discord Developer Portal
+- A Riot API key
+- Discord OAuth credentials and a Better Auth secret to run the dashboard
 
-**Custom games.** Mention the bot with a game and time, check the details it suggests, then confirm to post the event. People can join, leave, or mark themselves as maybe with buttons. `/upcoming` lists scheduled customs and their signups.
+PostgreSQL and Valkey are included in the Compose stack. TMDB, OMDb, and DeepSeek keys are optional and only needed for their respective features. See [llms.txt](llms.txt) for environment setup and run instructions.
 
-![Creating a customs event and signing up in Discord](<screenshots/customs creation.png>)
+## Tech stack
 
-**Movie requests.** People can request films, and `/movie list` shows the most requested ones with a link to the full list.
+TypeScript, Bun workspaces, Discord.js, Sapphire, SvelteKit, PostgreSQL, Prisma, PgBouncer, Valkey, Better Auth, and Docker Compose.
 
-![Most requested movies in Discord](<screenshots/movie list.png>)
+## Project structure
 
-## Run locally
-
-Install Bun and Docker, then run `bun install`. Copy the example environment files in `apps/bot` and `apps/dashboard` to `.env`, add your Discord credentials, and configure `packages/database/.env` for PostgreSQL. Start everything with `docker compose up --build`. The dashboard runs at `http://localhost:3000`.
-
-Run `bun run check` to check the TypeScript projects. Don't commit your `.env` files.
+```text
+apps/bot/          Discord bot
+apps/dashboard/    SvelteKit dashboard
+packages/database/ Prisma schema, migrations, and database access
+packages/discord-api/
+packages/valkey/
+packages/config-typescript/
+```

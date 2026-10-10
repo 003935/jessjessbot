@@ -1,0 +1,4 @@
+interface:
+  display_name: "poe.watch API"
+  short_description: "Query Path of Exile prices and market history"
+  default_prompt: "Use $poe-watch-api to find item prices and market history for my Path of Exile league."

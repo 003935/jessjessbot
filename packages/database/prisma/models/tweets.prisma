@@ -1,0 +1,23 @@
+model SavedTweet {
+  id String @id
+  username String
+  text String
+  publishedAt DateTime
+  savedAt DateTime @default(now())
+  lastPostedAt DateTime?
+
+  @@index([username, lastPostedAt])
+  @@map("saved_tweets")
+}
+
+model DailyTweetPost {
+  channelId String
+  day String
+  minute Int
+  claimedAt DateTime?
+  messageId String?
+  tweetId String?
+
+  @@id([channelId, day])
+  @@map("daily_tweet_posts")
+}

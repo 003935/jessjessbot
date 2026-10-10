@@ -84,12 +84,12 @@ export async function answerWordleSuspicion(
 		: '';
 	const evidence = `${stats.games} games, ${stats.solved} solved, ${stats.quickSolves} in 3 guesses or less, ${playerAverage}${stats.averageScore !== null ? '/6 average' : ''}${comparison}.${recent}`;
 	if (stats.games < 5)
-		return `yeah definitely cheating. ${name} has ${evidence} tiny sample tho, im joking 😭`;
+		return `${name} is wanted in 14 countries by the Wordle police. ${evidence} tiny sample, suspicious little goblin 😭`;
 	if (
 		stats.averageScore !== null &&
 		server.averageScore !== null &&
 		stats.averageScore >= server.averageScore + 0.4
 	)
-		return `yeah definitely cheating... at making Wordle look hard. ${name} has ${evidence} case dismissed (¬_¬)`;
-	return `yeah definitely cheating. ${name} has ${evidence} lock them up (im joking, scores alone cant prove cheating)`;
+		return `${name} is cheating... at making Wordle look hard. ${evidence} case dismissed, release the tiny pencil (¬_¬)`;
+	return `${name} has been sentenced to 900 years in the Wordle mines. ${evidence} lock them up, the daily puzzle has a tiny fake moustache and everything`;
 }

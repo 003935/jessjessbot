@@ -1,0 +1,9 @@
+model LootInventory {
+  discordId String
+  itemName String
+  quantity Int @default(0)
+
+  @@id([discordId, itemName])
+  @@index([discordId, quantity])
+  @@map("loot_inventory")
+}

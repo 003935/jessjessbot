@@ -1,14 +1,12 @@
 <script lang="ts">
 	import './layout.css';
 	import { ModeWatcher } from 'mode-watcher';
-	import favicon from '$lib/assets/favicon.svg';
 	import type { LayoutProps } from './$types';
 	import { authClient } from '$lib/auth.client';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
 	import { Toaster } from '$lib/components/ui/sonner/index.js';
-	import Bot from '@lucide/svelte/icons/bot';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -17,7 +15,7 @@
 	let { data, children }: LayoutProps = $props();
 </script>
 
-<svelte:head><link rel="icon" href={favicon} /></svelte:head>
+<svelte:head><link rel="icon" type="image/png" href="/bunny-logo.png" /></svelte:head>
 
 <ModeWatcher />
 
@@ -27,7 +25,7 @@
 	<div class="sticky top-0 z-50 flex items-center border-b bg-background px-4 py-2 lg:px-8">
 		<div class="flex-1">
 			<a class="flex items-center gap-2 text-xl font-bold normal-case" href={resolve('/')}>
-				<Bot size={22} class="text-primary" />
+				<img src="/bunny-logo.png" alt="" class="size-7 object-contain" />
 				<span class="text-primary">jessjessbot</span>
 			</a>
 		</div>

@@ -1,4 +1,4 @@
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { discordApi } from '$lib/server/discord';
 
@@ -40,7 +40,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 	);
 
 	const customs = await db.events.getEventsByGuildIds(joined_guilds.map((guild) => guild.id));
-
 	return {
 		servers: joined_guilds.map((guild) => ({
 			id: guild.id,

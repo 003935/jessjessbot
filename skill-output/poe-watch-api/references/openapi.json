@@ -1,0 +1,1584 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "poe.watch API",
+    "description": "API providing market data and price information for the game Path of Exile.\nAllows users to query active leagues, item categories, current item prices within leagues (with filtering), historical price data, enchantment/corruption data, compact data, and API status.\nPrice data typically uses Chaos Orbs as the base unit.",
+    "version": "1.2.0",
+    "contact": {
+      "name": "poe.watch",
+      "url": "https://poe.watch"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.poe.watch",
+      "description": "Main API server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Leagues",
+      "description": "Operations related to leagues"
+    },
+    {
+      "name": "Categories",
+      "description": "Operations related to item categories used in the API"
+    },
+    {
+      "name": "Items",
+      "description": "Operations related to current item prices and data retrieval with filtering"
+    },
+    {
+      "name": "Item Details",
+      "description": "Operations related to specific item details like history, enchantments, and corruptions"
+    },
+    {
+      "name": "Combined Data",
+      "description": "Operations for retrieving combined data sets"
+    },
+    {
+      "name": "Exchange",
+      "description": "Operations related to exchange rate ratios"
+    },
+    {
+      "name": "Status",
+      "description": "Operations related to API status and data processing state"
+    }
+  ],
+  "paths": {
+    "/leagues": {
+      "get": {
+        "tags": [
+          "Leagues"
+        ],
+        "summary": "Get Available Leagues",
+        "description": "Retrieves a list of leagues currently tracked or available in the poe.watch database (includes past leagues for history).",
+        "operationId": "getLeagues",
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the list of leagues.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/League"
+                  }
+                },
+                "example": [
+                  {
+                    "name": "Standard",
+                    "start_date": "2013-01-23T21:00:00+01:00",
+                    "end_date": "0001-01-01T00:00:00Z"
+                  },
+                  {
+                    "name": "Hardcore",
+                    "start_date": "2013-01-23T22:00:00+01:00",
+                    "end_date": "0001-01-01T00:00:00Z"
+                  },
+                  {
+                    "name": "Heist",
+                    "start_date": "2020-09-18T22:00:00Z",
+                    "end_date": "2020-12-14T22:00:00Z"
+                  }
+                ]
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error occurred while fetching leagues."
+          }
+        }
+      }
+    },
+    "/categories": {
+      "get": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Get Item Categories",
+        "description": "Retrieves a list of valid item categories that can be used as the `category` parameter in the `/get` endpoint.",
+        "operationId": "getCategories",
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the list of item categories.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Category"
+                  }
+                },
+                "example": [
+                  {
+                    "id": 1,
+                    "name": "accessory",
+                    "display": "Accessories",
+                    "groups": []
+                  },
+                  {
+                    "id": 2,
+                    "name": "armour",
+                    "display": "Armour",
+                    "groups": []
+                  },
+                  {
+                    "id": 8,
+                    "name": "currency",
+                    "display": "Currency",
+                    "groups": []
+                  }
+                ]
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error occurred while fetching categories."
+          }
+        }
+      }
+    },
+    "/get": {
+      "get": {
+        "tags": [
+          "Items"
+        ],
+        "summary": "Get Current Item Data by Category",
+        "description": "Retrieves current market data for a specified category of items within a specific *currently active* league.\nRequires both the `league` and `category` parameters. Allows optional filtering.\nItem prices (`mean`, `min`, `max`) are typically represented as Chaos Orb equivalents.\nUse the `/categories` endpoint to find valid category names.\nNote: This endpoint only works for *current* leagues. For historical data, use the `/history` endpoint.",
+        "operationId": "getItemDataByCategory",
+        "parameters": [
+          {
+            "name": "league",
+            "in": "query",
+            "required": true,
+            "description": "The name of the *current* league to query (e.g., the current challenge league name, Standard, Hardcore).",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Necropolis"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": true,
+            "description": "The item category name (obtained from `/categories`) to retrieve data for (e.g., `currency`, `armour`, `weapon`, `gem`).",
+            "schema": {
+              "type": "string"
+            },
+            "example": "currency"
+          },
+          {
+            "name": "lowConfidence",
+            "in": "query",
+            "required": false,
+            "description": "Filter results based on price confidence (e.g., `true` to potentially include items with fewer data points).",
+            "schema": {
+              "type": "boolean"
+            },
+            "example": false
+          },
+          {
+            "name": "linkCount",
+            "in": "query",
+            "required": false,
+            "description": "Filter by the number of linked sockets on an item.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+            },
+            "example": 6
+          },
+          {
+            "name": "gemLevel",
+            "in": "query",
+            "required": false,
+            "description": "Filter gems by their level.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 21
+          },
+          {
+            "name": "gemCorrupted",
+            "in": "query",
+            "required": false,
+            "description": "Filter gems based on whether they are corrupted (`true`) or not (`false`).",
+            "schema": {
+              "type": "boolean"
+            },
+            "example": true
+          },
+          {
+            "name": "itemLevel",
+            "in": "query",
+            "required": false,
+            "description": "Filter items by their item level (ilvl).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 86
+          },
+          {
+            "name": "gemQuality",
+            "in": "query",
+            "required": false,
+            "description": "Filter gems by their quality.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 20
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved item data for the specified league and category, potentially filtered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ItemData"
+                  }
+                },
+                "example": [
+                  {
+                    "id": 1,
+                    "name": "Chaos Orb",
+                    "category": "currency",
+                    "group": "stackable",
+                    "frame": 0,
+                    "influences": null,
+                    "linkCount": 0,
+                    "icon": "https://web.poecdn.com/image/Art/2DItems/Currency/CurrencyRerollRare.png?scale=1&w=1&h=1",
+                    "mean": 1,
+                    "min": 1,
+                    "max": 1,
+                    "exalted": 0.005,
+                    "daily": 15000,
+                    "change": -0.01,
+                    "history": [
+                      1,
+                      1,
+                      1.01,
+                      1
+                    ],
+                    "lowConfidence": false,
+                    "perfectPrice": 0,
+                    "perfectAmount": 0,
+                    "implicits": null,
+                    "explicits": [
+                      "Stack Size: 10"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Likely missing required query parameters (`league` or `category`), invalid parameter values, or attempting to query an old league."
+          },
+          "500": {
+            "description": "Internal server error occurred while fetching item data."
+          }
+        }
+      }
+    },
+    "/hot": {
+      "get": {
+        "tags": [
+          "Items"
+        ],
+        "summary": "Get Trending Items",
+        "description": "Retrieves a list of currently trending items for a specific league.",
+        "operationId": "getTrendingItems",
+        "parameters": [
+          {
+            "name": "league",
+            "in": "query",
+            "required": true,
+            "description": "The name of the *current* league to query (e.g., the current challenge league name, Standard, Hardcore).",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Necropolis"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved trending items for the specified league.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ItemData"
+                  }
+                },
+                "example": [
+                  {
+                    "id": 1,
+                    "name": "Chaos Orb",
+                    "category": "currency",
+                    "group": "stackable",
+                    "frame": 0,
+                    "influences": null,
+                    "linkCount": 0,
+                    "icon": "https://web.poecdn.com/image/Art/2DItems/Currency/CurrencyRerollRare.png?scale=1&w=1&h=1",
+                    "mean": 1,
+                    "min": 1,
+                    "max": 1,
+                    "exalted": 0.005,
+                    "daily": 15000,
+                    "change": -0.01,
+                    "history": [
+                      1,
+                      1,
+                      1.01,
+                      1
+                    ],
+                    "lowConfidence": false,
+                    "perfectPrice": 0,
+                    "perfectAmount": 0,
+                    "implicits": null,
+                    "explicits": [
+                      "Stack Size: 10"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Likely missing required query parameter (`league`)."
+          },
+          "500": {
+            "description": "Internal server error occurred while fetching trending items."
+          }
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "tags": [
+          "Items"
+        ],
+        "summary": "Search for Items",
+        "description": "Searches for items by name in a specific league.",
+        "operationId": "searchItems",
+        "parameters": [
+          {
+            "name": "league",
+            "in": "query",
+            "required": true,
+            "description": "The name of the *current* league to query (e.g., the current challenge league name, Standard, Hardcore).",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Necropolis"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "The search query for the item name.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Headhunter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved search results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ItemData"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Likely missing required query parameters (`league` or `q`)."
+          },
+          "500": {
+            "description": "Internal server error occurred while searching for items."
+          }
+        }
+      }
+    },
+    "/inscribed": {
+      "get": {
+        "tags": [
+          "Items"
+        ],
+        "summary": "Get Inscribed Ultimatum Data",
+        "description": "Retrieves current market data for Inscribed Ultimatum items within a specific league. This is a special case for the Inscribed Ultimatum item type.",
+        "operationId": "getInscribedUltimatumData",
+        "parameters": [
+          {
+            "name": "league",
+            "in": "query",
+            "required": true,
+            "description": "The league to query for Inscribed Ultimatum data.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Ultimatum"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "An array of Inscribed Ultimatum data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InscribedUltimatumItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Likely missing required query parameter (`league`) or invalid parameter values."
+          },
+          "404": {
+            "description": "Not Found. The specified league does not have Inscribed Ultimatum data or the item ID is invalid."
+          },
+          "500": {
+            "description": "Internal server error."
+          }
+        }
+      }
+    },
+    "/history": {
+      "get": {
+        "tags": [
+          "Item Details"
+        ],
+        "summary": "Get Item Price History",
+        "description": "Retrieves the historical price data for a *specific item* (identified by its ID) within a specific league (current or past).\nRequires the `league` parameter and the `id` parameter.\nItem IDs are discoverable via the `/get` or `/compact` endpoints.",
+        "operationId": "getItemPriceHistory",
+        "parameters": [
+          {
+            "name": "league",
+            "in": "query",
+            "required": true,
+            "description": "The name of the league (current or past) for which to retrieve the price history (e.g., \"Heist\", \"Standard\", \"Necropolis\").",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Heist"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "description": "The unique numeric ID of the item to get price history for.",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 48
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the price history for the specified item ID and league.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PriceHistoryEntry"
+                  }
+                },
+                "example": [
+                  {
+                    "mean": 8.87,
+                    "date": "2020-09-18T22:01:23.89+02:00",
+                    "id": 0
+                  },
+                  {
+                    "mean": 2.31,
+                    "date": "2020-09-19T22:59:09.749+02:00",
+                    "id": 0
+                  },
+                  {
+                    "mean": 2.22,
+                    "date": "2020-09-20T23:09:27.687+02:00",
+                    "id": 0
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Likely missing required query parameters (`league` or `id`)."
+          },
+          "404": {
+            "description": "Not Found. The specified league or item ID could not be found or has no historical data available."
+          },
+          "500": {
+            "description": "Internal server error occurred while fetching price history."
+          }
+        }
+      }
+    },
+    "/enchants": {
+      "get": {
+        "tags": [
+          "Item Details"
+        ],
+        "summary": "Get Item Enchantment Data",
+        "description": "Retrieves known Labyrinth enchantment price data for a specific item (identified by its ID) within a given league.",
+        "operationId": "getItemEnchants",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "league",
+            "in": "query",
+            "required": true,
+            "description": "The name of the league (current or past) to query.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Heist"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "description": "The unique numeric ID of the item (typically a helmet or boots) to get enchant data for.",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 79
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved enchantment data for the item.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnchantData"
+                  }
+                },
+                "example": [
+                  {
+                    "name": "Penance Brand has 24% increased Area of Effect",
+                    "value": 34.38,
+                    "lowConfidence": true
+                  },
+                  {
+                    "name": "Sunder has 40% increased Damage",
+                    "value": 2.29,
+                    "lowConfidence": true
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Missing required parameters."
+          },
+          "404": {
+            "description": "Not Found. The specified league or item ID was not found or has no enchant data."
+          },
+          "500": {
+            "description": "Internal server error."
+          }
+        }
+      }
+    },
+    "/corruptions": {
+      "get": {
+        "tags": [
+          "Item Details"
+        ],
+        "summary": "Get Item Corruption Data",
+        "description": "Retrieves known Vaal Orb corruption outcome price data for a specific item (identified by its ID) within a given league.",
+        "operationId": "getItemCorruptions",
+        "parameters": [
+          {
+            "name": "league",
+            "in": "query",
+            "required": true,
+            "description": "The name of the league (current or past) to query.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Ritual"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "description": "The unique numeric ID of the item to get corruption data for.",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 155
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved corruption data for the item.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CorruptionData"
+                  }
+                },
+                "example": [
+                  {
+                    "name": "#% increased Area of Effect",
+                    "mean": 8511.44
+                  },
+                  {
+                    "name": "#% increased Attack Speed during any Flask Effect",
+                    "mean": 9892.36
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Missing required parameters."
+          },
+          "404": {
+            "description": "Not Found. The specified league or item ID was not found or has no corruption data."
+          },
+          "500": {
+            "description": "Internal server error."
+          }
+        }
+      }
+    },
+    "/compact": {
+      "get": {
+        "tags": [
+          "Combined Data"
+        ],
+        "summary": "Get Compact Data for All Categories",
+        "description": "Retrieves a combined, compact dataset containing item data across potentially all categories for a specific *currently active* league. Structure is similar to `/get` results but nested under an \"items\" key.",
+        "operationId": "getCompactData",
+        "parameters": [
+          {
+            "name": "league",
+            "in": "query",
+            "required": true,
+            "description": "The name of the *current* league to query (e.g., \"Necropolis\").",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Necropolis"
+          },
+          {
+            "name": "all",
+            "in": "query",
+            "required": false,
+            "description": "If `true`, returns data for all items. If `false` or not provided, returns only items with current data.",
+            "schema": {
+              "type": "boolean"
+            },
+            "example": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the compact data for the league.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompactData"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": 48,
+                      "name": "Devouring Totem",
+                      "category": "gem",
+                      "group": "skillgem",
+                      "frame": 4,
+                      "influences": null,
+                      "icon": "https://web.poecdn.com/image/Art/2DItems/Gems/DevouringTotem.png?v=f056a6f62ebac73b19eb9baa93ffef16&w=1&h=1&scale=1",
+                      "mean": 10.14,
+                      "min": 10.14,
+                      "max": 10.14,
+                      "exalted": 0.14,
+                      "daily": 156,
+                      "change": 119,
+                      "history": [
+                        4.14,
+                        3.45,
+                        3.66,
+                        3.97,
+                        3.98,
+                        3.62,
+                        2.7
+                      ],
+                      "lowConfidence": false,
+                      "implicits": null,
+                      "explicits": null,
+                      "gemLevel": 21,
+                      "gemQuality": 23,
+                      "gemIsCorrupted": true,
+                      "tier": 0,
+                      "uses": 0,
+                      "linkCount": 0,
+                      "mapSeries": 0,
+                      "mapTier": 0
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Missing required league parameter or league is not current."
+          },
+          "500": {
+            "description": "Internal server error."
+          }
+        }
+      }
+    },
+    "/status": {
+      "get": {
+        "tags": [
+          "Status"
+        ],
+        "summary": "Get API Status",
+        "description": "Returns the latest processed public stash tab change ID and statistics about the number of stashes processed in the current cycle. Primarily for monitoring API data freshness.",
+        "operationId": "getApiStatus",
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved API status information.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusData"
+                },
+                "example": {
+                  "changeID": "863692164-876193549-838143009-945188005-904612949",
+                  "requestedStashes": 31739,
+                  "computedStashes": 31736
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error retrieving status."
+          }
+        }
+      }
+    },
+    "/exchange/ratios": {
+      "get": {
+        "tags": [
+          "Exchange"
+        ],
+        "summary": "Get Exchange Ratios",
+        "description": "Retrieves exchange rate ratios for items in a given league and game.\nReturns Chaos and Divine exchange values, 24h change, volume, and 7-day history.",
+        "operationId": "getExchangeRatios",
+        "parameters": [
+          {
+            "name": "league",
+            "in": "query",
+            "required": true,
+            "description": "The name of the league to query.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Phrecia 2.0"
+          },
+          {
+            "name": "game",
+            "in": "query",
+            "required": true,
+            "description": "Game identifier.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "poe1",
+                "poe2"
+              ]
+            },
+            "example": "poe1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved exchange ratios.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeRatiosResponse"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": 51896,
+                      "name": "A Chilling Wind",
+                      "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvRGl2aW5hdGlvbi9JbnZlbnRvcnlJY29uIiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/f34bf8cbb5/InventoryIcon.png",
+                      "category": "card",
+                      "chaos": {
+                        "value": 2.67,
+                        "lowConfidence": false,
+                        "timestamp": 1770213600,
+                        "volume": 6,
+                        "chaosValue": 2.67,
+                        "divineValue": 0.02,
+                        "pairID": 1565,
+                        "volume24H": 10,
+                        "history7D": [
+                          {
+                            "date": "2026-01-30",
+                            "meanPrice": 5.23
+                          },
+                          {
+                            "date": "2026-01-31",
+                            "meanPrice": 3.86
+                          },
+                          {
+                            "date": "2026-02-01",
+                            "meanPrice": 3.76
+                          },
+                          {
+                            "date": "2026-02-02",
+                            "meanPrice": 2.95
+                          },
+                          {
+                            "date": "2026-02-03",
+                            "meanPrice": 6.72
+                          },
+                          {
+                            "date": "2026-02-04",
+                            "meanPrice": 2.78
+                          }
+                        ],
+                        "change24H": -58.63
+                      },
+                      "divine": {
+                        "value": 0,
+                        "lowConfidence": false,
+                        "timestamp": 0,
+                        "volume": 0,
+                        "change24H": 0
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Missing or invalid query parameters."
+          },
+          "500": {
+            "description": "Internal server error occurred while fetching exchange ratios."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "InscribedUltimatumItem": {
+        "type": "object",
+        "description": "Represents market data for a single Inscribed Ultimatum.",
+        "properties": {
+          "challenge": {
+            "type": "string",
+            "example": "Survive"
+          },
+          "reward": {
+            "type": "string",
+            "example": "Queen of the Forest"
+          },
+          "reward_amount": {
+            "type": "string",
+            "example": "x1"
+          },
+          "reward_price": {
+            "type": "number",
+            "format": "float",
+            "example": 3.43
+          },
+          "sacrifice": {
+            "type": "string",
+            "example": "Breath of the Council"
+          },
+          "sacrifice_amount": {
+            "type": "string",
+            "example": "x1"
+          },
+          "sacrifice_price": {
+            "type": "number",
+            "format": "float",
+            "example": 1.63
+          },
+          "divine": {
+            "type": "number",
+            "format": "float",
+            "example": 0.03
+          },
+          "mean": {
+            "type": "number",
+            "example": 5
+          },
+          "low_confidence": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "challenge",
+          "reward",
+          "reward_amount",
+          "reward_price",
+          "sacrifice",
+          "sacrifice_amount",
+          "sacrifice_price",
+          "divine",
+          "mean",
+          "low_confidence"
+        ]
+      },
+      "League": {
+        "type": "object",
+        "description": "Represents a Path of Exile league tracked by poe.watch.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The display name of the league.",
+            "example": "Standard"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The date and time the league started (ISO 8601 format).",
+            "example": "2013-01-23T21:00:00+01:00"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The date and time the league ended or is scheduled to end (ISO 8601 format). A very old date (e.g., year 0001) indicates it's ongoing (like Standard/Hardcore).",
+            "example": "0001-01-01T00:00:00Z"
+          }
+        },
+        "required": [
+          "name",
+          "start_date",
+          "end_date"
+        ]
+      },
+      "Category": {
+        "type": "object",
+        "description": "Represents an item category usable in API queries.",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Unique identifier for the category.",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "description": "The internal name of the category used in the `category` query parameter.",
+            "example": "accessory"
+          },
+          "display": {
+            "type": "string",
+            "description": "The user-friendly display name for the category.",
+            "example": "Accessories"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Sub-groups within this category (content may vary).",
+            "example": []
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "display",
+          "groups"
+        ]
+      },
+      "ItemData": {
+        "type": "object",
+        "description": "Represents market data for a specific item within a league category. Field availability may vary by item type.",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Unique identifier for the item.",
+            "example": 48
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the item.",
+            "example": "Devouring Totem"
+          },
+          "category": {
+            "type": "string",
+            "description": "The category this item belongs to (matches the 'category' query parameter used in /get or inferred in /compact).",
+            "example": "gem"
+          },
+          "group": {
+            "type": "string",
+            "description": "The specific group within the category (e.g., 'helmets', 'skillgem', 'stackable').",
+            "example": "skillgem",
+            "nullable": true
+          },
+          "frame": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Represents the item frame type (e.g., 0=Normal, 1=Magic, 2=Rare, 3=Unique, 4=Gem, 5=Currency, 6=Divination Card, etc.).",
+            "example": 4
+          },
+          "influences": {
+            "type": "string",
+            "description": "Serialized influence information. Empty string if none.",
+            "example": ""
+          },
+          "linkCount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of linked sockets (0 for non-linkable items). Relevant for armour/weapons.",
+            "example": 0
+          },
+          "icon": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to the item's icon on the Path of Exile CDN.",
+            "example": "https://web.poecdn.com/image/Art/2DItems/Gems/DevouringTotem.png?v=f056a6f62ebac73b19eb9baa93ffef16&w=1&h=1&scale=1"
+          },
+          "mean": {
+            "type": "number",
+            "format": "float",
+            "description": "The average price of the item in Chaos Orbs.",
+            "example": 10.14
+          },
+          "min": {
+            "type": "number",
+            "format": "float",
+            "description": "The minimum observed price of the item in Chaos Orbs.",
+            "example": 10.14
+          },
+          "max": {
+            "type": "number",
+            "format": "float",
+            "description": "The maximum observed price of the item in Chaos Orbs.",
+            "example": 10.14
+          },
+          "exalted": {
+            "type": "number",
+            "format": "float",
+            "description": "The price of the item represented in Exalted Orbs (value relative to Chaos).",
+            "example": 0.14
+          },
+          "daily": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of listings observed within the last 24 hours.",
+            "example": 156
+          },
+          "change": {
+            "type": "number",
+            "format": "float",
+            "description": "Recent price change percentage.",
+            "example": 119,
+            "nullable": true
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "float"
+            },
+            "description": "A small array representing recent price points (e.g., last 7 days) in Chaos Orbs.",
+            "example": [
+              4.14,
+              3.45,
+              3.66,
+              3.97,
+              3.98,
+              3.62,
+              2.7
+            ],
+            "nullable": true
+          },
+          "sevenDaysHistory": {
+            "type": "array",
+            "description": "Seven-day history values. Individual entries may be null.",
+            "nullable": true,
+            "items": {
+              "type": "number",
+              "format": "float",
+              "nullable": true
+            },
+            "example": [
+              4.14,
+              3.45,
+              null,
+              3.97,
+              3.98,
+              3.62,
+              2.7
+            ]
+          },
+          "lowConfidence": {
+            "type": "boolean",
+            "description": "True if the price data is based on a small number of listings or has high variance.",
+            "example": false
+          },
+          "perfectPrice": {
+            "type": "number",
+            "format": "float",
+            "description": "Estimated price for a 'perfect' version of the item (e.g., max rolls), in Chaos Orbs. 0 if not applicable.",
+            "example": 10.28
+          },
+          "perfectAmount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of listings considered for the perfect price calculation.",
+            "example": 0
+          },
+          "implicits": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of implicit modifiers on the item. Null if none.",
+            "nullable": true,
+            "example": null
+          },
+          "explicits": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of explicit modifiers on the item. Null if none or not applicable.",
+            "nullable": true,
+            "example": [
+              "Has no Attribute Requirements",
+              "(15-25)% increased Light Radius"
+            ]
+          },
+          "gemLevel": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The level of the gem. Only applicable for gems.",
+            "nullable": true,
+            "example": 21
+          },
+          "gemQuality": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The quality of the gem. Only applicable for gems.",
+            "nullable": true,
+            "example": 23
+          },
+          "gemIsCorrupted": {
+            "type": "boolean",
+            "description": "Indicates if the gem is corrupted. Only applicable for gems.",
+            "nullable": true,
+            "example": true
+          },
+          "type": {
+            "type": "string",
+            "description": "Item subtype. Only applicable for some item families.",
+            "nullable": true,
+            "example": "Support Gem"
+          },
+          "uses": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Number of uses. Only applicable for watchstones.",
+            "nullable": true,
+            "example": 0
+          },
+          "tier": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Tier of the essence. Only applicable for essences.",
+            "nullable": true,
+            "example": 0
+          },
+          "itemLevel": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Item level. Only applicable for items where ilvl matters.",
+            "nullable": true,
+            "example": 86
+          },
+          "width": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Inventory width of the item.",
+            "example": 1
+          },
+          "height": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Inventory height of the item.",
+            "example": 1
+          },
+          "divine": {
+            "type": "number",
+            "format": "float",
+            "description": "The price of the item represented in Divine Orbs.",
+            "example": 0.02
+          },
+          "mapSeries": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Map series identifier (e.g., Atlas Invasion, Conquerors). May be deprecated or changed.",
+            "nullable": true,
+            "example": 0
+          },
+          "mapTier": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Tier of the map. Only applicable for maps.",
+            "nullable": true,
+            "example": 0
+          },
+          "changeByPrice": {
+            "type": "number",
+            "format": "float",
+            "description": "Price-weighted change metric used by the /hot page.",
+            "nullable": true,
+            "example": 12.5
+          },
+          "reward": {
+            "type": "string",
+            "description": "Reward name for divination cards.",
+            "nullable": true,
+            "example": "The Doctor"
+          },
+          "reward_price": {
+            "type": "number",
+            "format": "float",
+            "description": "Reward price for divination cards.",
+            "nullable": true,
+            "example": 120
+          },
+          "reward_id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Item ID of the reward for divination cards.",
+            "nullable": true,
+            "example": 1234
+          },
+          "wingsRevealed": {
+            "type": "string",
+            "description": "Revealed wings state for heist blueprints.",
+            "nullable": true,
+            "example": "4/4"
+          },
+          "divine_pair_id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Exchange pair ID for the divine market.",
+            "nullable": true,
+            "example": 1565
+          },
+          "chaos_pair_id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Exchange pair ID for the chaos market.",
+            "nullable": true,
+            "example": 1564
+          }
+        }
+      },
+      "ExchangeRatiosResponse": {
+        "type": "object",
+        "description": "Response wrapper for exchange ratio items.",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExchangeRatioItem"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ExchangeRatioItem": {
+        "type": "object",
+        "description": "Exchange ratio data for a single item.",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "example": 51896
+          },
+          "name": {
+            "type": "string",
+            "example": "A Chilling Wind"
+          },
+          "icon": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvRGl2aW5hdGlvbi9JbnZlbnRvcnlJY29uIiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/f34bf8cbb5/InventoryIcon.png"
+          },
+          "category": {
+            "type": "string",
+            "example": "card"
+          },
+          "chaos": {
+            "$ref": "#/components/schemas/ExchangeRatioSide"
+          },
+          "divine": {
+            "$ref": "#/components/schemas/ExchangeRatioSide"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "icon",
+          "category",
+          "chaos",
+          "divine"
+        ]
+      },
+      "ExchangeRatioSide": {
+        "type": "object",
+        "description": "Exchange ratio data for a specific currency side (Chaos or Divine).",
+        "properties": {
+          "value": {
+            "type": "number",
+            "format": "float",
+            "description": "Mean price for the item in the given currency.",
+            "example": 2.67
+          },
+          "lowConfidence": {
+            "type": "boolean",
+            "example": false
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp (seconds).",
+            "example": 1770213600
+          },
+          "volume": {
+            "type": "number",
+            "format": "float",
+            "example": 6
+          },
+          "chaosValue": {
+            "type": "number",
+            "format": "float",
+            "description": "Value expressed in Chaos Orbs.",
+            "example": 2.67
+          },
+          "divineValue": {
+            "type": "number",
+            "format": "float",
+            "description": "Value expressed in Divine Orbs.",
+            "example": 0.02
+          },
+          "pairID": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1565
+          },
+          "volume24H": {
+            "type": "number",
+            "format": "float",
+            "example": 10
+          },
+          "history7D": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "$ref": "#/components/schemas/ExchangeRatioHistoryPoint"
+            }
+          },
+          "change24H": {
+            "type": "number",
+            "format": "float",
+            "description": "Percentage change from yesterday.",
+            "example": -58.63
+          }
+        },
+        "required": [
+          "value",
+          "lowConfidence",
+          "timestamp",
+          "volume",
+          "change24H"
+        ]
+      },
+      "ExchangeRatioHistoryPoint": {
+        "type": "object",
+        "description": "Daily mean price point for the last 7 days.",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-02-04"
+          },
+          "meanPrice": {
+            "type": "number",
+            "format": "float",
+            "example": 2.78
+          }
+        },
+        "required": [
+          "date",
+          "meanPrice"
+        ]
+      },
+      "PriceHistoryEntry": {
+        "type": "object",
+        "description": "Represents a single data point in an item's price history.",
+        "properties": {
+          "mean": {
+            "type": "number",
+            "format": "float",
+            "description": "The average price in Chaos Orbs at this point in time.",
+            "example": 2.22
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp (ISO 8601 format) indicating when this data point was recorded.",
+            "example": "2020-09-20T23:09:27.687+02:00"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Represents the item id.",
+            "example": 0
+          }
+        },
+        "required": [
+          "mean",
+          "date",
+          "id"
+        ]
+      },
+      "EnchantData": {
+        "type": "object",
+        "description": "Represents price data for a specific Labyrinth enchantment on an item.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The text of the enchantment modifier.",
+            "example": "Penance Brand has 24% increased Area of Effect"
+          },
+          "value": {
+            "type": "number",
+            "format": "float",
+            "description": "The estimated price (in Chaos Orbs) for an item with this specific enchantment.",
+            "example": 34.38
+          },
+          "lowConfidence": {
+            "type": "boolean",
+            "description": "Indicates if the price estimate has low confidence.",
+            "example": true
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "lowConfidence"
+        ]
+      },
+      "CorruptionData": {
+        "type": "object",
+        "description": "Represents price data for a specific Vaal Orb corruption outcome on an item.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The text of the corruption implicit modifier (may contain placeholders like '#').",
+            "example": "#% increased Area of Effect"
+          },
+          "mean": {
+            "type": "number",
+            "format": "float",
+            "description": "The estimated average price (in Chaos Orbs) added by this specific corruption outcome.",
+            "example": 8511.44
+          }
+        },
+        "required": [
+          "name",
+          "mean"
+        ]
+      },
+      "CompactData": {
+        "type": "object",
+        "description": "Container for the bulk item data returned by the /compact endpoint.",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemData"
+            },
+            "description": "An array containing item data across multiple categories for the specified league."
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "StatusData": {
+        "type": "object",
+        "description": "Represents the API's data processing status.",
+        "properties": {
+          "changeID": {
+            "type": "string",
+            "description": "The last processed public stash tab change_id from the official Path of Exile API.",
+            "example": "863692164-876193549-838143009-945188005-904612949"
+          },
+          "requestedStashes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The number of stashes the system attempted to fetch in the last cycle.",
+            "example": 31739
+          },
+          "computedStashes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The number of stashes successfully processed in the last cycle.",
+            "example": 31736
+          }
+        },
+        "required": [
+          "changeID",
+          "requestedStashes",
+          "computedStashes"
+        ]
+      }
+    }
+  }
+}

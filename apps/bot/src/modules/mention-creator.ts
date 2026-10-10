@@ -18,5 +18,5 @@ export function isCreatorQuestion(prompt: string): boolean {
 }
 
 export function answerCreatorQuestion(): string {
-	return `jess (jessica) <@${JESS_USER_ID}> made me. she's my mom and im her daughter (¬_¬)`;
+	return `jess (jessica) <@${JESS_USER_ID}> made me. she's my creator, obviously (¬_¬)`;
 }
