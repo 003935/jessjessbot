@@ -104,8 +104,14 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             tts = get_model()
-            with inference_lock:
+            # Never let expired bot requests queue behind a slow CPU inference.
+            if not inference_lock.acquire(blocking=False):
+                self.send_json(503, "speech service is busy")
+                return
+            try:
                 audio = tts.generate(text.strip(), reference=str(REFERENCE_FILE))
+            finally:
+                inference_lock.release()
             output = io.BytesIO()
             sf.write(output, audio, tts.sample_rate, format="WAV")
             wav = output.getvalue()

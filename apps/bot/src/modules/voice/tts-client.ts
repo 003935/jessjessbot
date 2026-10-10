@@ -19,8 +19,30 @@ export async function synthesizeSpeech(text: string): Promise<Buffer> {
 	const contentLength = Number(response.headers.get('content-length'));
 	if (Number.isFinite(contentLength) && contentLength > MAX_AUDIO_BYTES)
 		throw new Error('TTS audio exceeded the size limit');
-	const audio = Buffer.from(await response.arrayBuffer());
-	if (audio.length < 44 || audio.length > MAX_AUDIO_BYTES || audio.toString('ascii', 0, 4) !== 'RIFF')
+	if (!response.body) throw new Error('TTS service returned an empty response');
+	const reader = response.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let totalBytes = 0;
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			totalBytes += value.byteLength;
+			if (totalBytes > MAX_AUDIO_BYTES) {
+				await reader.cancel();
+				throw new Error('TTS audio exceeded the size limit');
+			}
+			chunks.push(value);
+		}
+	} finally {
+		reader.releaseLock();
+	}
+	const audio = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)), totalBytes);
+	if (
+		audio.length < 44 ||
+		audio.toString('ascii', 0, 4) !== 'RIFF' ||
+		audio.toString('ascii', 8, 12) !== 'WAVE'
+	)
 		throw new Error('TTS service returned invalid WAV audio');
 	return audio;
 }

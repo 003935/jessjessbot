@@ -1293,7 +1293,7 @@ export async function handleMention(message: Message): Promise<void> {
 			content: content.slice(0, 1900),
 			allowedMentions: { parse: [] },
 		});
-		enqueueGuildSpeech(message.guildId, sentReply.content);
+		enqueueGuildSpeech(message.guildId, sentReply.content, message.channel);
 		for (const extra of extraMessages)
 			await message.channel.send({ content: extra.slice(0, 1900), allowedMentions: { parse: [] } });
 		if (isPublicChannel(message))
