@@ -27,7 +27,6 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres:mypassword@pgbouncer:6432/postgres
       - DIRECT_URL=postgres://postgres:mypassword@db:5432/postgres
-      - KITTENTTS_URL=${KITTENTTS_URL:-http://kittentts:8080}
     depends_on:
       pgbouncer:
         condition: service_healthy
