@@ -42,6 +42,7 @@ import {
 	type VisionImageAttachment,
 	type VisionImageInput,
 } from '@/modules/vision-images';
+import { enqueueGuildSpeech } from '@/modules/voice/voice-manager';
 
 const logger = new Logger('Mention');
 const ROLE_ADMIN_ID = '1157046480968892557';
@@ -1288,7 +1289,11 @@ export async function handleMention(message: Message): Promise<void> {
 				logger.error('Could not choose a server emoji', error);
 				return content;
 			});
-		await message.reply({ content: content.slice(0, 1900), allowedMentions: { parse: [] } });
+		const sentReply = await message.reply({
+			content: content.slice(0, 1900),
+			allowedMentions: { parse: [] },
+		});
+		enqueueGuildSpeech(message.guildId, sentReply.content);
 		for (const extra of extraMessages)
 			await message.channel.send({ content: extra.slice(0, 1900), allowedMentions: { parse: [] } });
 		if (isPublicChannel(message))
