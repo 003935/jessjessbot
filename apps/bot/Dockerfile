@@ -25,6 +25,7 @@ RUN cd packages/database && bunx --bun prisma generate
 
 FROM oven/bun:alpine AS runner
 WORKDIR /app
+RUN apk add --no-cache ffmpeg
 RUN chown bun:bun /app
 
 COPY --chown=bun:bun --from=builder /app .
