@@ -1,1 +1,2 @@
-kittenml==0.9.4
+omnivoice==0.2.1
+openai-whisper==20250625

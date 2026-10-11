@@ -19,7 +19,8 @@ import {
 } from 'discord.js';
 import { Readable } from 'node:stream';
 import { Logger } from '@/utils';
-import { synthesizeSpeech } from './tts-client';
+import { synthesizeSpeech, transcribeSpeech } from './tts-client';
+import { startVoiceReceiver, type VoiceReceiverController } from './voice-receiver';
 
 const logger = new Logger('Voice');
 const CONNECTION_TIMEOUT_MS = 20_000;
@@ -28,19 +29,93 @@ const PLAYBACK_TIMEOUT_MS = 180_000;
 type VoiceSession = {
 	connection: VoiceConnection;
 	player: AudioPlayer;
-	queue: { text: string; sourceChannel: GuildTextBasedChannel }[];
+	queue: { text: string; sourceChannel?: GuildTextBasedChannel }[];
 	processing: boolean;
 	channel: VoiceChannel;
 	destroyed: boolean;
+	listening: boolean;
+	voiceGeneration: number;
+	receiver?: VoiceReceiverController;
+};
+
+export type VoiceUtterance = {
+	guildId: string;
+	userId: string;
+	displayName: string;
+	text: string;
 };
 
 export class VoiceCommandError extends Error {}
 
 const sessions = new Map<string, VoiceSession>();
+let onVoiceUtterance: ((utterance: VoiceUtterance) => Promise<void>) | undefined;
+let onGuildReset: ((guildId: string) => void) | undefined;
+
+export function configureVoiceChatHandlers(
+	onUtterance: (utterance: VoiceUtterance) => Promise<void>,
+	resetGuild: (guildId: string) => void
+): void {
+	onVoiceUtterance = onUtterance;
+	onGuildReset = resetGuild;
+}
+
+export function setGuildListening(guildId: string, enabled: boolean): boolean {
+	const session = sessions.get(guildId);
+	if (
+		!session ||
+		session.destroyed ||
+		session.connection.state.status !== VoiceConnectionStatus.Ready
+	)
+		return false;
+	if (!enabled) {
+		session.listening = false;
+		session.voiceGeneration++;
+		session.receiver?.stop();
+		session.receiver = undefined;
+		onGuildReset?.(guildId);
+		return true;
+	}
+	if (session.listening) return true;
+	if (!onVoiceUtterance) return false;
+
+	const generation = ++session.voiceGeneration;
+	session.listening = true;
+	session.receiver = startVoiceReceiver(
+		session.connection,
+		(userId) => {
+			const member = session.channel.members.get(userId);
+			return Boolean(member && !member.user.bot);
+		},
+		async (userId, pcm) => {
+			const member = session.channel.members.get(userId);
+			if (!member || member.user.bot) return;
+			const text = await transcribeSpeech(pcm);
+			if (
+				!text ||
+				!session.listening ||
+				session.voiceGeneration !== generation ||
+				sessions.get(guildId) !== session ||
+				session.channel.members.get(userId) !== member
+			)
+				return;
+			await onVoiceUtterance?.({ guildId, userId, displayName: member.displayName, text });
+		},
+		(error) =>
+			logger.warn(
+				`Voice receive failed in guild ${guildId} (${error instanceof Error ? error.name : 'UnknownError'})`
+			)
+	);
+	return true;
+}
 
 function destroySession(session: VoiceSession): void {
 	if (session.destroyed) return;
 	session.destroyed = true;
+	session.listening = false;
+	session.voiceGeneration++;
+	session.receiver?.stop();
+	session.receiver = undefined;
+	onGuildReset?.(session.connection.joinConfig.guildId);
 	session.queue.length = 0;
 	session.player.stop(true);
 	if (session.connection.state.status !== VoiceConnectionStatus.Destroyed)
@@ -93,13 +168,22 @@ export async function joinGuildVoice(
 		channelId: channel.id,
 		guildId: interaction.guildId,
 		adapterCreator: interaction.guild.voiceAdapterCreator,
-		selfDeaf: true,
+		selfDeaf: false,
 		selfMute: false,
 	});
 	const player = createAudioPlayer({
 		behaviors: { noSubscriber: NoSubscriberBehavior.Stop },
 	});
-	const session: VoiceSession = { connection, player, queue: [], processing: false, channel, destroyed: false };
+	const session: VoiceSession = {
+		connection,
+		player,
+		queue: [],
+		processing: false,
+		channel,
+		destroyed: false,
+		listening: false,
+		voiceGeneration: 0,
+	};
 	sessions.set(interaction.guildId, session);
 	connection.subscribe(player);
 	player.on('error', (error) => logger.warn(`Voice player failed (${error.name})`));
@@ -168,7 +252,7 @@ async function drainQueue(guildId: string, session: VoiceSession): Promise<void>
 			const item = session.queue.shift();
 			if (!item) continue;
 			try {
-				if (!audienceCanViewSource(session, item.sourceChannel)) {
+				if (item.sourceChannel && !audienceCanViewSource(session, item.sourceChannel)) {
 					logger.warn(`Skipping voice reply in guild ${guildId} because a listener cannot view its source channel`);
 					continue;
 				}
@@ -176,7 +260,7 @@ async function drainQueue(guildId: string, session: VoiceSession): Promise<void>
 				if (sessions.get(guildId) !== session) break;
 				await entersState(session.connection, VoiceConnectionStatus.Ready, CONNECTION_TIMEOUT_MS);
 				if (sessions.get(guildId) !== session) break;
-				if (!audienceCanViewSource(session, item.sourceChannel)) {
+				if (item.sourceChannel && !audienceCanViewSource(session, item.sourceChannel)) {
 					logger.warn(`Skipping voice reply in guild ${guildId} because a listener cannot view its source channel`);
 					continue;
 				}
@@ -197,15 +281,20 @@ async function drainQueue(guildId: string, session: VoiceSession): Promise<void>
 	}
 }
 
-export function enqueueGuildSpeech(guildId: string, text: string, sourceChannel: GuildTextBasedChannel): void {
+export function enqueueGuildSpeech(
+	guildId: string,
+	text: string,
+	sourceChannel?: GuildTextBasedChannel
+): boolean {
 	const session = sessions.get(guildId);
-	if (!session || !text.trim()) return;
+	if (!session || !text.trim()) return false;
 	session.queue.push({ text: text.slice(0, 1900), sourceChannel });
 	void drainQueue(guildId, session).catch((error) => {
 		logger.warn(
 			`Voice queue failed in guild ${guildId} (${error instanceof Error ? error.name : 'UnknownError'})`
 		);
 	});
+	return true;
 }
 
 export function shutdownVoice(): void {

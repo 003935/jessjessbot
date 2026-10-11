@@ -1,6 +1,7 @@
-const TTS_URL = process.env.KITTENTTS_URL ?? 'http://kittentts:8080';
+const TTS_URL = process.env.OMNIVOICE_URL ?? 'http://omnivoice:8080';
 const MAX_TEXT_CHARS = 1900;
 const MAX_AUDIO_BYTES = 16 * 1024 * 1024;
+const MAX_TRANSCRIBE_BYTES = Math.min(2 * 1024 * 1024, 48_000 * 2 * 15);
 
 export async function synthesizeSpeech(text: string): Promise<Buffer> {
 	const normalized = text.trim();
@@ -11,7 +12,7 @@ export async function synthesizeSpeech(text: string): Promise<Buffer> {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({ text: normalized }),
-		signal: AbortSignal.timeout(120_000),
+		signal: AbortSignal.timeout(180_000),
 	});
 	if (!response.ok) throw new Error(`TTS service returned HTTP ${response.status}`);
 	if (response.headers.get('content-type')?.split(';', 1)[0]?.trim() !== 'audio/wav')
@@ -45,4 +46,28 @@ export async function synthesizeSpeech(text: string): Promise<Buffer> {
 	)
 		throw new Error('TTS service returned invalid WAV audio');
 	return audio;
+}
+
+export async function transcribeSpeech(pcm: Buffer): Promise<string> {
+	if (!pcm.length || pcm.length > MAX_TRANSCRIBE_BYTES || pcm.length % 2 !== 0)
+		throw new Error('invalid transcription audio');
+
+	const response = await fetch(`${TTS_URL}/transcribe`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/octet-stream' },
+		body: new Uint8Array(pcm),
+		signal: AbortSignal.timeout(180_000),
+	});
+	if (!response.ok) throw new Error(`Transcription service returned HTTP ${response.status}`);
+	if (response.headers.get('content-type')?.split(';', 1)[0]?.trim() !== 'application/json')
+		throw new Error('Transcription service returned an unsupported response format');
+	const result: unknown = await response.json();
+	if (
+		!result ||
+		typeof result !== 'object' ||
+		!('text' in result) ||
+		typeof result.text !== 'string'
+	)
+		throw new Error('Transcription service returned an invalid response');
+	return result.text.trim().slice(0, MAX_TEXT_CHARS);
 }

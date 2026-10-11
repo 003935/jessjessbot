@@ -15,7 +15,8 @@ import { handleMemeReply } from '@/modules/meme-replies';
 import { startDailyTweets } from '@/modules/daily-tweets';
 import { uploadPoeLootEmojis } from '@/modules/poe-loot-emojis';
 import { handleLootInventoryButton } from '@/modules/poe-loot';
-import { shutdownVoice } from '@/modules/voice/voice-manager';
+import { configureVoiceChatHandlers, shutdownVoice } from '@/modules/voice/voice-manager';
+import { clearVoiceChatGuild, handleVoiceUtterance } from '@/modules/voice/voice-chat';
 
 const logger = new Logger('Bot', LogLevel.Info);
 const client = new SapphireClient({
@@ -35,6 +36,8 @@ const client = new SapphireClient({
 	},
 	enableLoaderTraceLoggings: false,
 });
+
+configureVoiceChatHandlers(handleVoiceUtterance, clearVoiceChatGuild);
 
 let meowdule: undefined | Meowdule;
 let stopDailyTweets: (() => Promise<void>) | undefined;

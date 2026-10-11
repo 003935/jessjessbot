@@ -6,6 +6,7 @@ JessJessBot is a Discord bot and web dashboard for servers. She handles the anno
 ## Features
 
 - Conversational replies when summoned by name or mention, with saved preferences and community context
+- Optional Discord voice chat: use `/join`, then `/listen enabled:true`; turn it off with `/listen enabled:false` or leave with `/leave`
 - Path of Exile 2 loot rolls, inventories, and leaderboards
 - Wordle and Riot API powered League of Legends leaderboards
 - A Hall of Fame for the server's most reacted-to messages
@@ -26,6 +27,8 @@ Requirements:
 - Discord OAuth credentials and a Better Auth secret to run the dashboard
 
 PostgreSQL and Valkey are included in the Compose stack. TMDB, OMDb, and DeepSeek keys are optional and only needed for their respective features. See [llms.txt](llms.txt) for environment setup and run instructions.
+
+Voice listening is off by default and only runs while enabled in a joined voice channel. Audio is transcribed locally by the OmniVoice service, then the recognized text is sent to the configured DeepSeek API for a reply. Audio is not saved, and transcripts are not posted in text channels.
 
 ## Tech stack
 
