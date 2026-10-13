@@ -1,5 +1,6 @@
 import { Command } from '@sapphire/framework';
 import { MessageFlags } from 'discord.js';
+import { voiceEnabled } from '@/environment';
 import { leaveGuildVoice } from '@/modules/voice/voice-manager';
 
 export class LeaveCommand extends Command {
@@ -10,6 +11,10 @@ export class LeaveCommand extends Command {
 	}
 
 	public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
+		if (!voiceEnabled()) {
+			await interaction.reply({ content: 'voice isnt ready yet, soon (¬_¬)', flags: MessageFlags.Ephemeral });
+			return;
+		}
 		if (!interaction.guildId) {
 			await interaction.reply({
 				content: 'Use this command in a server.',

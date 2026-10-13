@@ -1,5 +1,6 @@
 import { Command } from '@sapphire/framework';
 import { MessageFlags } from 'discord.js';
+import { voiceEnabled } from '@/environment';
 import { joinGuildVoice, VoiceCommandError } from '@/modules/voice/voice-manager';
 
 export class JoinCommand extends Command {
@@ -10,6 +11,10 @@ export class JoinCommand extends Command {
 	}
 
 	public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
+		if (!voiceEnabled()) {
+			await interaction.reply({ content: 'voice isnt ready yet, soon (¬_¬)', flags: MessageFlags.Ephemeral });
+			return;
+		}
 		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 		try {
 			await joinGuildVoice(interaction);
