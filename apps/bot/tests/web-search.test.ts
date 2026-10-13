@@ -134,3 +134,13 @@ test('askDeepSeek still replies when the search fails', async () => {
 	);
 	expect(result.reply).toBe('couldnt look that up rn');
 });
+
+test('askDeepSeek tells the model to search for current facts only when search is enabled', async () => {
+	process.env.DEEPSEEK_API_KEY = 'test-deepseek';
+	mockFetch(() => toolCall('reply_chat', { reply: 'hi there friend' }));
+	await askDeepSeek('who won the last f1 race', [], false);
+	expect(calls[0]!.body.messages[0].content).not.toContain('web_search');
+	process.env.TAVILY_API_KEY = 'tvly-test';
+	await askDeepSeek('who won the last f1 race', [], false);
+	expect(calls[1]!.body.messages[0].content).toContain('call web_search instead of joking');
+});
