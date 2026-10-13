@@ -15,6 +15,7 @@ import { handleMemeReply } from '@/modules/meme-replies';
 import { startDailyTweets } from '@/modules/daily-tweets';
 import { uploadPoeLootEmojis } from '@/modules/poe-loot-emojis';
 import { handleLootInventoryButton } from '@/modules/poe-loot';
+import { shutdownVoice } from '@/modules/voice/voice-manager';
 
 const logger = new Logger('Bot', LogLevel.Info);
 const client = new SapphireClient({
@@ -24,6 +25,7 @@ const client = new SapphireClient({
 		GatewayIntentBits.MessageContent,
 		GatewayIntentBits.GuildMembers,
 		GatewayIntentBits.GuildMessageReactions,
+		GatewayIntentBits.GuildVoiceStates,
 	],
 	partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 	loadMessageCommandListeners: true,
@@ -66,6 +68,7 @@ async function gracefulShutdown(signal: string) {
 	await stopDailyTweets?.();
 
 	try {
+		shutdownVoice();
 		await client.destroy();
 		logger.info('Discord client destroyed');
 	} catch (error) {

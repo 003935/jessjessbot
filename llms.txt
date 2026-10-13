@@ -43,6 +43,38 @@ The dashboard is available at [http://localhost:3000](http://localhost:3000). Th
 
 Stop the foreground services with `Ctrl+C`. To run them in the background, use `docker compose up --build -d`; stop them with `docker compose down`.
 
+## Give JessJessBot a cloned voice
+
+OmniVoice runs locally in the `omnivoice` Compose service and needs an NVIDIA GPU with CUDA drivers and Docker GPU support. The first startup downloads the model into `.local/omnivoice-cache`.
+
+1. Make `.local/voice` in the repository root.
+2. Put a clean 3–30 second WAV recording of one speaker at `.local/voice/sample2.wav`. A quiet room, one speaker, and no music or overlapping speech give the clone a better reference.
+3. Set `OMNIVOICE_REFERENCE_TEXT` in `docker-compose.yml` to the exact words spoken in the recording.
+4. Start the stack with `docker compose up --build`. The recording is mounted read-only, is not committed, and the TTS HTTP endpoint is only available to services on the Compose network. If the recording was added after the TTS service started, restart it with `docker compose restart omnivoice`.
+
+The cloned voice is cached at `.local/omnivoice-cache/voice-clone-prompt-sample2.pt`. Delete that file and restart `omnivoice` after replacing the recording or changing its text. The service exposes `/health` and `/synthesize` only inside Compose. Its health check stays unavailable until the reference recording is mounted and the model has loaded. To create a local smoke-check WAV through the service, run this from PowerShell after it is healthy:
+
+```powershell
+$python = @'
+import json
+import urllib.request
+
+request = urllib.request.Request(
+    'http://127.0.0.1:8080/synthesize',
+    data=json.dumps({'text': 'hello from my cloned voice'}).encode(),
+    headers={'Content-Type': 'application/json'},
+)
+response = urllib.request.urlopen(request)
+with open('/tmp/voice-check.wav', 'wb') as wav:
+    wav.write(response.read())
+print(response.headers.get('Content-Type'))
+'@
+$python | docker compose exec -T omnivoice python -
+docker compose cp omnivoice:/tmp/voice-check.wav ./.local/voice/voice-check.wav
+```
+
+Remove the local reference and generated WAVs when no longer needed. Give the bot Connect and Speak permission in the voice channel. Use `/join` while connected to your voice channel to have Jess speak her summoned text replies; use `/leave` to disconnect. She does not listen to voice chat. `OMNIVOICE_URL` in `apps/bot/.env` defaults to `http://omnivoice:8080` for Compose; the service does not publish a host port.
+
 ## Development commands
 
 ```powershell
