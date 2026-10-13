@@ -3,20 +3,20 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, type Button
 import { db } from '@/db';
 
 export const LOOT = [
-	['Exalted Orb',1500], ['Divine Orb',1000], ['Chaos Orb',600],
-	['Greater Exalted Orb',500], ['Greater Chaos Orb',300], ['Orb of Annulment',200],
-	['Orb of Chance',300], ['Orb of Alchemy',300], ['Regal Orb',300], ['Vaal Orb',300],
-	['Orb of Augmentation',200], ['Greater Orb of Augmentation',200], ['Perfect Orb of Augmentation',100],
-	['Orb of Transmutation',200], ['Greater Orb of Transmutation',200], ['Perfect Orb of Transmutation',100],
-	["Lesser Jeweller's Orb",200], ["Greater Jeweller's Orb",200], ["Perfect Jeweller's Orb",100],
-	["Glassblower's Bauble",100], ["Blacksmith's Whetstone",100],
-	['Mirror of Kalandra',10], ["Hinekora's Lock",25], ['Temporalis',10], ['Mageblood',50],
-	['Headhunter',100], ['Preserved Cranium',100], ['Omen of Light',100], ['Fracturing Orb',100],
-	['Waistgate',100], ["Zerphi's Genesis",100], ['Ingenuity',100], ["Cat O' Nine Tails",100],
-	['Perfect Exalted Orb',200], ['Perfect Chaos Orb',150], ['Ancient Jawbone',150],
-	['Ancient Rib',150], ['Ancient Collarbone',150], ['Tabula Rasa',200],
-	["Kalandra's Touch",150], ["Ventor's Gamble",300],
-	['Scroll of Wisdom',55], ['Chance Shard',300], ["Artificer's Shard",300],
+	['Exalted Orb',1200], ['Divine Orb',800], ['Chaos Orb',480],
+	['Greater Exalted Orb',400], ['Greater Chaos Orb',255], ['Orb of Annulment',170],
+	['Orb of Chance',255], ['Orb of Alchemy',255], ['Regal Orb',255], ['Vaal Orb',255],
+	['Orb of Augmentation',170], ['Greater Orb of Augmentation',170], ['Perfect Orb of Augmentation',90],
+	['Orb of Transmutation',170], ['Greater Orb of Transmutation',170], ['Perfect Orb of Transmutation',90],
+	["Lesser Jeweller's Orb",170], ["Greater Jeweller's Orb",170], ["Perfect Jeweller's Orb",90],
+	["Glassblower's Bauble",90], ["Blacksmith's Whetstone",90],
+	['Mirror of Kalandra',10], ["Hinekora's Lock",22], ['Temporalis',10], ['Mageblood',45],
+	['Headhunter',90], ['Preserved Cranium',90], ['Omen of Light',90], ['Fracturing Orb',90],
+	['Waistgate',90], ["Zerphi's Genesis",90], ['Ingenuity',90], ["Cat O' Nine Tails",90],
+	['Perfect Exalted Orb',170], ['Perfect Chaos Orb',128], ['Ancient Jawbone',128],
+	['Ancient Rib',128], ['Ancient Collarbone',128], ['Tabula Rasa',170],
+	["Kalandra's Touch",128], ["Ventor's Gamble",255],
+	['Scroll of Wisdom',1653], ['Chance Shard',255], ["Artificer's Shard",255],
 ] as const;
 
 export function isLootRequest(prompt: string): boolean {
