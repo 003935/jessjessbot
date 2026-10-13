@@ -31,7 +31,9 @@ export async function webSearch(query: string, maxResults = 5): Promise<WebSearc
 		results?: Array<{ title?: unknown; url?: unknown; content?: unknown }>;
 	};
 	return {
-		...(typeof data.answer === 'string' && data.answer.trim() ? { answer: data.answer.trim() } : {}),
+		...(typeof data.answer === 'string' && data.answer.trim()
+			? { answer: data.answer.trim() }
+			: {}),
 		results: (data.results ?? [])
 			.filter((result) => typeof result.url === 'string')
 			.map((result) => ({
@@ -40,6 +42,16 @@ export async function webSearch(query: string, maxResults = 5): Promise<WebSearc
 				content: typeof result.content === 'string' ? result.content : '',
 			})),
 	};
+}
+
+/** A Discord masked link reading "link", with the preview embed turned off. */
+export function sourceLink(url: string): string {
+	// Brackets, angle brackets and spaces would end the link early, so percent-encode them.
+	const safe = url.replace(
+		/[()<>\s]/gu,
+		(char) => `%${char.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`
+	);
+	return `[link](<${safe}>)`;
 }
 
 /** Formats search results as a tool message for the model. */

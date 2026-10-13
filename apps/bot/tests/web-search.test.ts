@@ -5,7 +5,9 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 	process.env[key] ||= 'test';
 mock.module('../src/db', () => ({ db: {} }));
 
-const { formatSearchResults, webSearch, webSearchEnabled } = await import('../src/modules/web-search');
+const { formatSearchResults, sourceLink, webSearch, webSearchEnabled } = await import(
+	'../src/modules/web-search'
+);
 const { askDeepSeek } = await import('../src/modules/mention');
 
 const realFetch = globalThis.fetch;
@@ -108,7 +110,7 @@ test('askDeepSeek searches, then answers with a verified source link', async () 
 	expect(toolMessage.tool_call_id).toBe('call_search');
 	expect(toolMessage.content).toContain('https://example.com/patch');
 	// A made-up URL falls back to the top real result.
-	expect(result.reply).toBe('patch 25.20 dropped oct 8\n-# <https://example.com/patch>');
+	expect(result.reply).toBe('patch 25.20 dropped oct 8 [link](<https://example.com/patch>)');
 });
 
 test('askDeepSeek still replies when the search fails', async () => {
@@ -143,4 +145,11 @@ test('askDeepSeek tells the model to search for current facts only when search i
 	process.env.TAVILY_API_KEY = 'tvly-test';
 	await askDeepSeek('who won the last f1 race', [], false);
 	expect(calls[1]!.body.messages[0].content).toContain('call web_search instead of joking');
+});
+
+test('sourceLink makes a Discord link with no preview, even for URLs with brackets', () => {
+	expect(sourceLink('https://example.com/patch')).toBe('[link](<https://example.com/patch>)');
+	expect(sourceLink('https://en.wikipedia.org/wiki/Cars_(film)')).toBe(
+		'[link](<https://en.wikipedia.org/wiki/Cars_%28film%29>)'
+	);
 });
