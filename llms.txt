@@ -73,7 +73,7 @@ $python | docker compose exec -T omnivoice python -
 docker compose cp omnivoice:/tmp/voice-check.wav ./.local/voice/voice-check.wav
 ```
 
-Remove the local reference and generated WAVs when no longer needed. Give the bot Connect and Speak permission in the voice channel. Use `/join` while connected to your voice channel to have Jess speak her summoned text replies; use `/leave` to disconnect. She does not listen to voice chat. `OMNIVOICE_URL` in `apps/bot/.env` defaults to `http://omnivoice:8080` for Compose; the service does not publish a host port.
+Remove the local reference and generated WAVs when no longer needed. Voice is off by default: set `VOICE_ENABLED=true` in `apps/bot/.env` once the voice server is running, otherwise `/join` and `/leave` reply that voice is not ready. Give the bot Connect and Speak permission in the voice channel. Use `/join` while connected to your voice channel to have Jess speak her summoned text replies; use `/leave` to disconnect. She does not listen to voice chat. `OMNIVOICE_URL` in `apps/bot/.env` defaults to `http://omnivoice:8080` for Compose; the service does not publish a host port.
 
 ## Development commands
 
