@@ -1,4 +1,3 @@
-import type { Attachment } from 'discord.js';
 import sharp from 'sharp';
 
 const MAX_SOURCE_IMAGE_BYTES = 64 * 1024 * 1024;
@@ -9,12 +8,41 @@ const MAX_IMAGE_EDGE = 2048;
 const TARGET_IMAGE_BYTES = 6 * 1024 * 1024;
 const SUPPORTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
-export type VisionImageAttachment = { attachment: Attachment; messageId: string };
+export type VisionImageSource = { url: string; messageId: string; size?: number };
 
 export type VisionImageInput = {
 	type: 'image_url';
 	image_url: { url: string; detail: 'auto' };
 };
+
+const DISCORD_CDN_HOSTS = new Set(['cdn.discordapp.com', 'media.discordapp.net']);
+const MAX_URL_IMAGE_BYTES = 64 * 1024 * 1024;
+
+/** Extract only direct Discord CDN attachment URLs from message text. */
+export function extractDiscordImageLinks(content: string): string[] {
+	const candidates = content.match(/https:\/\/[^\s<>]+/giu) ?? [];
+	const urls = new Set<string>();
+	for (const candidate of candidates) {
+		const cleaned = candidate
+			.replace(/\\([&_])/gu, '$1')
+			.replace(/\\_/gu, '_')
+			.replace(/&amp;/giu, '&')
+			.replace(/[),.!?\]}]+$/u, '');
+		try {
+			const url = new URL(cleaned);
+			if (
+				url.protocol === 'https:' &&
+				DISCORD_CDN_HOSTS.has(url.hostname.toLowerCase()) &&
+				url.pathname.startsWith('/attachments/') &&
+				/\.(?:gif|png|jpe?g|webp)$/iu.test(url.pathname)
+			)
+				urls.add(url.toString());
+		} catch {
+			// Ignore malformed URLs in user text.
+		}
+	}
+	return [...urls];
+}
 
 async function optimizeImage(bytes: Uint8Array, mimeType: string): Promise<{
 	bytes: Buffer;
@@ -63,7 +91,7 @@ function detectImageType(bytes: Uint8Array): string | null {
 	return null;
 }
 
-export async function collectVisionImages(attachments: VisionImageAttachment[]): Promise<{
+export async function collectVisionImages(sources: VisionImageSource[]): Promise<{
 	images: VisionImageInput[];
 	sourceMessageIds: string[];
 	skipped: boolean;
@@ -79,8 +107,8 @@ export async function collectVisionImages(attachments: VisionImageAttachment[]):
 	let totalBytes = 0;
 	let sourceBytes = 0;
 
-	for (const { attachment, messageId } of attachments) {
-		if (attachment.size > MAX_SOURCE_IMAGE_BYTES) {
+	for (const { url, size, messageId } of sources) {
+		if ((size ?? 0) > MAX_SOURCE_IMAGE_BYTES) {
 			skippedReasons.add('source-attachment-over-64-MiB-limit');
 			continue;
 		}
@@ -90,12 +118,33 @@ export async function collectVisionImages(attachments: VisionImageAttachment[]):
 		}
 
 		try {
-			const response = await fetch(attachment.url, { signal: AbortSignal.timeout(20_000) });
+			const parsedUrl = new URL(url);
+			if (
+				parsedUrl.protocol !== 'https:' ||
+				!DISCORD_CDN_HOSTS.has(parsedUrl.hostname.toLowerCase()) ||
+				!parsedUrl.pathname.startsWith('/attachments/')
+			) {
+				skippedReasons.add('url-not-a-discord-cdn-attachment');
+				continue;
+			}
+			const response = await fetch(parsedUrl, {
+				signal: AbortSignal.timeout(20_000),
+				redirect: 'error',
+			});
 			if (!response.ok) {
 				skippedReasons.add(`attachment-download-http-${response.status}`);
 				continue;
 			}
+			const declaredLength = Number(response.headers.get('content-length'));
+			if (Number.isFinite(declaredLength) && declaredLength > MAX_URL_IMAGE_BYTES) {
+				skippedReasons.add('downloaded-image-over-64-MiB-limit');
+				continue;
+			}
 			const bytes = new Uint8Array(await response.arrayBuffer());
+			if (bytes.byteLength > MAX_URL_IMAGE_BYTES) {
+				skippedReasons.add('downloaded-image-over-64-MiB-limit');
+				continue;
+			}
 			const mimeType = detectImageType(bytes);
 			if (
 				!bytes.byteLength ||
