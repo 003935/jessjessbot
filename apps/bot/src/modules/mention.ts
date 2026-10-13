@@ -35,7 +35,7 @@ import {
 	lootReply,
 } from '@/modules/poe-loot';
 import { withServerEmoji } from '@/modules/server-emojis';
-import { formatSearchResults, webSearch, webSearchEnabled } from '@/modules/web-search';
+import { formatSearchResults, sourceLink, webSearch, webSearchEnabled } from '@/modules/web-search';
 import jessPreferences from '@/personality/jess-preferences.json';
 import { FOOD_TASTES, isFoodTalk } from '@/personality/food-tastes';
 import {
@@ -1002,7 +1002,7 @@ export async function askDeepSeek(
 					? args.source_url
 					: sourceUrls[0];
 			return {
-				reply: source ? `${reply}\n-# <${source}>` : reply,
+				reply: source ? `${reply} ${sourceLink(source)}` : reply,
 				...(searchTool ? { webSearched: true } : {}),
 				...(typeof args.image_description === 'string'
 					? { imageDescription: args.image_description.trim().slice(0, 1200) }
