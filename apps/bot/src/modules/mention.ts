@@ -1019,16 +1019,13 @@ export async function askDeepSeek(
 	};
 }
 
+// Threads follow the channel they are in. A normal channel's parent is its
+// category, so it must not be used, or ticked channels inside categories never match.
 function getMessagePolicyTarget(message: Message) {
-	const channel = message.channel as {
-		id?: string;
-		name?: string;
-		parent?: { id?: string; name?: string | null } | null;
-	};
-	return {
-		channelId: channel.parent?.id ?? channel.id ?? message.channelId,
-		channelName: channel.parent?.name ?? channel.name ?? '',
-	};
+	const channelId = message.channel.isThread()
+		? (message.channel.parentId ?? message.channelId)
+		: message.channelId;
+	return { channelId };
 }
 
 async function getBotReplyPolicy(guildId: string) {
