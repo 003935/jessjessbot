@@ -6,3 +6,8 @@ AGENTS.md
 .opencode/
 docs/
 /apps/bot/tests/vision-images.test.ts
+
+# Agent skills stay local
+skill-output/*/
+.claude/skills/
+**/SKILL.md
