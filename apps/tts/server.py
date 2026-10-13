@@ -9,37 +9,60 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import soundfile as sf
-from kittenml import KittenTTS
+import torch
+from omnivoice import OmniVoice, VoiceClonePrompt
 
 
 HOST = "0.0.0.0"
 PORT = 8080
-MODEL_NAME = "KittenML/kitten-tts-2"
-REFERENCE_FILE = Path(os.environ.get("KITTENTTS_REFERENCE_FILE", "/voice/reference.wav"))
-REFERENCE_TEXT = os.environ.get("KITTENTTS_REFERENCE_TEXT", "").strip()
+MODEL_NAME = "k2-fsa/OmniVoice"
+REFERENCE_FILE = Path(os.environ.get("OMNIVOICE_REFERENCE_FILE", "/voice/reference.wav"))
+REFERENCE_TEXT = os.environ.get("OMNIVOICE_REFERENCE_TEXT", "").strip()
+VOICE_PROMPT_FILE = Path(
+    os.environ.get("OMNIVOICE_VOICE_PROMPT_FILE", "/cache/voice-clone-prompt.pt")
+)
+SAMPLE_RATE = 24_000
 MAX_REQUEST_BYTES = 8_192
 MAX_TEXT_CHARS = 1_900
 MAX_AUDIO_BYTES = 16 * 1024 * 1024
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-logger = logging.getLogger("kittentts")
+logger = logging.getLogger("omnivoice")
 
-model: KittenTTS | None = None
+model: OmniVoice | None = None
+voice_clone_prompt: VoiceClonePrompt | None = None
 model_lock = threading.Lock()
 inference_lock = threading.Lock()
 
 
-def get_model() -> KittenTTS:
-    global model
+def get_model() -> tuple[OmniVoice, VoiceClonePrompt]:
+    global model, voice_clone_prompt
     if not REFERENCE_FILE.is_file():
         raise FileNotFoundError("voice reference is not configured")
     reference_info = sf.info(str(REFERENCE_FILE))
-    if reference_info.format != "WAV" or not 5 <= reference_info.duration <= 30:
-        raise ValueError("voice reference must be a 5–30 second WAV file")
+    if reference_info.format != "WAV" or not 3 <= reference_info.duration <= 30:
+        raise ValueError("voice reference must be a 3–30 second WAV file")
     with model_lock:
         if model is None:
-            model = KittenTTS(MODEL_NAME)
-    return model
+            loaded_model = OmniVoice.from_pretrained(
+                MODEL_NAME,
+                device_map="cuda:0",
+                dtype=torch.float16,
+            )
+            if VOICE_PROMPT_FILE.is_file():
+                loaded_prompt = VoiceClonePrompt.load(str(VOICE_PROMPT_FILE))
+            else:
+                VOICE_PROMPT_FILE.parent.mkdir(parents=True, exist_ok=True)
+                loaded_prompt = loaded_model.create_voice_clone_prompt(
+                    ref_audio=str(REFERENCE_FILE),
+                    ref_text=REFERENCE_TEXT or None,
+                )
+                loaded_prompt.save(str(VOICE_PROMPT_FILE))
+            model = loaded_model
+            voice_clone_prompt = loaded_prompt
+            logger.info("OmniVoice model and cloned voice prompt are ready on the NVIDIA GPU")
+    if model is None or voice_clone_prompt is None:
+        raise RuntimeError("OmniVoice was not initialized")
+    return model, voice_clone_prompt
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -67,7 +90,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(503, "voice reference is not ready")
             return
         except Exception as error:
-            logger.warning("Model readiness failed (%s)", type(error).__name__)
+            logger.warning("OmniVoice readiness failed (%s)", type(error).__name__)
             self.send_json(503, "speech model is not ready")
             return
         self.send_response(200)
@@ -102,23 +125,27 @@ class Handler(BaseHTTPRequestHandler):
         if len(text) > MAX_TEXT_CHARS:
             self.send_json(413, "text is too long")
             return
-
         try:
-            tts = get_model()
-            # Never let expired bot requests queue behind a slow CPU inference.
-            if not inference_lock.acquire(blocking=False):
+            tts, clone_prompt = get_model()
+            # Serialize generation, but bound how long requests may wait.
+            if not inference_lock.acquire(timeout=60):
                 self.send_json(503, "speech service is busy")
                 return
             try:
-                audio = tts.generate(
-                    text.strip(),
-                    reference=str(REFERENCE_FILE),
-                    reference_text=REFERENCE_TEXT or None,
+                audio_segments = tts.generate(
+                    text=text.strip(),
+                    voice_clone_prompt=clone_prompt,
+                    num_step=16,
+                    speed=1.0,
+                    postprocess_output=True,
                 )
+                if not audio_segments:
+                    raise ValueError("OmniVoice returned no audio")
+                audio = audio_segments[0]
             finally:
                 inference_lock.release()
             output = io.BytesIO()
-            sf.write(output, audio, tts.sample_rate, format="WAV")
+            sf.write(output, audio, SAMPLE_RATE, format="WAV")
             wav = output.getvalue()
             if not wav.startswith(b"RIFF") or len(wav) > MAX_AUDIO_BYTES:
                 self.send_json(502, "speech output was invalid or too large")
@@ -127,7 +154,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(503, "voice reference is not ready")
             return
         except Exception as error:
-            logger.warning("Speech generation failed (%s)", type(error).__name__)
+            logger.warning("OmniVoice generation failed (%s)", type(error).__name__)
             self.send_json(502, "speech generation failed")
             return
 
@@ -138,13 +165,14 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(wav)
 
 
+
 if __name__ == "__main__":
     if REFERENCE_FILE.is_file():
         try:
             get_model()
-            logger.info("KittenTTS model is ready")
+            logger.info("OmniVoice model is ready")
         except Exception as error:
-            logger.warning("KittenTTS startup deferred (%s)", type(error).__name__)
+            logger.warning("OmniVoice startup deferred (%s)", type(error).__name__)
     else:
         logger.warning("Voice reference is not configured; health is currently unavailable")
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()

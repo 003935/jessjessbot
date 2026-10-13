@@ -45,16 +45,14 @@ Stop the foreground services with `Ctrl+C`. To run them in the background, use `
 
 ## Give JessJessBot a cloned voice
 
-KittenTTS 2 runs locally in the `kittentts` Compose service. It needs Python 3.10+, about 6 GB of RAM for CPU inference, and about 1 GB of disk for model weights. The first startup downloads the model into `.local/kittentts-cache`.
+OmniVoice runs locally in the `omnivoice` Compose service and needs an NVIDIA GPU with CUDA drivers and Docker GPU support. The first startup downloads the model into `.local/omnivoice-cache`.
 
 1. Make `.local/voice` in the repository root.
-2. Put a clean 5–30 second WAV recording of one speaker at `.local/voice/reference.wav`. A quiet room, one speaker, and no music or overlapping speech give the clone a better reference.
-3. Review the [KittenTTS 2 model license](https://huggingface.co/KittenML/kitten-tts-2) before use. The source code and model weights have separate licenses.
-4. Start the stack with `docker compose up --build`. The recording is mounted read-only, is not committed, and the TTS HTTP endpoint is only available to services on the Compose network. If the recording was added after the TTS service started, restart it with `docker compose restart kittentts`.
+2. Put a clean 3–30 second WAV recording of one speaker at `.local/voice/sample2.wav`. A quiet room, one speaker, and no music or overlapping speech give the clone a better reference.
+3. Set `OMNIVOICE_REFERENCE_TEXT` in `docker-compose.yml` to the exact words spoken in the recording.
+4. Start the stack with `docker compose up --build`. The recording is mounted read-only, is not committed, and the TTS HTTP endpoint is only available to services on the Compose network. If the recording was added after the TTS service started, restart it with `docker compose restart omnivoice`.
 
-The service exposes `/health` and `/synthesize` only inside Compose. Its health check stays unavailable until the reference recording is mounted and the model has loaded. KittenTTS automatically transcribes a reference if `KITTENTTS_REFERENCE_TEXT` is not set; supplying the exact spoken words in `.env` skips the first-run Whisper large-v3 download. To create a local smoke-check WAV through the service, run this from PowerShell after it is healthy:
-
-Set `KITTENTTS_REFERENCE_TEXT` in the project `.env` to the words spoken in the WAV, then recreate `kittentts` to use the transcript. If unset, KittenTTS automatically transcribes the reference on first synthesis.
+The cloned voice is cached at `.local/omnivoice-cache/voice-clone-prompt-sample2.pt`. Delete that file and restart `omnivoice` after replacing the recording or changing its text. The service exposes `/health` and `/synthesize` only inside Compose. Its health check stays unavailable until the reference recording is mounted and the model has loaded. To create a local smoke-check WAV through the service, run this from PowerShell after it is healthy:
 
 ```powershell
 $python = @'
@@ -71,11 +69,11 @@ with open('/tmp/voice-check.wav', 'wb') as wav:
     wav.write(response.read())
 print(response.headers.get('Content-Type'))
 '@
-$python | docker compose exec -T kittentts python -
-docker compose cp kittentts:/tmp/voice-check.wav ./.local/voice/voice-check.wav
+$python | docker compose exec -T omnivoice python -
+docker compose cp omnivoice:/tmp/voice-check.wav ./.local/voice/voice-check.wav
 ```
 
-Replace the sample by stopping the service, replacing `reference.wav`, and starting the service again. Remove the local reference and generated WAVs when no longer needed. Give the bot Connect and Speak permission in the voice channel. Use `/join` while connected to your voice channel to have Jess speak her summoned text replies; use `/leave` to disconnect. She does not listen to voice chat. `KITTENTTS_URL` in `apps/bot/.env` defaults to `http://kittentts:8080` for Compose; the service does not publish a host port.
+Remove the local reference and generated WAVs when no longer needed. Give the bot Connect and Speak permission in the voice channel. Use `/join` while connected to your voice channel to have Jess speak her summoned text replies; use `/leave` to disconnect. She does not listen to voice chat. `OMNIVOICE_URL` in `apps/bot/.env` defaults to `http://omnivoice:8080` for Compose; the service does not publish a host port.
 
 ## Development commands
 
