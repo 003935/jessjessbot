@@ -1058,6 +1058,14 @@ export async function handleMention(message: Message): Promise<void> {
 		await message.reply(await lootReply(message.author.id));
 		return;
 	}
+	if (message.content.trim() === '.inv') {
+		await message.reply(await lootInventoryReply(message.author.id));
+		return;
+	}
+	if (message.content.trim() === '.pboard') {
+		await message.reply(await lootLeaderboardReply(message.guild));
+		return;
+	}
 	const referencedMessage = message.reference?.messageId
 		? await message.fetchReference().catch(() => null)
 		: null;
