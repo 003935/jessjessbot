@@ -7,6 +7,9 @@ JessJessBot is a Discord bot and web dashboard for servers. She handles the anno
 
 - Conversational replies when summoned by name or mention, with saved preferences and community context
 - Optional Discord voice chat: use `/join`, then `/listen enabled:true`; turn it off with `/listen enabled:false` or leave with `/leave`
+=======
+- Web search for current events and facts while chatting (optional, via Tavily)
+>>>>>>> origin/claude/sharp-allen-y7q4hl
 - Path of Exile 2 loot rolls, inventories, and leaderboards
 - Wordle and Riot API powered League of Legends leaderboards
 - A Hall of Fame for the server's most reacted-to messages
