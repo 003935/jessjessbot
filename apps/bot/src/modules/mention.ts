@@ -1382,7 +1382,6 @@ export async function handleMention(message: Message): Promise<void> {
 						typeof action.target === 'string' &&
 						wasSaid(prompt, action.roles) &&
 						(action.target === 'me' || wasSaid(prompt, action.target))
-<<<<<<< HEAD
 					) {
 						actionInFlight = 'role change';
 						content = await changeRoles(message, action.action, action.roles, action.target);
@@ -1392,17 +1391,9 @@ export async function handleMention(message: Message): Promise<void> {
 						content = isExplicitRoleAction(prompt)
 							? 'i didnt change anything, couldnt tell which role. try "give me the <role> role"'
 							: result.reply
-								? (rareCasualLine(prompt) ?? result.reply)
+								? ((!result.webSearched && rareCasualLine(prompt)) || result.reply)
 								: 'huh (・_・;)';
 					}
-=======
-							? await changeRoles(message, action.action, action.roles, action.target)
-							: isExplicitRoleAction(prompt)
-								? 'i didnt change anything, couldnt tell which role. try "give me the <role> role"'
-								: result.reply
-									? ((!result.webSearched && rareCasualLine(prompt)) || result.reply)
-									: 'huh (・_・;)';
->>>>>>> origin/claude/sharp-allen-y7q4hl
 				}
 			}
 		} else {
