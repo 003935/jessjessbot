@@ -9,15 +9,16 @@ test('exchange image paths use the PoE CDN and absolute unique icons stay intact
 
 test('all 10,000 tickets give exactly the configured distribution', () => {
 	assert.equal(LOOT.reduce((sum, [, weight]) => sum + weight, 0), 10000);
-	assert.equal(new Set(LOOT.map(([name]) => name)).size, 40);
+	assert.equal(new Set(LOOT.map(([name]) => name)).size, LOOT.length);
 	const counts = new Map();
 	for (let i = 0; i < 10000; i++) {
 		const [name] = rollLoot(() => (i + 0.5) / 10000);
 		counts.set(name, (counts.get(name) ?? 0) + 1);
 	}
 	for (const [name, weight] of LOOT) assert.equal(counts.get(name), weight);
-	assert.equal(counts.get('Divine Orb'), 1000);
-	assert.equal(counts.get('Exalted Orb'), 1500);
+	assert.equal(counts.get('Divine Orb'), 800);
+	assert.equal(counts.get('Exalted Orb'), 1200);
+	assert.equal(counts.get('Scroll of Wisdom'), 1653);
 	assert.throws(() => rollLoot(() => 1));
 });
 
