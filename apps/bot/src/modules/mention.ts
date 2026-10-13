@@ -36,6 +36,14 @@ import {
 } from '@/modules/poe-loot';
 import { withServerEmoji } from '@/modules/server-emojis';
 import { formatSearchResults, webSearch, webSearchEnabled } from '@/modules/web-search';
+import {
+	formatMemberContext,
+	mentionNames,
+	queryNamesMember,
+	referencedMembers,
+	replaceUserMentions,
+	type ReferencedMember,
+} from '@/modules/mention-members';
 import jessPreferences from '@/personality/jess-preferences.json';
 import { FOOD_TASTES, isFoodTalk } from '@/personality/food-tastes';
 import {
@@ -693,7 +701,8 @@ export async function askDeepSeek(
 	nickname: string | null = null,
 	speakerUsername = '',
 	speakerLabel = speakerName,
-	visionImages: VisionImageInput[] = []
+	visionImages: VisionImageInput[] = [],
+	members: ReferencedMember[] = []
 ): Promise<{
 	reply?: string;
 	imageDescription?: string;
@@ -712,6 +721,7 @@ export async function askDeepSeek(
 		(isGameMove(prompt) &&
 			(hasRecentCardGame(history) ||
 				/\b(?:blackjack|cards?|deck|dealer|hit or stand)\b/iu.test(repliedTo?.content ?? '')));
+	const memberContext = formatMemberContext(members);
 	const messages: unknown[] = [
 		{
 			role: 'system',
@@ -732,6 +742,7 @@ export async function askDeepSeek(
 					},
 				]
 			: []),
+		...(memberContext ? [{ role: 'user', content: memberContext }] : []),
 		...(awaitingCustomDetails
 			? [
 					{
@@ -913,7 +924,11 @@ export async function askDeepSeek(
 		if (!query) query = prompt.slice(0, 300);
 		logger.info(`Web search: ${JSON.stringify(query)}`);
 		let searchContent: string;
-		try {
+		const member = queryNamesMember(query, members);
+		if (member) {
+			logger.info(`Skipped web search about server member ${member.id}`);
+			searchContent = `Not searched: "${member.displayName}" is a member of this Discord server, not something on the web. Answer from the chat and the saved member details only. If you don't know much about them, say so in character instead of inventing facts.`;
+		} else try {
 			const search = await webSearch(query);
 			sourceUrls = search.results.map((result) => result.url);
 			searchContent = formatSearchResults(query, search);
@@ -1266,6 +1281,10 @@ export async function handleMention(message: Message): Promise<void> {
 					imageCollection.images.length > 0 &&
 					!message.content.replace(new RegExp(`<@!?${message.client.user.id}>`, 'gu'), '').trim();
 				const chatHistory = imageOnlyMention ? relevantHistory.slice(-4) : relevantHistory;
+				const members = await referencedMembers(message as Message<true>, prompt).catch((error) => {
+					logger.error('Could not look up referenced members', error);
+					return [];
+				});
 				const savedNickname = await db.botMemberPreference
 					.getNickname(message.guildId, message.author.id)
 					.catch(() => null);
@@ -1286,7 +1305,8 @@ export async function handleMention(message: Message): Promise<void> {
 							savedNickname,
 							message.author.username,
 							speakerLabel,
-							imageCollection.images
+							imageCollection.images,
+							members
 						);
 				// With shared history the model sometimes just repeats an earlier answer
 				// ("one death beats five" twice). Retry once without history if it does.
@@ -1304,7 +1324,8 @@ export async function handleMention(message: Message): Promise<void> {
 						savedNickname,
 						message.author.username,
 						speakerLabel,
-						imageCollection.images
+						imageCollection.images,
+						members
 					);
 				savedImageDescription = imageCollection.images.length ? result.imageDescription : undefined;
 				savedImageSourceIds = imageCollection.sourceMessageIds;
@@ -1399,7 +1420,7 @@ export async function handleMention(message: Message): Promise<void> {
 					message.author.globalName,
 					message.author.username
 				),
-				prompt.slice(0, 2000),
+				replaceUserMentions(prompt, mentionNames(message as Message<true>)).slice(0, 2000),
 				content.slice(0, 1900),
 				savedImageDescription,
 				savedImageSourceIds
