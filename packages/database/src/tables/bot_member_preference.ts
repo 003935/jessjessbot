@@ -137,6 +137,15 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 		await this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind: 'nickname' } });
 	}
 
+	async listNicknames(guildId: string): Promise<Array<{ userId: string; nickname: string }>> {
+		const rows = await this._db.botMemberPreference.findMany({
+			where: { guildId, kind: 'nickname' },
+			select: { userId: true, value: true },
+			take: 500,
+		});
+		return rows.map((row) => ({ userId: row.userId, nickname: row.value }));
+	}
+
 	async findNicknameUsers(guildId: string, nickname: string): Promise<string[]> {
 		const rows = await this._db.botMemberPreference.findMany({
 			where: { guildId, kind: 'nickname', value: nickname },
