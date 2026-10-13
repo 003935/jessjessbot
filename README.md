@@ -6,6 +6,7 @@ JessJessBot is a Discord bot and web dashboard for servers. She handles the anno
 ## Features
 
 - Conversational replies when summoned by name or mention, with saved preferences and community context
+- Web search for current events and facts while chatting (optional, via Tavily)
 - Path of Exile 2 loot rolls, inventories, and leaderboards
 - Wordle and Riot API powered League of Legends leaderboards
 - A Hall of Fame for the server's most reacted-to messages
@@ -25,7 +26,7 @@ Requirements:
 - A Riot API key
 - Discord OAuth credentials and a Better Auth secret to run the dashboard
 
-PostgreSQL and Valkey are included in the Compose stack. TMDB, OMDb, and DeepSeek keys are optional and only needed for their respective features. See [llms.txt](llms.txt) for environment setup and run instructions.
+PostgreSQL and Valkey are included in the Compose stack. TMDB, OMDb, DeepSeek, and Tavily (web search) keys are optional and only needed for their respective features. See [llms.txt](llms.txt) for environment setup and run instructions.
 
 ## Tech stack
 

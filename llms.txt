@@ -18,7 +18,7 @@ Copy-Item apps/bot/.env.example apps/bot/.env
 Copy-Item apps/dashboard/.env.example apps/dashboard/.env
 ```
 
-Set the required values in each file. The bot requires `BOT_TOKEN`, `CLIENT_ID`, `BOT_ID`, `ROLE_ID`, and `RIOT_API_KEY`. The dashboard requires Discord OAuth credentials and `BETTER_AUTH_SECRET`. For Docker Compose, set `VALKEY_URL=redis://valkey:6379` and `ORIGIN=http://localhost:3000` in `apps/dashboard/.env`.
+Set the required values in each file. The bot requires `BOT_TOKEN`, `CLIENT_ID`, `BOT_ID`, `ROLE_ID`, and `RIOT_API_KEY`. Set `TAVILY_API_KEY` in `apps/bot/.env` to let the chat search the web; without it, web search is off. The dashboard requires Discord OAuth credentials and `BETTER_AUTH_SECRET`. For Docker Compose, set `VALKEY_URL=redis://valkey:6379` and `ORIGIN=http://localhost:3000` in `apps/dashboard/.env`.
 
 Create `packages/database/.env` with the PostgreSQL settings:
 
