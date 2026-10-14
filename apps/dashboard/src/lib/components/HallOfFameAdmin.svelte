@@ -8,6 +8,7 @@
 		channelsCompleted: v.number(),
 		channelsSkipped: v.number(),
 		totalChannels: v.number(),
+		found: v.optional(v.number()),
 	});
 
 	export type HallImportMessage = v.InferOutput<typeof import_message_schema>;
@@ -234,6 +235,8 @@
 						<span class="font-mono font-semibold text-primary">
 							{#if rechecking}
 								{progress.scanned.toLocaleString()} messages checked
+							{:else if progress.found !== undefined}
+								{progress.scanned.toLocaleString()} of {progress.found.toLocaleString()} jjb messages
 							{:else}
 								{progress.channelsCompleted} of {progress.totalChannels} channels finished
 							{/if}
@@ -242,7 +245,9 @@
 				</div>
 				{#if progress}
 					<p class="text-xs text-muted-foreground">
-						{progress.scanned.toLocaleString()} checked · {progress.imported.toLocaleString()}
+						{progress.found !== undefined && progress.scanned === 0
+							? 'searching for jjb messages'
+							: `${progress.scanned.toLocaleString()} checked`} · {progress.imported.toLocaleString()}
 						{rechecking ? 'scores updated' : 'with 3+ reactions'}
 						{#if progress.channelsSkipped > 0}
 							· {progress.channelsSkipped} inaccessible channel{progress.channelsSkipped === 1
@@ -262,7 +267,8 @@
 							Rechecked {progress.scanned.toLocaleString()} saved messages and updated
 							{progress.imported.toLocaleString()} scores.
 						{:else if backfillingBot}
-							Checked {progress.scanned.toLocaleString()} historical messages and imported
+							Checked {progress.scanned.toLocaleString()}
+							{progress.found !== undefined ? 'jjb' : 'historical'} messages and imported
 							{progress.imported.toLocaleString()} jjb messages with 3+ reactions.
 						{:else}
 							Checked {progress.scanned.toLocaleString()} new messages and imported

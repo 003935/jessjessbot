@@ -20,8 +20,18 @@ type HallImportMessage = {
 	channelsCompleted: number;
 	channelsSkipped: number;
 	totalChannels: number;
+	/** jjb backfill only: how many jjb messages Discord search found. */
+	found?: number;
 };
 type GuildAPIMessage = APIMessage & { member?: { nick?: string | null } };
+type GuildSearchResponse = {
+	total_results?: number;
+	messages?: GuildAPIMessage[][];
+	code?: number;
+	retry_after?: number;
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const rest = new REST().setToken(env.DISCORD_BOT_TOKEN!);
 
@@ -85,6 +95,7 @@ export const POST: RequestHandler = async ({ params, locals, url }) => {
 		let imported = 0;
 		let channelsCompleted = 0;
 		let channelsSkipped = 0;
+		let found: number | undefined;
 		const emitProgress = (isDone: boolean) =>
 			emit(
 				'message',
@@ -95,6 +106,7 @@ export const POST: RequestHandler = async ({ params, locals, url }) => {
 					channelsCompleted,
 					channelsSkipped,
 					totalChannels: channels.length,
+					...(found === undefined ? {} : { found }),
 				} satisfies HallImportMessage)
 			);
 
@@ -138,48 +150,159 @@ export const POST: RequestHandler = async ({ params, locals, url }) => {
 				emitProgress(true);
 				return;
 			}
+			const fetchChannelPage = async (
+				channelId: string,
+				query: URLSearchParams
+			): Promise<GuildAPIMessage[] | null> => {
+				try {
+					return (await rest.get(Routes.channelMessages(channelId), {
+						query,
+					} satisfies RequestData)) as RESTGetAPIChannelMessagesResult as GuildAPIMessage[];
+				} catch (caught) {
+					if (caught instanceof DiscordAPIError && (caught.status === 403 || caught.status === 404))
+						return null;
+					throw caught;
+				}
+			};
+			const saveCandidates = async (channelId: string, messages: GuildAPIMessage[]) => {
+				const candidates: Parameters<typeof db.hall.saveMessages>[0] = [];
+				for (const message of messages) {
+					if (
+						backfillBot
+							? message.author.id !== env.DISCORD_CLIENT_ID
+							: message.author.bot && message.author.id !== env.DISCORD_CLIENT_ID
+					)
+						continue;
+					const reactions = humanReactionCount(message);
+					if (reactions <= 2) continue;
+					candidates.push({
+						guildId: serverId,
+						channelId,
+						messageId: message.id,
+						authorId: message.author.id,
+						displayName:
+							message.member?.nick ?? message.author.global_name ?? message.author.username,
+						preview: preview(message),
+						reactions,
+						createdAt: new Date(message.timestamp),
+					});
+				}
+				imported += await db.hall.saveMessages(candidates);
+			};
+
+			// Discord search can filter by author, so the jjb backfill only reads around
+			// jjb's own messages instead of every message in the server. Search results
+			// omit reactions, so each hit is re-read from channel history to score it.
+			const searchBotMessages = async (): Promise<Map<string, string[]> | null> => {
+				const byChannel = new Map<string, string[]>();
+				const seen = new Set<string>();
+				let maxId: string | undefined;
+				while (true) {
+					const query = new URLSearchParams({
+						limit: '25',
+						sort_by: 'timestamp',
+						sort_order: 'desc',
+						include_nsfw: 'true',
+					});
+					query.append('author_id', env.DISCORD_CLIENT_ID!);
+					for (const channelId of channelIds.slice(0, 500)) query.append('channel_id', channelId);
+					if (maxId) query.set('max_id', maxId);
+					let response: GuildSearchResponse | null = null;
+					for (let attempt = 0; attempt < 10; attempt++) {
+						try {
+							response = (await rest.get(`/guilds/${serverId}/messages/search`, {
+								query,
+							} satisfies RequestData)) as GuildSearchResponse;
+						} catch (caught) {
+							// No search access: fall back to reading every channel.
+							if (seen.size === 0 && caught instanceof DiscordAPIError) {
+								console.warn('Guild message search unavailable, using a full scan:', caught.message);
+								return null;
+							}
+							throw caught;
+						}
+						// 202 "Index not yet available": wait and retry.
+						if (Array.isArray(response.messages)) break;
+						await sleep(Math.max(1, response.retry_after ?? 2) * 1000);
+						response = null;
+					}
+					if (!response) throw new Error('Discord search index was not ready; try again in a minute');
+					found = Math.max(found ?? 0, response.total_results ?? 0);
+					const hits = response.messages!.flat().filter(
+						(message) => message.author.id === env.DISCORD_CLIENT_ID && !seen.has(message.id)
+					);
+					if (hits.length === 0) break;
+					for (const message of hits) {
+						seen.add(message.id);
+						if (!allowedIds.has(message.channel_id)) continue;
+						const ids = byChannel.get(message.channel_id) ?? [];
+						ids.push(message.id);
+						byChannel.set(message.channel_id, ids);
+					}
+					maxId = hits.reduce((min, message) =>
+						BigInt(message.id) < BigInt(min.id) ? message : min
+					).id;
+					emitProgress(false);
+				}
+				found = [...byChannel.values()].reduce((sum, ids) => sum + ids.length, 0);
+				return byChannel;
+			};
+
+			const scoreBotMessages = async (channelId: string, ids: string[]) => {
+				const pending = new Set(ids);
+				for (const id of ids) {
+					if (!pending.has(id)) continue;
+					const page = await fetchChannelPage(
+						channelId,
+						new URLSearchParams({ around: id, limit: '100' })
+					);
+					if (!page) {
+						channelsSkipped++;
+						break;
+					}
+					const fresh = page.filter((message) => pending.delete(message.id));
+					await saveCandidates(channelId, fresh);
+					// Deleted since search indexed it: don't fetch it again.
+					if (pending.delete(id)) scanned++;
+					scanned += fresh.length;
+					emitProgress(false);
+				}
+				channelsCompleted++;
+				emitProgress(false);
+			};
+
+			if (backfillBot) {
+				const byChannel = await searchBotMessages();
+				if (byChannel) {
+					channelsCompleted = channels.length - byChannel.size;
+					emitProgress(false);
+					let next = 0;
+					const entries = [...byChannel];
+					const worker = async () => {
+						while (next < entries.length) {
+							const [channelId, ids] = entries[next++]!;
+							await scoreBotMessages(channelId, ids);
+						}
+					};
+					const results = await Promise.allSettled(
+						Array.from({ length: Math.min(3, entries.length) }, worker)
+					);
+					const failed = results.find((result) => result.status === 'rejected');
+					if (failed?.status === 'rejected') throw failed.reason;
+					emitProgress(true);
+					return;
+				}
+			}
+
 			const importChannel = async (channel: (typeof channels)[number]) => {
-				const fetchPage = async (before?: string): Promise<GuildAPIMessage[] | null> => {
+				const fetchPage = (before?: string) => {
 					const query = new URLSearchParams({ limit: '100' });
 					if (before) query.set('before', before);
-					try {
-						return (await rest.get(Routes.channelMessages(channel.channelId), {
-							query,
-						} satisfies RequestData)) as RESTGetAPIChannelMessagesResult as GuildAPIMessage[];
-					} catch (caught) {
-						if (
-							caught instanceof DiscordAPIError &&
-							(caught.status === 403 || caught.status === 404)
-						)
-							return null;
-						throw caught;
-					}
+					return fetchChannelPage(channel.channelId, query);
 				};
 				const recordMessages = async (messages: GuildAPIMessage[]) => {
-					const candidates: Parameters<typeof db.hall.saveMessages>[0] = [];
-					for (const message of messages) {
-						scanned++;
-						if (
-							backfillBot
-								? message.author.id !== env.DISCORD_CLIENT_ID
-								: message.author.bot && message.author.id !== env.DISCORD_CLIENT_ID
-						)
-							continue;
-						const reactions = humanReactionCount(message);
-						if (reactions <= 2) continue;
-						candidates.push({
-							guildId: serverId,
-							channelId: channel.channelId,
-							messageId: message.id,
-							authorId: message.author.id,
-							displayName:
-								message.member?.nick ?? message.author.global_name ?? message.author.username,
-							preview: preview(message),
-							reactions,
-							createdAt: new Date(message.timestamp),
-						});
-					}
-					imported += await db.hall.saveMessages(candidates);
+					scanned += messages.length;
+					await saveCandidates(channel.channelId, messages);
 				};
 				const skipChannel = () => {
 					channelsSkipped++;
