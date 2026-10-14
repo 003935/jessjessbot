@@ -51,6 +51,7 @@
 	let saving = $state(false);
 	let importing = $state(false);
 	let rechecking = $state(false);
+	let backfillingBot = $state(false);
 	let hasImported = $state(Boolean(hallImport));
 	let error = $state<string | null>(null);
 	let progress = $state<HallImportMessage | null>(null);
@@ -103,15 +104,18 @@
 		connection = null;
 	}
 
-	async function startImport(recheckSaved = false) {
+	async function startImport(mode: 'update' | 'recheck' | 'backfillBot' = 'update') {
 		if (importing) return;
 		if (hasChanges && !(await saveChannels())) return;
 		clearConnection();
 		error = null;
 		progress = null;
 		importing = true;
-		rechecking = recheckSaved;
-		connection = source(`/server/${serverId}/hall-import${recheckSaved ? '?recheck=1' : ''}`);
+		rechecking = mode === 'recheck';
+		backfillingBot = mode === 'backfillBot';
+		connection = source(
+			`/server/${serverId}/hall-import${rechecking ? '?recheck=1' : backfillingBot ? '?backfillBot=1' : ''}`
+		);
 		const unsubscribers: Array<() => void> = [];
 		unsubscribers.push(
 			connection.select('message').subscribe((value) => {
@@ -220,7 +224,11 @@
 			<div class="rounded-xl bg-muted/60 p-4">
 				<div class="mb-3 flex items-center justify-between text-sm">
 					<span class="font-medium">
-						{rechecking ? 'Rechecking saved messages…' : 'Scanning server messages…'}
+						{rechecking
+							? 'Rechecking saved messages…'
+							: backfillingBot
+								? 'Backfilling jjb messages…'
+								: 'Scanning server messages…'}
 					</span>
 					{#if progress}
 						<span class="font-mono font-semibold text-primary">
@@ -253,6 +261,9 @@
 						{#if rechecking}
 							Rechecked {progress.scanned.toLocaleString()} saved messages and updated
 							{progress.imported.toLocaleString()} scores.
+						{:else if backfillingBot}
+							Checked {progress.scanned.toLocaleString()} historical messages and imported
+							{progress.imported.toLocaleString()} jjb messages with 3+ reactions.
 						{:else}
 							Checked {progress.scanned.toLocaleString()} new messages and imported
 							{progress.imported.toLocaleString()} with 3+ reactions.
@@ -271,17 +282,26 @@
 			<Button
 				variant="outline"
 				class="w-full"
-				onclick={() => startImport(true)}
+				onclick={() => startImport('recheck')}
 				disabled={importing || saving}
 			>
 				<Download />
 				Recheck saved messages for reaction scores
 			</Button>
+			<Button
+				variant="outline"
+				class="w-full"
+				onclick={() => startImport('backfillBot')}
+				disabled={importing || saving}
+			>
+				<Download />
+				Backfill historical jjb messages
+			</Button>
 		{/if}
 
 		<Button
 			class="mt-auto h-14 w-full"
-			onclick={() => startImport()}
+			onclick={() => startImport('update')}
 			disabled={importing || saving}
 		>
 			<Download />

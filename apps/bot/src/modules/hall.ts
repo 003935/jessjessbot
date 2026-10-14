@@ -75,7 +75,8 @@ function preview(message: Message): string {
 }
 
 export async function saveMessage(message: Message): Promise<boolean> {
-	if (!message.guildId || message.author.bot) return false;
+	if (!message.guildId || (message.author.bot && message.author.id !== message.client.user.id))
+		return false;
 	return await db.hall.saveMessage({
 		guildId: message.guildId,
 		channelId: message.channelId,
@@ -96,10 +97,11 @@ export async function removeMessage(channelId: string, messageId: string): Promi
 export async function topMessages(
 	guildId: string,
 	channelIds: string[],
+	botId: string,
 	authorId?: string,
 	since?: Date
 ) {
-	const candidates = await db.hall.getTopMessages(guildId, channelIds, authorId, since);
+	const candidates = await db.hall.getTopMessages(guildId, channelIds, botId, authorId, since);
 	return candidates.filter((entry) => quoteFromHallPreview(entry.preview) !== null).slice(0, 10);
 }
 
