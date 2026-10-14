@@ -175,16 +175,20 @@ export async function lootLeaderboardReply(guild: Guild) {
 	};
 }
 
+const equipment = new Set(['Temporalis', 'Tabula Rasa', 'Headhunter', 'Mageblood', "Kalandra's Touch", "Ventor's Gamble", 'Waistgate', "Zerphi's Genesis", 'Ingenuity', "Cat O' Nine Tails"]);
+
+export function lootInventoryCategory(name: string): 'items' | 'currency' | 'equipment' {
+	if (equipment.has(name)) return 'equipment';
+	if (name === 'Mirror of Kalandra' || name === "Hinekora's Lock" || /\b(?:orb|shard|scroll|bauble|whetstone)\b/iu.test(name)) return 'currency';
+	return 'items';
+}
+
 export async function lootInventoryReply(discordId: string, category: 'items' | 'currency' | 'equipment' = 'items') {
 	const rows = await db._db.lootInventory.findMany({
 		where: { discordId, quantity: { gt: 0 } },
 		orderBy: [{ quantity: 'desc' }, { itemName: 'asc' }],
 	});
-	const equipment = new Set(['Temporalis', 'Tabula Rasa', 'Headhunter', 'Mageblood', "Kalandra's Touch", "Ventor's Gamble", 'Waistgate', "Zerphi's Genesis", 'Ingenuity', "Cat O' Nine Tails"]);
-	const categoryFor = (name: string) => equipment.has(name)
-		? 'equipment'
-		: /\b(?:orb|shard|scroll|bauble|whetstone)\b/iu.test(name) ? 'currency' : 'items';
-	const selectedRows = rows.filter((row) => categoryFor(row.itemName) === category);
+	const selectedRows = rows.filter((row) => lootInventoryCategory(row.itemName) === category);
 	let prices: Snapshot | undefined;
 	try { prices = await ensurePriceSnapshot(); } catch { prices = snapshot; }
 	let totalDivines = 0;
