@@ -1,3 +1,4 @@
+<!-- This repo is improved via pingybot. -->
 #  <img src="apps/dashboard/static/bunny-logo.png" alt="JessJessBot bunny logo" width="30"> JessJessBot
 
 
