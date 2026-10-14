@@ -1,5 +1,6 @@
 import type { Message, MessageReaction, PartialMessageReaction } from 'discord.js';
 import { db } from '@/db';
+import { hallMessageText } from '@repo/discord-api/utils';
 
 export type HallChannel = {
 	guildId: string;
@@ -60,7 +61,13 @@ export function quoteFromHallPreview(preview: string): string | null {
 }
 
 function preview(message: Message): string {
-	const text = readableHallPreview(message.content)
+	const text = readableHallPreview(
+		hallMessageText({
+			content: message.content,
+			components: message.components.map((component) => component.toJSON()),
+			embeds: message.embeds,
+		})
+	)
 		.replace(/[\p{Default_Ignorable_Code_Point}\u115F\u1160\u2800\u3164\uFFA0]/gu, '')
 		.replace(/[\x00-\x1F\x7F-\x9F]/g, ' ')
 		.replace(/\s+/g, ' ')

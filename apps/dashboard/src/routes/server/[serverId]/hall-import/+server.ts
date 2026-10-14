@@ -11,6 +11,7 @@ import { error, type RequestHandler } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { discordApi } from '$lib/server/discord';
 import { throwIfNotAdmin, throwIfNotLoggedIn } from '$lib/server/permission.utils';
+import { hallMessageText } from '@repo/discord-api/utils';
 
 type HallImportMessage = {
 	isDone: boolean;
@@ -34,7 +35,7 @@ function humanReactionCount(message: APIMessage): number {
 }
 
 function preview(message: APIMessage): string {
-	const text = message.content
+	const text = hallMessageText(message)
 		.replace(
 			/https?:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\/attachments\/\S+/giu,
 			(url) =>
