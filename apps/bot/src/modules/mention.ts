@@ -589,33 +589,32 @@ export function historyForPrompt(
 	now = Date.now()
 ): ConversationTurn[] {
 	if (!turns.length) return [];
-	// Anything said to jjb in this channel in the last few minutes is the live conversation,
-	// whoever said it. Older turns only come back when the topic matches.
 	const recent = turns
 		.filter((turn) => turn.at !== undefined && now - turn.at < RECENT_CHAT_MS)
 		.slice(-24);
-	if (recent.length) return recent.map(({ role, content }) => ({ role, content }));
 	if (
 		/\b(?:remember|earlier|before|previously|we were talking|what did (?:i|we|u|you) say)\b/iu.test(
 			prompt
 		)
 	)
 		return turns.slice(-60).map(({ role, content }) => ({ role, content }));
-	if (isGameMove(prompt) && hasRecentCardGame(turns))
-		return turns.slice(-12).map(({ role, content }) => ({ role, content }));
-	const latestBotTurn = turns.at(-1)?.role === 'assistant' ? turns.at(-1)!.content : '';
+	if (!recent.length) return [];
+	if (isGameMove(prompt) && hasRecentCardGame(recent))
+		return recent.slice(-12).map(({ role, content }) => ({ role, content }));
+	const latestBotTurn = recent.at(-1)?.role === 'assistant' ? recent.at(-1)!.content : '';
 	if (prompt.trim().split(/\s+/u).length <= 2 && latestBotTurn.includes('?'))
-		return turns.slice(-2);
+		return recent.slice(-2).map(({ role, content }) => ({ role, content }));
 	const continuation =
 		/^(?:and|also|but|so|wait|yeah|yes|no|nah|okay|ok|what about|how about|why|how come)\b/iu.test(
 			prompt.trim()
 		) || /\b(?:that|this|those|them|they|he|she|it|again|same)\b/iu.test(prompt);
-	if (continuation) return turns.slice(-2);
-	const lastUser = [...turns].reverse().find((turn) => turn.role === 'user');
+	if (continuation || isContextualReply(prompt))
+		return recent.slice(-2).map(({ role, content }) => ({ role, content }));
+	const lastUser = [...recent].reverse().find((turn) => turn.role === 'user');
 	if (!lastUser) return [];
 	const previousTopic = topicWords(lastUser.content);
 	const sameTopic = [...topicWords(prompt)].some((word) => previousTopic.has(word));
-	return sameTopic ? turns.slice(-4) : [];
+	return sameTopic ? recent.slice(-4).map(({ role, content }) => ({ role, content })) : [];
 }
 
 function customTimeIn(prompt: string): string | undefined {
@@ -824,7 +823,7 @@ async function repliedMessageContext(
 	const chain: string[] = [];
 	const maxMessages = /\b(?:thread|conversation|chain|what happened|earlier)\b/iu.test(prompt)
 		? 40
-		: 10;
+		: 2;
 	const messages = referencedMessages ?? (await fetchReferencedMessages(message, maxMessages));
 	for (const referenced of messages.slice(0, maxMessages)) {
 		if (referenced.channelId !== message.channelId) break;
@@ -1478,7 +1477,7 @@ export async function handleMention(message: Message): Promise<void> {
 				);
 				const replyChainLimit = /\b(?:thread|conversation|chain|what happened|earlier)\b/iu.test(prompt)
 					? 40
-					: 10;
+					: 2;
 				const referencedMessages = await fetchReferencedMessages(message, replyChainLimit);
 				let repliedTo = await repliedMessageContext(
 					message as Message<true>,
