@@ -1,7 +1,11 @@
 import { ChannelType, Message, PermissionsBitField } from 'discord.js';
 import { db } from '@/db';
 import { quoteFromHallPreview, topMessages, trackedChannels } from '@/modules/hall';
-import { isRandomMemberRequest, isWordleLeaderboardRequest, isWordleWinsRequest } from '@/modules/mention-intents';
+import {
+	isRandomMemberRequest,
+	isWordleLeaderboardRequest,
+	isWordleWinsRequest,
+} from '@/modules/mention-intents';
 import { WORDLE_BOT_ID } from '@/environment';
 
 function clean(text: string): string {
@@ -17,10 +21,12 @@ export async function answerReadRequest(
 ): Promise<string | null> {
 	const text = prompt.toLocaleLowerCase();
 	const needsWordleContext = /\b(?:leaderboard|ranking|rank|top|king|winning|wins?)\b/u.test(text);
-	const referenced = needsWordleContext && message.reference?.messageId
-		? await message.fetchReference().catch(() => null)
-		: null;
-	const replyingToWordle = !!referenced &&
+	const referenced =
+		needsWordleContext && message.reference?.messageId
+			? await message.fetchReference().catch(() => null)
+			: null;
+	const replyingToWordle =
+		!!referenced &&
 		(referenced.author.id === WORDLE_BOT_ID || /\bwordle\b/iu.test(referenced.content));
 	if (isRandomMemberRequest(prompt)) {
 		const members = await message.guild.members.fetch().catch(() => null);
@@ -107,6 +113,7 @@ export async function answerReadRequest(
 		const entries = await topMessages(
 			message.guild.id,
 			visible,
+			message.client.user.id,
 			undefined,
 			month ? new Date(Date.now() - 30 * 86400000) : undefined
 		);

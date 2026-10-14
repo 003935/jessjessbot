@@ -9,7 +9,12 @@ import {
 	type NewsChannel,
 	type TextChannel,
 } from 'discord.js';
-import { highestReactionCount, quoteFromHallPreview, topMessages, trackedChannels } from '@/modules/hall';
+import {
+	highestReactionCount,
+	quoteFromHallPreview,
+	topMessages,
+	trackedChannels,
+} from '@/modules/hall';
 import { db } from '@/db';
 
 const MAX_PREVIEW = 120;
@@ -92,7 +97,13 @@ export async function showFame(
 			visibleChannelIds.push(channel.id);
 		}
 		const since = period === 'month' ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) : undefined;
-		const winners = await topMessages(guildId, visibleChannelIds, selectedUserId, since);
+		const winners = await topMessages(
+			guildId,
+			visibleChannelIds,
+			interaction.client.user.id,
+			selectedUserId,
+			since
+		);
 		const refreshed = await Promise.all(
 			winners.map(async (entry) => {
 				const readable = quoteFromHallPreview(entry.preview)!;
@@ -106,7 +117,13 @@ export async function showFame(
 				if (!message) return null;
 				const reactions = highestReactionCount(message);
 				if (reactions !== entry.reactions)
-					await db.hall.rescoreMessage(guildId, entry.channelId, entry.messageId, reactions, entry.preview);
+					await db.hall.rescoreMessage(
+						guildId,
+						entry.channelId,
+						entry.messageId,
+						reactions,
+						entry.preview
+					);
 				const emoji = topReactionEmoji(message);
 				return {
 					reactions,
