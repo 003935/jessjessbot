@@ -106,7 +106,7 @@ export const DEEPSEEK_DOWN_SCENARIOS = {
 		// out of office
 		[
 			'**Automatic reply: Out of office**\nhi, im currently on sabbatical hanging out with the Tikunas in the Amazonian forest. i will have no wifi and absolutely no deepseek. for urgent matters u can reach me at jjb@jessawg.space',
-			'**Automatic reply: Re: Out of office**\nthank u for ur message. i am still in the Amazon. a capybara has adopted me and i cannot leave without hurting its feelings. jjb@jessawg.space',
+			'**Automatic reply: Re: Out of office**\nthank u for following up. im still on the river near Leticia. the boat to Tabatinga only runs a couple times a week so i will check messages when it gets in. jjb@jessawg.space',
 		],
 		// relocating
 		[
