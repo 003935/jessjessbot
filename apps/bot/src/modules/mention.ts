@@ -71,6 +71,17 @@ type DeepSeekContentPart = { type: 'text'; text: string } | VisionImageInput;
 const CONVERSATION_TTL_MS = 30 * 60 * 1000;
 const DEEPSEEK_RETRY_STATUSES = new Set([429, 500, 502, 503]);
 const DEEPSEEK_RETRY_DELAY_MS = 1500;
+const MENTION_FAILED_REPLY = 'I could not finish that right now. Please try again.';
+const DEEPSEEK_DOWN_REPLY = 'sorry sniff no talk me, deepseek down not my fault (╥﹏╥)';
+
+/** DeepSeek is overloaded, timing out, or unreachable: their outage, not a bug here. */
+export class DeepSeekUnavailableError extends Error {
+	override name = 'DeepSeekUnavailableError';
+}
+
+export function mentionFailureReply(error: unknown): string {
+	return error instanceof DeepSeekUnavailableError ? DEEPSEEK_DOWN_REPLY : MENTION_FAILED_REPLY;
+}
 const CUSTOM_DETAILS_TTL_MS = 5 * 60 * 1000;
 // Shared per channel so jjb can follow a conversation when someone else joins in.
 type StoredTurn = ConversationTurn & { speakerId?: string; at: number };
@@ -909,6 +920,10 @@ export async function askDeepSeek(
 				headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
 				body,
 				signal: AbortSignal.timeout(30_000),
+			}).catch((error: unknown) => {
+				throw new DeepSeekUnavailableError(
+					`DeepSeek did not respond: ${error instanceof Error ? error.message : String(error)}`
+				);
 			});
 		let response = await send();
 		// Brief overloads are common; one retry usually gets through.
@@ -918,7 +933,8 @@ export async function askDeepSeek(
 		}
 		if (!response.ok) {
 			const detail = (await response.text().catch(() => '')).replace(/\s+/gu, ' ').trim().slice(0, 500);
-			throw new Error(
+			const ErrorType = DEEPSEEK_RETRY_STATUSES.has(response.status) ? DeepSeekUnavailableError : Error;
+			throw new ErrorType(
 				`DeepSeek returned HTTP ${response.status}${detail ? `: ${detail}` : ''} (request ${body.length} bytes, ${requestMessages.length} messages)`
 			);
 		}
@@ -1443,7 +1459,7 @@ export async function handleMention(message: Message): Promise<void> {
 	} catch (error) {
 		logger.error('Mention action failed', error);
 		await message.reply({
-			content: 'I could not finish that right now. Please try again.',
+			content: mentionFailureReply(error),
 			allowedMentions: { parse: [] },
 		});
 	}

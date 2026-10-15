@@ -5,7 +5,9 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 	process.env[key] ||= 'test';
 mock.module('../src/db', () => ({ db: {} }));
 
-const { askDeepSeek } = await import('../src/modules/mention');
+const { askDeepSeek, DeepSeekUnavailableError, mentionFailureReply } = await import(
+	'../src/modules/mention'
+);
 
 const realFetch = globalThis.fetch;
 let calls = 0;
@@ -72,4 +74,34 @@ test('other DeepSeek errors are not retried', async () => {
 	const error = await askDeepSeek('hi', [], false).catch((caught: Error) => caught);
 	expect(calls).toBe(1);
 	expect(String(error)).toContain('Insufficient Balance');
+});
+
+test('DeepSeek being down gets the in-character apology, other failures do not', async () => {
+	process.env.DEEPSEEK_API_KEY = 'test-deepseek';
+	respondWith([overloaded]);
+	const down = await askDeepSeek('hi', [], false).catch((caught: Error) => caught);
+	expect(down).toBeInstanceOf(DeepSeekUnavailableError);
+	expect(mentionFailureReply(down)).toBe('sorry sniff no talk me, deepseek down not my fault (╥﹏╥)');
+
+	respondWith([() => new Response('{"error":{"message":"Insufficient Balance"}}', { status: 402 })]);
+	const broke = await askDeepSeek('hi', [], false).catch((caught: Error) => caught);
+	expect(broke).not.toBeInstanceOf(DeepSeekUnavailableError);
+	expect(mentionFailureReply(broke)).toBe('I could not finish that right now. Please try again.');
+	expect(mentionFailureReply(new Error('database exploded'))).toBe(
+		'I could not finish that right now. Please try again.'
+	);
+});
+
+test('a DeepSeek timeout or network failure also counts as down', async () => {
+	process.env.DEEPSEEK_API_KEY = 'test-deepseek';
+	globalThis.fetch = (async () => {
+		throw new DOMException('The operation timed out.', 'TimeoutError');
+	}) as unknown as typeof fetch;
+	const timedOut = await askDeepSeek('hi', [], false).catch((caught: Error) => caught);
+	expect(timedOut).toBeInstanceOf(DeepSeekUnavailableError);
+	globalThis.fetch = (async () => {
+		throw new TypeError('fetch failed');
+	}) as unknown as typeof fetch;
+	const unreachable = await askDeepSeek('hi', [], false).catch((caught: Error) => caught);
+	expect(unreachable).toBeInstanceOf(DeepSeekUnavailableError);
 });
