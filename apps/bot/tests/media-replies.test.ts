@@ -84,7 +84,8 @@ test('videos in both channels do not pretend to see frames', async () => {
 	};
 	expect(await handleMediaReply(message('pets', '', [video]))).toBe(true);
 	expect(await handleMediaReply(message('yum', 'my dinner', [video]))).toBe(true);
-	expect(askDeepSeek.mock.calls.at(-1)?.[0]).toContain('cannot view its frames');
+	expect(askDeepSeek.mock.calls.at(-1)?.[0]).toBe('my dinner');
+	expect(askDeepSeek.mock.calls.at(-1)?.[12]).toEqual([]);
 });
 
 test('a reply to jjb is left to normal mention handling', async () => {

@@ -158,7 +158,7 @@ test('food image comments include a model-chosen rating, but video comments do n
 		);
 	}) as unknown as typeof fetch;
 	const args: Parameters<typeof askDeepSeek> = [
-		'food media post',
+		'made this',
 		[],
 		false,
 		null,
@@ -183,12 +183,18 @@ test('food image comments include a model-chosen rating, but video comments do n
 	expect(imageReply.reply).toBe('those noodles look dangerous 8.5/10');
 	expect(bodies[0]!.tools).toHaveLength(1);
 	expect(bodies[0]!.tools[0].function.parameters.required).toContain('rating');
-	expect(JSON.stringify(bodies[0]!.messages)).toContain('subjective food rating');
+	const imageMessages = bodies[0]!.messages;
+	expect(imageMessages[0].content).toContain('subjective rating out of 10');
+	expect(imageMessages[0].content).not.toContain('server nickname');
+	expect(imageMessages[0].content).not.toContain('display name');
+	expect(imageMessages.at(-1).content[0].text).toBe('made this');
 	const videoReply = await askDeepSeek(
 		...([...args.slice(0, 12), [], ...args.slice(13)] as unknown as Parameters<typeof askDeepSeek>)
 	);
 	expect(videoReply.reply).toBe('those noodles look dangerous');
 	expect(bodies[1]!.tools[0].function.parameters.required).not.toContain('rating');
+	expect(bodies[1]!.messages[0].content).toContain('cannot see the video frames');
+	expect(bodies[1]!.messages.at(-1).content).toBe('made this');
 });
 
 const { channelBackground, formatConversationAround } =

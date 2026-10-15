@@ -70,12 +70,7 @@ export async function handleMediaReply(message: Message<true>): Promise<boolean>
 		.replace(/https?:\/\/[^\s<>]+/gu, '')
 		.trim()
 		.slice(0, 500);
-	const filename = attachments
-		.map((attachment) => attachment.name)
-		.filter(Boolean)
-		.join(', ')
-		.slice(0, 200);
-	const prompt = `${kind === 'food' ? 'food' : 'pet'} media post${caption ? `; caption: ${caption}` : ''}${filename ? `; filename: ${filename}` : ''}. ${videoOnly ? 'This is a video; you cannot view its frames. Comment on the post without inventing visual details.' : 'Comment on the attached image.'}`;
+	const prompt = caption || (videoOnly ? 'video attached' : 'photo attached');
 	try {
 		await message.channel.sendTyping();
 		const response = await askDeepSeek(
