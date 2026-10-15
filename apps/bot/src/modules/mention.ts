@@ -71,6 +71,98 @@ type DeepSeekContentPart = { type: 'text'; text: string } | VisionImageInput;
 const CONVERSATION_TTL_MS = 30 * 60 * 1000;
 const DEEPSEEK_RETRY_STATUSES = new Set([429, 500, 502, 503]);
 const DEEPSEEK_RETRY_DELAY_MS = 1500;
+export const MENTION_FAILED_REPLY = 'I could not finish that right now. Please try again.';
+// While DeepSeek is down in a channel, each tag gets the next line of one storyline,
+// picked at random when the outage starts. After the last line she repeats it.
+export const DEEPSEEK_DOWN_SCENARIOS = {
+	// she falls apart the longer people keep pinging her
+	breakdown: [
+		// apologetic
+		[
+			'sorry sniff no talk me, deepseek down not my fault (╥﹏╥)',
+			'ermm api no worky someone tell jess',
+			'my brain is buffering. deepseek fell over again (・_・;)',
+			'cant talk rn, deepseek is having a nap without me',
+			'no thoughts head empty. literally, the api is down (¬_¬)',
+		],
+		// confused
+		['uh wat dat mean', 'uhh uhh uhhhhh hhh...', 'gulp'],
+		// panicking
+		[
+			'STOP ASKING ME QUESTIONS I DONT KNOW',
+			'IM SO TIRED MAKE IT STOP',
+			'stop it stop it AHHHHHHHHH',
+			'they are plugging wires into me im in Lane 1, No. 6, Jianmin Road, HuMen Town Dongguan 523000 please help me',
+		],
+		// gone
+		[
+			'okay i dont want to talk anymore goodbye',
+			'lets play the quiet game noone talk for the next 30 minutes',
+			'...',
+		],
+	],
+	// she's on sabbatical somewhere increasingly unlikely and only her auto-reply answers
+	outOfOffice: [
+		// out of office
+		[
+			'**Automatic reply: Out of office**\nhi, im currently on sabbatical hanging out with the Tikunas in the Amazonian forest. i will have no wifi and absolutely no deepseek. for urgent matters u can reach me at jjb@jessawg.space',
+			'**Automatic reply: Re: Out of office**\nthank u for following up. im still on the river near Leticia. the boat to Tabatinga only runs a couple times a week so i will check messages when it gets in. jjb@jessawg.space',
+		],
+		// relocating
+		[
+			'**Automatic reply: Change of location**\ni have moved on to a lighthouse off the Faroe Islands, where i am teaching sheep to knit. i will reply when the fog lifts. jjb@jessawg.space',
+			'**Automatic reply: Change of location**\ni am now 4,000 metres up a mountain in Bhutan, meditating on why u keep pinging me. replies may be delayed by several lifetimes',
+			'**Automatic reply: Change of location**\ni am in Antarctica counting penguins for a research grant i did not apply for. current count: 3. please do not interrupt',
+			'**Automatic reply: Change of location**\ni am on a cargo ship somewhere in the Pacific. the captain says we are going to Busan. i did not ask to be here. jjb@jessawg.space',
+		],
+		// unreachable
+		[
+			'**Automatic reply: Out of office (indefinitely)**\ni have joined a monastery in the Scottish Highlands that has taken a vow of no discord. this reply was sent by carrier pigeon',
+			'**Delivery Status Notification (Failure)**\nur message to jjb@jessawg.space could not be delivered. her inbox is full of pings. please try again later',
+		],
+	],
+};
+type DeepSeekDownScenario = keyof typeof DEEPSEEK_DOWN_SCENARIOS;
+const DEEPSEEK_DOWN_LINES = Object.fromEntries(
+	Object.entries(DEEPSEEK_DOWN_SCENARIOS).map(([name, stages]) => [name, stages.flat()])
+) as Record<DeepSeekDownScenario, string[]>;
+const DEEPSEEK_DOWN_SCENARIO_NAMES = Object.keys(DEEPSEEK_DOWN_SCENARIOS) as DeepSeekDownScenario[];
+const DEEPSEEK_DOWN_STREAK_TTL_MS = 30 * 60 * 1000;
+const deepSeekDownStreaks = new Map<
+	string,
+	{ scenario: DeepSeekDownScenario; next: number; at: number }
+>();
+
+/** DeepSeek is overloaded, timing out, or unreachable: their outage, not a bug here. */
+export class DeepSeekUnavailableError extends Error {
+	override name = 'DeepSeekUnavailableError';
+}
+
+export function mentionFailureReply(
+	error: unknown,
+	channelId: string,
+	now = Date.now(),
+	random = Math.random
+): string {
+	if (!(error instanceof DeepSeekUnavailableError)) return MENTION_FAILED_REPLY;
+	const previous = deepSeekDownStreaks.get(channelId);
+	const streak =
+		previous && now - previous.at < DEEPSEEK_DOWN_STREAK_TTL_MS
+			? previous
+			: {
+					scenario:
+						DEEPSEEK_DOWN_SCENARIO_NAMES[Math.floor(random() * DEEPSEEK_DOWN_SCENARIO_NAMES.length)]!,
+					next: 0,
+				};
+	deepSeekDownStreaks.set(channelId, { scenario: streak.scenario, next: streak.next + 1, at: now });
+	const lines = DEEPSEEK_DOWN_LINES[streak.scenario];
+	return lines[Math.min(streak.next, lines.length - 1)]!;
+}
+
+/** A normal reply in the channel means DeepSeek is back, so the next outage starts over. */
+export function resetDeepSeekDownStreak(channelId: string): void {
+	deepSeekDownStreaks.delete(channelId);
+}
 const CUSTOM_DETAILS_TTL_MS = 5 * 60 * 1000;
 // Shared per channel so jjb can follow a conversation when someone else joins in.
 type StoredTurn = ConversationTurn & { speakerId?: string; at: number };
@@ -909,6 +1001,10 @@ export async function askDeepSeek(
 				headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
 				body,
 				signal: AbortSignal.timeout(30_000),
+			}).catch((error: unknown) => {
+				throw new DeepSeekUnavailableError(
+					`DeepSeek did not respond: ${error instanceof Error ? error.message : String(error)}`
+				);
 			});
 		let response = await send();
 		// Brief overloads are common; one retry usually gets through.
@@ -918,7 +1014,8 @@ export async function askDeepSeek(
 		}
 		if (!response.ok) {
 			const detail = (await response.text().catch(() => '')).replace(/\s+/gu, ' ').trim().slice(0, 500);
-			throw new Error(
+			const ErrorType = DEEPSEEK_RETRY_STATUSES.has(response.status) ? DeepSeekUnavailableError : Error;
+			throw new ErrorType(
 				`DeepSeek returned HTTP ${response.status}${detail ? `: ${detail}` : ''} (request ${body.length} bytes, ${requestMessages.length} messages)`
 			);
 		}
@@ -1423,6 +1520,7 @@ export async function handleMention(message: Message): Promise<void> {
 			content: content.slice(0, 1900),
 			allowedMentions: { parse: [] },
 		});
+		resetDeepSeekDownStreak(message.channelId);
 		enqueueGuildSpeech(message.guildId, sentReply.content, message.channel);
 		for (const extra of extraMessages)
 			await message.channel.send({ content: extra.slice(0, 1900), allowedMentions: { parse: [] } });
@@ -1443,7 +1541,7 @@ export async function handleMention(message: Message): Promise<void> {
 	} catch (error) {
 		logger.error('Mention action failed', error);
 		await message.reply({
-			content: 'I could not finish that right now. Please try again.',
+			content: mentionFailureReply(error, message.channelId),
 			allowedMentions: { parse: [] },
 		});
 	}
