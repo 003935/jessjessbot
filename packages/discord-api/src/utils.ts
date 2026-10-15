@@ -74,7 +74,9 @@ type HallTextMessage = {
 export function isCustomSignupPreview(text: string): boolean {
 	return (
 		(/\*\*Joined \(\d+\)\*\*/u.test(text) && /\*\*Maybe \(\d+\)\*\*/u.test(text)) ||
-		/React with .+ to pick a team\. Choose one!/u.test(text)
+		/React with .+ to pick a team\. Choose one!/u.test(text) ||
+		(/<t:\d+(?::[tTdDfFR])?>/u.test(text) &&
+			(/Join, leave, or mark maybe below\./u.test(text) || /React with ✅ to sign up!/u.test(text)))
 	);
 }
 
