@@ -71,16 +71,24 @@ type DeepSeekContentPart = { type: 'text'; text: string } | VisionImageInput;
 const CONVERSATION_TTL_MS = 30 * 60 * 1000;
 const DEEPSEEK_RETRY_STATUSES = new Set([429, 500, 502, 503]);
 const DEEPSEEK_RETRY_DELAY_MS = 1500;
-const MENTION_FAILED_REPLY = 'I could not finish that right now. Please try again.';
-const DEEPSEEK_DOWN_REPLY = 'sorry sniff no talk me, deepseek down not my fault (╥﹏╥)';
+export const MENTION_FAILED_REPLY = 'I could not finish that right now. Please try again.';
+export const DEEPSEEK_DOWN_REPLIES = [
+	'sorry sniff no talk me, deepseek down not my fault (╥﹏╥)',
+	'ermm api no worky someone tell jess',
+	'my brain is buffering. deepseek fell over again (・_・;)',
+	'cant talk rn, deepseek is having a nap without me',
+	'deepseek down. im just standing here. menacingly. try again in a bit',
+	'no thoughts head empty. literally, the api is down (¬_¬)',
+];
 
 /** DeepSeek is overloaded, timing out, or unreachable: their outage, not a bug here. */
 export class DeepSeekUnavailableError extends Error {
 	override name = 'DeepSeekUnavailableError';
 }
 
-export function mentionFailureReply(error: unknown): string {
-	return error instanceof DeepSeekUnavailableError ? DEEPSEEK_DOWN_REPLY : MENTION_FAILED_REPLY;
+export function mentionFailureReply(error: unknown, random = Math.random): string {
+	if (!(error instanceof DeepSeekUnavailableError)) return MENTION_FAILED_REPLY;
+	return DEEPSEEK_DOWN_REPLIES[Math.floor(random() * DEEPSEEK_DOWN_REPLIES.length)]!;
 }
 const CUSTOM_DETAILS_TTL_MS = 5 * 60 * 1000;
 // Shared per channel so jjb can follow a conversation when someone else joins in.

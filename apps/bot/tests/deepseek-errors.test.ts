@@ -5,7 +5,13 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 	process.env[key] ||= 'test';
 mock.module('../src/db', () => ({ db: {} }));
 
-const { askDeepSeek, DeepSeekUnavailableError, mentionFailureReply } = await import(
+const {
+	askDeepSeek,
+	DEEPSEEK_DOWN_REPLIES,
+	DeepSeekUnavailableError,
+	MENTION_FAILED_REPLY,
+	mentionFailureReply,
+} = await import(
 	'../src/modules/mention'
 );
 
@@ -81,15 +87,16 @@ test('DeepSeek being down gets the in-character apology, other failures do not',
 	respondWith([overloaded]);
 	const down = await askDeepSeek('hi', [], false).catch((caught: Error) => caught);
 	expect(down).toBeInstanceOf(DeepSeekUnavailableError);
-	expect(mentionFailureReply(down)).toBe('sorry sniff no talk me, deepseek down not my fault (╥﹏╥)');
+	expect(DEEPSEEK_DOWN_REPLIES).toContain(mentionFailureReply(down));
+	expect(mentionFailureReply(down, () => 0)).toBe('sorry sniff no talk me, deepseek down not my fault (╥﹏╥)');
+	expect(mentionFailureReply(down, () => 0.2)).toBe('ermm api no worky someone tell jess');
+	expect(mentionFailureReply(down, () => 0.9999)).toBe(DEEPSEEK_DOWN_REPLIES.at(-1)!);
 
 	respondWith([() => new Response('{"error":{"message":"Insufficient Balance"}}', { status: 402 })]);
 	const broke = await askDeepSeek('hi', [], false).catch((caught: Error) => caught);
 	expect(broke).not.toBeInstanceOf(DeepSeekUnavailableError);
-	expect(mentionFailureReply(broke)).toBe('I could not finish that right now. Please try again.');
-	expect(mentionFailureReply(new Error('database exploded'))).toBe(
-		'I could not finish that right now. Please try again.'
-	);
+	expect(mentionFailureReply(broke)).toBe(MENTION_FAILED_REPLY);
+	expect(mentionFailureReply(new Error('database exploded'))).toBe(MENTION_FAILED_REPLY);
 });
 
 test('a DeepSeek timeout or network failure also counts as down', async () => {
