@@ -1,4 +1,5 @@
 import { chatApiKey, chatHeaders, chatRequestFields, chatUrl } from '@/modules/chat-model';
+import { filterBotOutput } from '@/modules/output-filter';
 import type { Guild, GuildTextBasedChannel } from 'discord.js';
 
 const MAX_MESSAGES = 500;
@@ -171,13 +172,16 @@ export async function createTldr(
 				: '';
 		const period = previous ? 'since last recap' : `past ${hours} hour${hours === 1 ? '' : 's'}`;
 		const content = `**TL;DR · ${period}${coverage}**\n${summary}`;
-		if (newestMessageId)
+		const outgoingContent =
+			content.length > MAX_REPLY_CHARS ? `${content.slice(0, MAX_REPLY_CHARS - 1)}…` : content;
+		const filteredContent = filterBotOutput(outgoingContent);
+		if (newestMessageId && filteredContent === outgoingContent)
 			summaryCursors.set(cacheKey, {
 				lastMessageId: newestMessageId,
 				lastSummaryAt: Date.now(),
 				expiresAt: previous?.expiresAt ?? now + CACHE_TTL_MS,
 			});
-		return content.length > MAX_REPLY_CHARS ? `${content.slice(0, MAX_REPLY_CHARS - 1)}…` : content;
+		return filteredContent;
 	} finally {
 		activeSummaries.delete(cacheKey);
 	}
