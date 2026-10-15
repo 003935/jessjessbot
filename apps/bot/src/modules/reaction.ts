@@ -4,7 +4,7 @@ import { Logger } from '@/utils';
 
 const logger = new Logger('Reaction');
 
-function isImageOrVideoExcludeGif(contentType: string | null | undefined, imagesOnly = false): boolean {
+export function isImageOrVideoExcludeGif(contentType: string | null | undefined, imagesOnly = false): boolean {
 	return (
 		(contentType?.startsWith('image/') &&
 			contentType !== 'image/gif' &&

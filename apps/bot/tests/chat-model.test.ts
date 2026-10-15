@@ -129,6 +129,68 @@ test('a link gets reasoning, and falls back without it if the model rejects that
 	expect(JSON.stringify(bodies[0]!.messages)).toContain('Do not summarise or restate the preview');
 });
 
+test('food image comments include a model-chosen rating, but video comments do not', async () => {
+	process.env.DEEPSEEK_API_KEY = 'test';
+	const bodies: Array<Record<string, any>> = [];
+	globalThis.fetch = (async (_url: string, init: RequestInit) => {
+		bodies.push(JSON.parse(String(init.body)));
+		return new Response(
+			JSON.stringify({
+				choices: [
+					{
+						message: {
+							tool_calls: [
+								{
+									function: {
+										name: 'reply_chat',
+										arguments: JSON.stringify({
+											reply: 'those noodles look dangerous',
+											rating: 8.5,
+											image_description: 'A bowl of noodles',
+										}),
+									},
+								},
+							],
+						},
+					},
+				],
+			})
+		);
+	}) as unknown as typeof fetch;
+	const args: Parameters<typeof askDeepSeek> = [
+		'food media post',
+		[],
+		false,
+		null,
+		0,
+		null,
+		false,
+		false,
+		'person',
+		null,
+		'person',
+		'person',
+		[{ type: 'image_url', image_url: { url: 'data:image/png;base64,abc', detail: 'auto' } }],
+		[],
+		null,
+		null,
+		null,
+		undefined,
+		'yum',
+		'food',
+	];
+	const imageReply = await askDeepSeek(...args);
+	expect(imageReply.reply).toBe('those noodles look dangerous 8.5/10');
+	expect(bodies[0]!.tools).toHaveLength(1);
+	expect(bodies[0]!.tools[0].function.parameters.required).toContain('rating');
+	expect(JSON.stringify(bodies[0]!.messages)).toContain('subjective food rating');
+	const videoReply = await askDeepSeek(
+		...([...args.slice(0, 12), [], ...args.slice(13)] as unknown as Parameters<typeof askDeepSeek>)
+	);
+	expect(videoReply.reply).toBe('those noodles look dangerous');
+	expect(bodies[1]!.tools[0].function.parameters.required).not.toContain('rating');
+});
+
 const { channelBackground, formatConversationAround } =
 	await import('../src/modules/mention-context');
 

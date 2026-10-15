@@ -34,7 +34,12 @@ async function optimizeImage(bytes: Uint8Array, mimeType: string): Promise<{
 	]) {
 		const output = await sharp(input, { animated: mimeType === 'image/gif' })
 			.rotate()
-			.resize({ width: settings.edge, height: settings.edge, fit: 'inside', withoutEnlargement: true })
+			.resize({
+				width: settings.edge,
+				height: settings.edge,
+				fit: 'inside',
+				withoutEnlargement: true,
+			})
 			.webp({ quality: settings.quality, effort: 4 })
 			.toBuffer();
 		if (output.byteLength <= TARGET_IMAGE_BYTES)
@@ -95,7 +100,35 @@ export async function collectVisionImages(attachments: VisionImageAttachment[]):
 				skippedReasons.add(`attachment-download-http-${response.status}`);
 				continue;
 			}
-			const bytes = new Uint8Array(await response.arrayBuffer());
+			if (Number(response.headers.get('content-length')) > MAX_SOURCE_IMAGE_BYTES) {
+				skippedReasons.add('source-attachment-over-64-MiB-limit');
+				await response.body?.cancel();
+				continue;
+			}
+			if (!response.body) {
+				skippedReasons.add('attachment-download-or-image-processing-failed');
+				continue;
+			}
+			const reader = response.body.getReader();
+			const chunks: Uint8Array[] = [];
+			let downloadedBytes = 0;
+			let tooLarge = false;
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				downloadedBytes += value.byteLength;
+				if (downloadedBytes > MAX_SOURCE_IMAGE_BYTES) {
+					tooLarge = true;
+					await reader.cancel();
+					break;
+				}
+				chunks.push(value);
+			}
+			if (tooLarge) {
+				skippedReasons.add('source-attachment-over-64-MiB-limit');
+				continue;
+			}
+			const bytes = Buffer.concat(chunks, downloadedBytes);
 			const mimeType = detectImageType(bytes);
 			if (
 				!bytes.byteLength ||
