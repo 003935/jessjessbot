@@ -77,7 +77,6 @@ export const DEEPSEEK_DOWN_REPLIES = [
 	'ermm api no worky someone tell jess',
 	'my brain is buffering. deepseek fell over again (・_・;)',
 	'cant talk rn, deepseek is having a nap without me',
-	'deepseek down. im just standing here. menacingly. try again in a bit',
 	'no thoughts head empty. literally, the api is down (¬_¬)',
 ];
 
