@@ -7,13 +7,10 @@ process.env.YUM_CHANNEL_ID = 'yum';
 process.env.PET_CHANNEL_ID = 'pets';
 
 const askDeepSeek = mock(async (..._args: unknown[]) => ({ reply: 'looks delicious 8/10' }));
-const collectVisionImages = mock(async (attachments: unknown[]) => ({
-	images: attachments.length
-		? [{ type: 'image_url', image_url: { url: 'data:image/png;base64,abc', detail: 'auto' } }]
-		: [],
+mock.module('../src/modules/mention', () => ({
+	askDeepSeek,
+	isPublicChannel: (message: { channel: { public: boolean } }) => message.channel.public,
 }));
-mock.module('../src/modules/mention', () => ({ askDeepSeek }));
-mock.module('../src/modules/vision-images', () => ({ collectVisionImages }));
 
 const { handleMediaReply, mediaReplyKind } = await import('../src/modules/media-replies');
 
@@ -27,7 +24,7 @@ function message(channelId: string, content = '', attachments: object[] = []) {
 		client: { user: { id: 'bot' } },
 		mentions: { users: { has: (id: string) => content.includes(`<@${id}>`) } },
 		attachments: new Map(attachments.map((attachment, index) => [index, attachment])),
-		channel: { sendTyping: async () => undefined },
+		channel: { public: true, sendTyping: async () => undefined },
 		reply,
 		member: { displayName: 'Person' },
 		reference: null,
@@ -47,6 +44,16 @@ test('only unaddressed posts in the two configured channels qualify', () => {
 });
 
 test('food image gets one contextual reply with rating and no user ping', async () => {
+	const fetchBefore = globalThis.fetch;
+	globalThis.fetch = mock(
+		async () =>
+			new Response(
+				Buffer.from(
+					'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l64AAAAASUVORK5CYII=',
+					'base64'
+				)
+			)
+	) as unknown as typeof fetch;
 	const post = message('yum', 'made this', [
 		{
 			contentType: 'image/png',
@@ -55,8 +62,12 @@ test('food image gets one contextual reply with rating and no user ping', async 
 			url: 'https://example.com/dinner.png',
 		},
 	]);
-	expect(await handleMediaReply(post)).toBe(true);
-	expect(collectVisionImages).toHaveBeenCalled();
+	try {
+		expect(await handleMediaReply(post)).toBe(true);
+	} finally {
+		globalThis.fetch = fetchBefore;
+	}
+	expect((askDeepSeek.mock.calls.at(-1)?.[12] as unknown[]).length).toBe(1);
 	expect(askDeepSeek.mock.calls.at(-1)?.at(-1)).toBe('food');
 	expect(post.reply).toHaveBeenCalledWith({
 		content: 'looks delicious 8/10',
@@ -84,4 +95,21 @@ test('a reply to jjb is left to normal mention handling', async () => {
 	post.fetchReference = async () => ({ author: { id: 'bot' } });
 	expect(await handleMediaReply(post)).toBe(false);
 	expect(post.reply).not.toHaveBeenCalled();
+});
+
+test('private-channel media is never sent to vision or chat', async () => {
+	const post = message('yum', '', [
+		{ contentType: 'image/png', size: 123, url: 'https://example.com/private.png' },
+	]);
+	post.channel.public = false;
+	askDeepSeek.mockClear();
+	const fetchBefore = globalThis.fetch;
+	const fetchSpy = mock(async () => {
+		throw new Error('unexpected download');
+	});
+	globalThis.fetch = fetchSpy as unknown as typeof fetch;
+	expect(await handleMediaReply(post)).toBe(false);
+	globalThis.fetch = fetchBefore;
+	expect(fetchSpy).not.toHaveBeenCalled();
+	expect(askDeepSeek).not.toHaveBeenCalled();
 });

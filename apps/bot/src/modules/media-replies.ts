@@ -1,5 +1,5 @@
 import type { Attachment, Message } from 'discord.js';
-import { askDeepSeek } from '@/modules/mention';
+import { askDeepSeek, isPublicChannel } from '@/modules/mention';
 import { botPrompt } from '@/modules/mention-trigger';
 import { isImageOrVideoExcludeGif } from '@/modules/reaction';
 import { filterBotOutput } from '@/modules/output-filter';
@@ -28,7 +28,7 @@ export function mediaReplyKind(message: Message, replyingToBot = false): 'food' 
 
 export async function handleMediaReply(message: Message<true>): Promise<boolean> {
 	const initialKind = mediaReplyKind(message);
-	if (!initialKind) return false;
+	if (!initialKind || !isPublicChannel(message)) return false;
 	const referenced = message.reference?.messageId
 		? await message.fetchReference().catch(() => null)
 		: null;

@@ -802,7 +802,7 @@ async function changeRoles(
 	return `${action === 'add' ? 'Added' : 'Removed'} ${toChange.map((role) => `“${role.name}”`).join(', ')} ${action === 'add' ? 'for' : 'from'} ${target.displayName}.`;
 }
 
-function isPublicChannel(message: Message<true>): boolean {
+export function isPublicChannel(message: Message<true>): boolean {
 	const channel = message.channel;
 	if (
 		channel.type !== ChannelType.GuildText &&
