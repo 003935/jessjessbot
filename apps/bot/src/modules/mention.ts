@@ -59,6 +59,7 @@ import { learnInBackground } from '@/modules/mention-notes';
 import { learnOpinionInBackground, relevantOpinions } from '@/modules/mention-opinions';
 import { channelBackground, linkPreviewContext, withLinkEmbeds } from '@/modules/mention-context';
 import { chatApiKey, chatHeaders, chatRequestFields, chatUrl, type ChatTier } from '@/modules/chat-model';
+import { filterBotOutput } from '@/modules/output-filter';
 
 const logger = new Logger('Mention');
 const ROLE_ADMIN_ID = '1157046480968892557';
@@ -1669,8 +1670,12 @@ export async function handleMention(message: Message): Promise<void> {
 				logger.error('Could not choose a server emoji', error);
 				return content;
 			});
+		const outgoingContent = content.slice(0, 1900);
+		const filteredContent = filterBotOutput(outgoingContent);
+		if (filteredContent !== outgoingContent) casualReply = false;
+		content = filteredContent;
 		const sentReply = await message.reply({
-			content: content.slice(0, 1900),
+			content,
 			allowedMentions: { parse: [] },
 		});
 		resetDeepSeekDownStreak(message.channelId);
@@ -1682,7 +1687,7 @@ export async function handleMention(message: Message): Promise<void> {
 			);
 		}
 		for (const extra of extraMessages)
-			await message.channel.send({ content: extra.slice(0, 1900), allowedMentions: { parse: [] } });
+			await message.channel.send({ content: filterBotOutput(extra.slice(0, 1900)), allowedMentions: { parse: [] } });
 		if (isPublicChannel(message))
 			remember(
 				message.channelId,
