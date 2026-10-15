@@ -22,42 +22,22 @@ export function attitudeShift(input: string): -1 | 0 | 1 {
 	return nice === mean ? 0 : nice ? 1 : -1;
 }
 
-// Per message, in tenths of a point: being nice nudges the meter up by 0.6 (max 1.2 a day),
-// being mean knocks it down by 1.5 (max 4.5 a day). Daily caps reset if the bot restarts.
-const NICE_POINTS = 6;
-const MEAN_POINTS = -15;
-const DAILY_GAIN_CAP = 12;
-const DAILY_LOSS_CAP = -45;
-const dailyChange = new Map<string, number>();
-
-function cappedDelta(guildId: string, userId: string, shift: -1 | 0 | 1): number {
-	if (!shift) return 0;
-	const day = new Date().toISOString().slice(0, 10);
-	for (const key of dailyChange.keys()) if (!key.endsWith(day)) dailyChange.delete(key);
-	const key = `${guildId}:${userId}:${day}`;
-	const sofar = dailyChange.get(key) ?? 0;
-	const wanted = shift > 0 ? NICE_POINTS : MEAN_POINTS;
-	const allowed =
-		shift > 0
-			? Math.max(0, Math.min(wanted, DAILY_GAIN_CAP - sofar))
-			: Math.min(0, Math.max(wanted, DAILY_LOSS_CAP - sofar));
-	dailyChange.set(key, sofar + allowed);
-	return allowed;
-}
+export type RelationshipState = Awaited<ReturnType<typeof db.botRelationship.interact>>;
 
 export async function relationshipState(
 	guildId: string,
 	userId: string,
 	prompt: string
-): Promise<{ score: number; lastInteractedAt: Date | null; interactionCount: number }> {
+): Promise<RelationshipState> {
 	const shift = attitudeShift(prompt);
 	const now = Date.now();
 	for (const [key, time] of recentShifts) {
 		if (now - time >= repeatWindowMs) recentShifts.delete(key);
 	}
+	// Pasting the same compliment or insult again within 10 minutes doesn't count twice.
 	const key = `${guildId}:${userId}:${prompt.toLocaleLowerCase().trim().replace(/\s+/gu, ' ')}`;
 	const fresh = shift && (recentShifts.get(key) ?? 0) <= now - repeatWindowMs ? shift : 0;
-	const state = await db.botRelationship.interact(guildId, userId, cappedDelta(guildId, userId, fresh));
+	const state = await db.botRelationship.interact(guildId, userId, fresh);
 	if (fresh) recentShifts.set(key, now);
 	return state;
 }
@@ -155,7 +135,8 @@ function howOften(interactionCount: number): string {
 export function feelingsPrompt(
 	score: number,
 	interactionCount: number,
-	random = Math.random
+	random = Math.random,
+	niceStreak = 0
 ): string {
 	const tier =
 		score <= -20 ? 'cold' : score >= CLOSE_SCORE ? 'close' : score >= 20 ? 'warm' : 'neutral';
@@ -167,5 +148,23 @@ export function feelingsPrompt(
 	}[tier];
 	const angles = FEELINGS_ANGLES[tier];
 	const angle = angles[Math.floor(random() * angles.length)]!;
-	return `They are asking how you feel about them, or showing you affection. Answer about this person specifically, not with a stock line, and never just "ur ok" or "ask me later". Where things stand: ${standing}; ${howOften(interactionCount)}. Use what you know about them (saved details, this conversation) if it fits. This time, try this angle and make it your own: ${angle}. Never mention a score, meter, or points.`;
+	return `They are asking how you feel about them, or showing you affection. Answer about this person specifically, not with a stock line, and never just "ur ok" or "ask me later". Where things stand: ${standing}; ${howOften(interactionCount)}${niceStreak >= 3 ? `; they have been sweet to you ${niceStreak} days in a row` : ''}. Use what you know about them (saved details, this conversation) if it fits. This time, try this angle and make it your own: ${angle}. Never mention a score, meter, or points.`;
+}
+
+/**
+ * They came back after going quiet for a while. How she takes it depends on how
+ * close they were: a regular vanishing stings more than a stranger doing it.
+ */
+export function absencePrompt(score: number, daysAway: number): string | null {
+	if (daysAway < 3) return null;
+	const gone = daysAway >= 14 ? 'weeks' : daysAway >= 7 ? 'over a week' : `${daysAway} days`;
+	const reaction =
+		score >= CLOSE_SCORE
+			? 'You missed them and are a bit hurt they vanished. Let it show: dramatic, clingy, or sulky ("where WERE u", "i thought u forgot about me"), then be glad they are back.'
+			: score >= 20
+				? 'You noticed. Make a dry, slightly hurt comment about them disappearing ("oh look who remembered i exist"), then carry on.'
+				: score <= -20
+					? 'You were not exactly waiting for them. Be unimpressed that they are back.'
+					: 'You barely know them, so at most a light "oh ur alive" type comment, or nothing.';
+	return `This person has not talked to you in ${gone}. ${reaction} Only mention it in your first reply to them, keep it to one line, and still answer what they said. Never mention a score, meter, or points.`;
 }

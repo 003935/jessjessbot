@@ -4,16 +4,18 @@ Built from Jess's interview (6 Oct 2026).
 Item scores below are on a **taste scale**: loved +8 · liked +4 · neutral +1 · disliked -3 · hated -6 (numbers in between are deliberate).
 The affection meter (-100..100) moves slower: a gift moves it by **taste points x 0.18** (a loved gift is about +1.4).
 
-## Pace (target: someone around daily and nice reaches ~80 in about a month)
+## Pace (target: someone nice to her every day gets close in about a week)
 | Source | Meter change |
 |---|---|
 | Turning up on a new day | +0.6 (only counts up to 30) |
-| Nice message | +0.6, max +1.2 a day |
-| Mean message | -1.5, max -4.5 a day |
+| Nice message | streak based: +1.5 on day 1 of a nice streak, x1.5 each day in a row (2.3, 3.4, 5.1, 7.6), capped at +9; halved once they are at 50+. Up to 3 nice messages count per day |
+| Missing a day | nice streak resets to day 1 |
+| Mean message | -3, then -6, then -12 the same day, max -30 a day; wipes the nice streak |
 | Gift | taste x 0.18 (mango sticky rice +1.8, Indomie +2.2, wasabi -1.1) |
-| Away > 2 weeks | -3 a week towards neutral |
-Every day, nice, gifting with variety ≈ +2.7/day → ~80 after a month. A few times a week ≈ 30 after a month, ~80 after 3.
-Being rude every day: "not a fan" (-20) in ~5 days.
+| Away > 3 days | -1 a day towards neutral, -2 a day after 10 days away |
+Nice 3 times every day ≈ 23 after 3 days, ~54 after 5, ~81 after a week. Nice once a day ≈ close (50) after 8 days, ~80 after two weeks.
+Three rude messages in one day: -21. Two weeks away from 60 drops to ~45; a month away to ~13.
+Coming back after 3+ days away gets a one-line reaction that depends on how close they were (hurt and clingy if close, dry if friendly).
 
 ## Still to decide
 - [ ] **Books** — list the genres jjb likes / dislikes (score depends on genre).

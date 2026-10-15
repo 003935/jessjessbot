@@ -15,6 +15,7 @@ import { handleTeamMention } from '@/modules/custom-teams';
 import { parseVaderMinutes, runVader } from '@/modules/vader';
 import {
 	attitudeShift,
+	absencePrompt,
 	feelingsPrompt,
 	isFeelingsTalk,
 	isReunion,
@@ -891,7 +892,11 @@ export async function askDeepSeek(
 	linkPreviews: string | null = null,
 	channelContext: string | null = null,
 	personality: BotPersonality | null = null,
-	interactionCount = 0
+	relationshipDetails: { interactionCount: number; niceStreak: number; daysAway: number } = {
+		interactionCount: 0,
+		niceStreak: 0,
+		daysAway: 0,
+	}
 ): Promise<{
 	reply?: string;
 	imageDescription?: string;
@@ -903,6 +908,7 @@ export async function askDeepSeek(
 }> {
 	const apiKey = chatApiKey();
 	if (!apiKey) return { reply: 'I need a chat API key before I can chat.' };
+	const absenceLine = absencePrompt(relationship, relationshipDetails.daysAway);
 	// Banter stays fast; anything she has to actually look at or think about gets reasoning.
 	const tier: ChatTier =
 		visionImages.length || linkPreviews || allowsLongChatReply(prompt) ? 'deep' : 'quick';
@@ -917,7 +923,7 @@ export async function askDeepSeek(
 	const messages: unknown[] = [
 		{
 			role: 'system',
-			content: `${VOICE_PROMPT}${personalityPrompt(personality, prompt)}${isFoodTalk(prompt) ? `\n\n${FOOD_TASTES}` : ''}\n\n${PERSONAL_MEMORY_PROMPT}\n\n${MEME_PROMPT}${relevantBotPreferences(prompt, personality?.preferences ?? defaultPreferences, !!personality?.preferences)}\n\n${RELIABILITY_PROMPT}\n\n${ACTION_PROMPT}${webSearchEnabled() && !visionImages.length ? `\n\n${WEB_SEARCH_PROMPT}` : ''}\n\n${relationshipTone(relationship, cute, reunion)}${isFeelingsTalk(prompt) ? `\n\n${feelingsPrompt(relationship, interactionCount)}` : ''}${playingGame ? `\n\n${GAME_PROMPT}` : ''}${visionImages.length ? `\n\n${IMAGE_PROMPT}` : ''}${linkPreviews ? `\n\n${LINK_PROMPT}` : ''}\n\n${addressPrompt(speakerUsername, speakerName, nickname, prompt)}`,
+			content: `${VOICE_PROMPT}${personalityPrompt(personality, prompt)}${isFoodTalk(prompt) ? `\n\n${FOOD_TASTES}` : ''}\n\n${PERSONAL_MEMORY_PROMPT}\n\n${MEME_PROMPT}${relevantBotPreferences(prompt, personality?.preferences ?? defaultPreferences, !!personality?.preferences)}\n\n${RELIABILITY_PROMPT}\n\n${ACTION_PROMPT}${webSearchEnabled() && !visionImages.length ? `\n\n${WEB_SEARCH_PROMPT}` : ''}\n\n${relationshipTone(relationship, cute, reunion)}${isFeelingsTalk(prompt) ? `\n\n${feelingsPrompt(relationship, relationshipDetails.interactionCount, Math.random, relationshipDetails.niceStreak)}` : ''}${absenceLine ? `\n\n${absenceLine}` : ''}${playingGame ? `\n\n${GAME_PROMPT}` : ''}${visionImages.length ? `\n\n${IMAGE_PROMPT}` : ''}${linkPreviews ? `\n\n${LINK_PROMPT}` : ''}\n\n${addressPrompt(speakerUsername, speakerName, nickname, prompt)}`,
 		},
 		...(channelContext ? [{ role: 'user', content: channelContext }] : []),
 		...history,
@@ -1340,7 +1346,7 @@ export async function handleMention(message: Message): Promise<void> {
 	const relationship = await relationshipState(message.guildId, message.author.id, prompt).catch(
 		(error) => {
 			logger.error('Could not update relationship state', error);
-			return { score: 0, lastInteractedAt: null, interactionCount: 0 };
+			return { score: 0, lastInteractedAt: null, interactionCount: 0, niceStreak: 0, daysAway: 0 };
 		}
 	);
 	const pendingCustom = pendingCustoms.get(pendingKey);
@@ -1546,6 +1552,7 @@ export async function handleMention(message: Message): Promise<void> {
 							relationship.score,
 							memberPreferences,
 							Math.random() < 0.12,
+							relationship.daysAway < 3 &&
 							isReunion(relationship.lastInteractedAt, new Date(), prompt, relationship.score) &&
 								Math.random() < 0.6,
 							speakerName,
@@ -1557,7 +1564,7 @@ export async function handleMention(message: Message): Promise<void> {
 							linkPreviews,
 							channelContext,
 							personality,
-							relationship.interactionCount
+							relationship
 						);
 				// With shared history the model sometimes just repeats an earlier answer
 				// ("one death beats five" twice). Retry once without history if it does.
@@ -1580,7 +1587,7 @@ export async function handleMention(message: Message): Promise<void> {
 						linkPreviews,
 						channelContext,
 						personality,
-						relationship.interactionCount
+						relationship
 					);
 				savedImageDescription = imageCollection.images.length ? result.imageDescription : undefined;
 				savedImageSourceIds = imageCollection.sourceMessageIds;

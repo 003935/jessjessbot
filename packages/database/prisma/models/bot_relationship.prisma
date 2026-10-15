@@ -3,6 +3,13 @@ model BotRelationship {
   userId    String
   score     Int      @default(0)
   interactionCount Int @default(0)
+  // Days in a row they were nice to her, and the day (YYYY-MM-DD, UTC) it last grew.
+  niceStreak   Int     @default(0)
+  lastNiceDay  String?
+  // Today's tallies, reset when day changes.
+  day          String?
+  dayGain      Int     @default(0)
+  dayMeanCount Int     @default(0)
   updatedAt DateTime @updatedAt
 
   @@id([guildId, userId])
