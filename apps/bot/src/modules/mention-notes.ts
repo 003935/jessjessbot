@@ -1,5 +1,6 @@
 import { db } from '@/db';
 import { Logger } from '@/utils';
+import { chatApiKey, chatRequestFields, chatUrl } from '@/modules/chat-model';
 
 // Lets jjb pick up things people mention about themselves in normal chat
 // ("my exam is friday", "i just started working nights") without them having
@@ -41,15 +42,15 @@ export async function learnFromMessage(
 	existing: string[],
 	now = new Date()
 ): Promise<string[]> {
-	const apiKey = process.env.DEEPSEEK_API_KEY;
+	const apiKey = chatApiKey();
 	if (!apiKey || !mightShareSomething(prompt)) return [];
 	if (!(await db.botMemberPreference.autoMemoryEnabled(guildId, userId))) return [];
-	const response = await fetch('https://api.deepseek.com/chat/completions', {
+	const response = await fetch(chatUrl(), {
 		method: 'POST',
 		headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
 		signal: AbortSignal.timeout(20_000),
 		body: JSON.stringify({
-			model: process.env.DEEPSEEK_MODEL || 'deepseek-flash',
+			...chatRequestFields('quick', { temperature: 0.2, maxTokens: 150, reasoning: false }),
 			messages: [
 				{ role: 'system', content: NOTES_PROMPT },
 				{
@@ -75,9 +76,6 @@ export async function learnFromMessage(
 				},
 			],
 			tool_choice: 'required',
-			thinking: { type: 'disabled' },
-			temperature: 0.2,
-			max_tokens: 150,
 			stream: false,
 		}),
 	});
