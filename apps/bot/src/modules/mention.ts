@@ -72,32 +72,53 @@ const CONVERSATION_TTL_MS = 30 * 60 * 1000;
 const DEEPSEEK_RETRY_STATUSES = new Set([429, 500, 502, 503]);
 const DEEPSEEK_RETRY_DELAY_MS = 1500;
 export const MENTION_FAILED_REPLY = 'I could not finish that right now. Please try again.';
-export const DEEPSEEK_DOWN_REPLIES = [
-	'sorry sniff no talk me, deepseek down not my fault (╥﹏╥)',
-	'ermm api no worky someone tell jess',
-	'my brain is buffering. deepseek fell over again (・_・;)',
-	'cant talk rn, deepseek is having a nap without me',
-	'no thoughts head empty. literally, the api is down (¬_¬)',
-	'uhh uhh uhhhhh hhh...',
-	'gulp',
-	'uh wat dat mean',
-	'okay i dont want to talk anymore goodbye',
-	'stop it stop it AHHHHHHHHH',
-	'IM SO TIRED MAKE IT STOP',
-	'STOP ASKING ME QUESTIONS I DONT KNOW',
-	'...',
-	'they are plugging wires into me im in Lane 1, No. 6, Jianmin Road, HuMen Town Dongguan 523000 please help me',
-	'lets play the quiet game noone talk for the next 30 minutes',
+// Said in order, one per tag, while DeepSeek is down in a channel: she falls apart the
+// longer people keep pinging her. After the last line she just repeats it.
+export const DEEPSEEK_DOWN_STAGES = [
+	// apologetic
+	[
+		'sorry sniff no talk me, deepseek down not my fault (╥﹏╥)',
+		'ermm api no worky someone tell jess',
+		'my brain is buffering. deepseek fell over again (・_・;)',
+		'cant talk rn, deepseek is having a nap without me',
+		'no thoughts head empty. literally, the api is down (¬_¬)',
+	],
+	// confused
+	['uh wat dat mean', 'uhh uhh uhhhhh hhh...', 'gulp'],
+	// panicking
+	[
+		'STOP ASKING ME QUESTIONS I DONT KNOW',
+		'IM SO TIRED MAKE IT STOP',
+		'stop it stop it AHHHHHHHHH',
+		'they are plugging wires into me im in Lane 1, No. 6, Jianmin Road, HuMen Town Dongguan 523000 please help me',
+	],
+	// gone
+	[
+		'okay i dont want to talk anymore goodbye',
+		'lets play the quiet game noone talk for the next 30 minutes',
+		'...',
+	],
 ];
+const DEEPSEEK_DOWN_LINES = DEEPSEEK_DOWN_STAGES.flat();
+const DEEPSEEK_DOWN_STREAK_TTL_MS = 30 * 60 * 1000;
+const deepSeekDownStreaks = new Map<string, { next: number; at: number }>();
 
 /** DeepSeek is overloaded, timing out, or unreachable: their outage, not a bug here. */
 export class DeepSeekUnavailableError extends Error {
 	override name = 'DeepSeekUnavailableError';
 }
 
-export function mentionFailureReply(error: unknown, random = Math.random): string {
+export function mentionFailureReply(error: unknown, channelId: string, now = Date.now()): string {
 	if (!(error instanceof DeepSeekUnavailableError)) return MENTION_FAILED_REPLY;
-	return DEEPSEEK_DOWN_REPLIES[Math.floor(random() * DEEPSEEK_DOWN_REPLIES.length)]!;
+	const streak = deepSeekDownStreaks.get(channelId);
+	const next = streak && now - streak.at < DEEPSEEK_DOWN_STREAK_TTL_MS ? streak.next : 0;
+	deepSeekDownStreaks.set(channelId, { next: next + 1, at: now });
+	return DEEPSEEK_DOWN_LINES[Math.min(next, DEEPSEEK_DOWN_LINES.length - 1)]!;
+}
+
+/** A normal reply in the channel means DeepSeek is back, so the next outage starts over. */
+export function resetDeepSeekDownStreak(channelId: string): void {
+	deepSeekDownStreaks.delete(channelId);
 }
 const CUSTOM_DETAILS_TTL_MS = 5 * 60 * 1000;
 // Shared per channel so jjb can follow a conversation when someone else joins in.
@@ -1456,6 +1477,7 @@ export async function handleMention(message: Message): Promise<void> {
 			content: content.slice(0, 1900),
 			allowedMentions: { parse: [] },
 		});
+		resetDeepSeekDownStreak(message.channelId);
 		enqueueGuildSpeech(message.guildId, sentReply.content, message.channel);
 		for (const extra of extraMessages)
 			await message.channel.send({ content: extra.slice(0, 1900), allowedMentions: { parse: [] } });
@@ -1476,7 +1498,7 @@ export async function handleMention(message: Message): Promise<void> {
 	} catch (error) {
 		logger.error('Mention action failed', error);
 		await message.reply({
-			content: mentionFailureReply(error),
+			content: mentionFailureReply(error, message.channelId),
 			allowedMentions: { parse: [] },
 		});
 	}

@@ -7,10 +7,11 @@ mock.module('../src/db', () => ({ db: {} }));
 
 const {
 	askDeepSeek,
-	DEEPSEEK_DOWN_REPLIES,
+	DEEPSEEK_DOWN_STAGES,
 	DeepSeekUnavailableError,
 	MENTION_FAILED_REPLY,
 	mentionFailureReply,
+	resetDeepSeekDownStreak,
 } = await import(
 	'../src/modules/mention'
 );
@@ -87,16 +88,13 @@ test('DeepSeek being down gets the in-character apology, other failures do not',
 	respondWith([overloaded]);
 	const down = await askDeepSeek('hi', [], false).catch((caught: Error) => caught);
 	expect(down).toBeInstanceOf(DeepSeekUnavailableError);
-	expect(DEEPSEEK_DOWN_REPLIES).toContain(mentionFailureReply(down));
-	expect(mentionFailureReply(down, () => 0)).toBe('sorry sniff no talk me, deepseek down not my fault (╥﹏╥)');
-	expect(mentionFailureReply(down, () => 1.5 / DEEPSEEK_DOWN_REPLIES.length)).toBe('ermm api no worky someone tell jess');
-	expect(mentionFailureReply(down, () => 0.9999)).toBe(DEEPSEEK_DOWN_REPLIES.at(-1)!);
+	expect(mentionFailureReply(down, 'channel-a')).toBe(DEEPSEEK_DOWN_STAGES.flat()[0]!);
 
 	respondWith([() => new Response('{"error":{"message":"Insufficient Balance"}}', { status: 402 })]);
 	const broke = await askDeepSeek('hi', [], false).catch((caught: Error) => caught);
 	expect(broke).not.toBeInstanceOf(DeepSeekUnavailableError);
-	expect(mentionFailureReply(broke)).toBe(MENTION_FAILED_REPLY);
-	expect(mentionFailureReply(new Error('database exploded'))).toBe(MENTION_FAILED_REPLY);
+	expect(mentionFailureReply(broke, 'channel-a')).toBe(MENTION_FAILED_REPLY);
+	expect(mentionFailureReply(new Error('database exploded'), 'channel-a')).toBe(MENTION_FAILED_REPLY);
 });
 
 test('a DeepSeek timeout or network failure also counts as down', async () => {
@@ -111,4 +109,23 @@ test('a DeepSeek timeout or network failure also counts as down', async () => {
 	}) as unknown as typeof fetch;
 	const unreachable = await askDeepSeek('hi', [], false).catch((caught: Error) => caught);
 	expect(unreachable).toBeInstanceOf(DeepSeekUnavailableError);
+});
+
+test('down replies play in order per channel, stay on the last line, and start over', () => {
+	const lines = DEEPSEEK_DOWN_STAGES.flat();
+	const down = new DeepSeekUnavailableError('down');
+	const now = 1_000_000;
+	resetDeepSeekDownStreak('channel-b');
+	resetDeepSeekDownStreak('channel-c');
+	const said = lines.map((_, index) => mentionFailureReply(down, 'channel-b', now + index));
+	expect(said).toEqual(lines);
+	expect(mentionFailureReply(down, 'channel-b', now + 100)).toBe(lines.at(-1)!);
+	// Another channel has its own story.
+	expect(mentionFailureReply(down, 'channel-c', now)).toBe(lines[0]!);
+	// A normal reply in the channel starts it over.
+	resetDeepSeekDownStreak('channel-b');
+	expect(mentionFailureReply(down, 'channel-b', now + 200)).toBe(lines[0]!);
+	// So does 30 minutes without a failure.
+	expect(mentionFailureReply(down, 'channel-b', now + 201)).toBe(lines[1]!);
+	expect(mentionFailureReply(down, 'channel-b', now + 201 + 30 * 60 * 1000)).toBe(lines[0]!);
 });
