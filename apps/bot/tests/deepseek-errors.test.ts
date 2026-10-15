@@ -7,7 +7,7 @@ mock.module('../src/db', () => ({ db: {} }));
 
 const {
 	askDeepSeek,
-	DEEPSEEK_DOWN_STAGES,
+	DEEPSEEK_DOWN_SCENARIOS,
 	DeepSeekUnavailableError,
 	MENTION_FAILED_REPLY,
 	mentionFailureReply,
@@ -88,7 +88,8 @@ test('DeepSeek being down gets the in-character apology, other failures do not',
 	respondWith([overloaded]);
 	const down = await askDeepSeek('hi', [], false).catch((caught: Error) => caught);
 	expect(down).toBeInstanceOf(DeepSeekUnavailableError);
-	expect(mentionFailureReply(down, 'channel-a')).toBe(DEEPSEEK_DOWN_STAGES.flat()[0]!);
+	const firstLines = Object.values(DEEPSEEK_DOWN_SCENARIOS).map((stages) => stages.flat()[0]);
+	expect(firstLines).toContain(mentionFailureReply(down, 'channel-a'));
 
 	respondWith([() => new Response('{"error":{"message":"Insufficient Balance"}}', { status: 402 })]);
 	const broke = await askDeepSeek('hi', [], false).catch((caught: Error) => caught);
@@ -111,21 +112,35 @@ test('a DeepSeek timeout or network failure also counts as down', async () => {
 	expect(unreachable).toBeInstanceOf(DeepSeekUnavailableError);
 });
 
-test('down replies play in order per channel, stay on the last line, and start over', () => {
-	const lines = DEEPSEEK_DOWN_STAGES.flat();
+test('an outage picks one storyline and plays it in order per channel', () => {
+	const breakdown = DEEPSEEK_DOWN_SCENARIOS.breakdown.flat();
+	const outOfOffice = DEEPSEEK_DOWN_SCENARIOS.outOfOffice.flat();
 	const down = new DeepSeekUnavailableError('down');
 	const now = 1_000_000;
+	const pickBreakdown = () => 0;
+	const pickOutOfOffice = () => 0.99;
+	for (const channel of ['channel-b', 'channel-c', 'channel-d']) resetDeepSeekDownStreak(channel);
+
+	// The storyline is chosen on the first failure and kept for the rest of the outage.
+	const said = breakdown.map((_, index) =>
+		mentionFailureReply(down, 'channel-b', now + index, index ? pickOutOfOffice : pickBreakdown)
+	);
+	expect(said).toEqual(breakdown);
+	expect(mentionFailureReply(down, 'channel-b', now + 100, pickOutOfOffice)).toBe(breakdown.at(-1)!);
+
+	// Another channel has its own outage and storyline.
+	const office = outOfOffice.map((_, index) =>
+		mentionFailureReply(down, 'channel-c', now + index, index ? pickBreakdown : pickOutOfOffice)
+	);
+	expect(office).toEqual(outOfOffice);
+	expect(mentionFailureReply(down, 'channel-c', now + 100, pickBreakdown)).toBe(outOfOffice.at(-1)!);
+
+	// A normal reply starts the next outage over, with a fresh storyline.
 	resetDeepSeekDownStreak('channel-b');
-	resetDeepSeekDownStreak('channel-c');
-	const said = lines.map((_, index) => mentionFailureReply(down, 'channel-b', now + index));
-	expect(said).toEqual(lines);
-	expect(mentionFailureReply(down, 'channel-b', now + 100)).toBe(lines.at(-1)!);
-	// Another channel has its own story.
-	expect(mentionFailureReply(down, 'channel-c', now)).toBe(lines[0]!);
-	// A normal reply in the channel starts it over.
-	resetDeepSeekDownStreak('channel-b');
-	expect(mentionFailureReply(down, 'channel-b', now + 200)).toBe(lines[0]!);
+	expect(mentionFailureReply(down, 'channel-b', now + 200, pickOutOfOffice)).toBe(outOfOffice[0]!);
+
 	// So does 30 minutes without a failure.
-	expect(mentionFailureReply(down, 'channel-b', now + 201)).toBe(lines[1]!);
-	expect(mentionFailureReply(down, 'channel-b', now + 201 + 30 * 60 * 1000)).toBe(lines[0]!);
+	expect(mentionFailureReply(down, 'channel-d', now, pickBreakdown)).toBe(breakdown[0]!);
+	expect(mentionFailureReply(down, 'channel-d', now + 1, pickBreakdown)).toBe(breakdown[1]!);
+	expect(mentionFailureReply(down, 'channel-d', now + 1 + 30 * 60 * 1000, pickBreakdown)).toBe(breakdown[0]!);
 });

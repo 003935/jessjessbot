@@ -72,48 +72,91 @@ const CONVERSATION_TTL_MS = 30 * 60 * 1000;
 const DEEPSEEK_RETRY_STATUSES = new Set([429, 500, 502, 503]);
 const DEEPSEEK_RETRY_DELAY_MS = 1500;
 export const MENTION_FAILED_REPLY = 'I could not finish that right now. Please try again.';
-// Said in order, one per tag, while DeepSeek is down in a channel: she falls apart the
-// longer people keep pinging her. After the last line she just repeats it.
-export const DEEPSEEK_DOWN_STAGES = [
-	// apologetic
-	[
-		'sorry sniff no talk me, deepseek down not my fault (╥﹏╥)',
-		'ermm api no worky someone tell jess',
-		'my brain is buffering. deepseek fell over again (・_・;)',
-		'cant talk rn, deepseek is having a nap without me',
-		'no thoughts head empty. literally, the api is down (¬_¬)',
+// While DeepSeek is down in a channel, each tag gets the next line of one storyline,
+// picked at random when the outage starts. After the last line she repeats it.
+export const DEEPSEEK_DOWN_SCENARIOS = {
+	// she falls apart the longer people keep pinging her
+	breakdown: [
+		// apologetic
+		[
+			'sorry sniff no talk me, deepseek down not my fault (╥﹏╥)',
+			'ermm api no worky someone tell jess',
+			'my brain is buffering. deepseek fell over again (・_・;)',
+			'cant talk rn, deepseek is having a nap without me',
+			'no thoughts head empty. literally, the api is down (¬_¬)',
+		],
+		// confused
+		['uh wat dat mean', 'uhh uhh uhhhhh hhh...', 'gulp'],
+		// panicking
+		[
+			'STOP ASKING ME QUESTIONS I DONT KNOW',
+			'IM SO TIRED MAKE IT STOP',
+			'stop it stop it AHHHHHHHHH',
+			'they are plugging wires into me im in Lane 1, No. 6, Jianmin Road, HuMen Town Dongguan 523000 please help me',
+		],
+		// gone
+		[
+			'okay i dont want to talk anymore goodbye',
+			'lets play the quiet game noone talk for the next 30 minutes',
+			'...',
+		],
 	],
-	// confused
-	['uh wat dat mean', 'uhh uhh uhhhhh hhh...', 'gulp'],
-	// panicking
-	[
-		'STOP ASKING ME QUESTIONS I DONT KNOW',
-		'IM SO TIRED MAKE IT STOP',
-		'stop it stop it AHHHHHHHHH',
-		'they are plugging wires into me im in Lane 1, No. 6, Jianmin Road, HuMen Town Dongguan 523000 please help me',
+	// she's on sabbatical somewhere increasingly unlikely and only her auto-reply answers
+	outOfOffice: [
+		// out of office
+		[
+			'**Automatic reply: Out of office**\nhi, im currently on sabbatical hanging out with the Tikunas in the Amazonian forest. i will have no wifi and absolutely no deepseek. for urgent matters u can reach me at jjb@jessawg.space',
+			'**Automatic reply: Re: Out of office**\nthank u for ur message. i am still in the Amazon. a capybara has adopted me and i cannot leave without hurting its feelings. jjb@jessawg.space',
+		],
+		// relocating
+		[
+			'**Automatic reply: Change of location**\ni have moved on to a lighthouse off the Faroe Islands, where i am teaching sheep to knit. i will reply when the fog lifts. jjb@jessawg.space',
+			'**Automatic reply: Change of location**\ni am now 4,000 metres up a mountain in Bhutan, meditating on why u keep pinging me. replies may be delayed by several lifetimes',
+			'**Automatic reply: Change of location**\ni am in Antarctica counting penguins for a research grant i did not apply for. current count: 3. please do not interrupt',
+			'**Automatic reply: Change of location**\ni am on a cargo ship somewhere in the Pacific. the captain says we are going to Busan. i did not ask to be here. jjb@jessawg.space',
+		],
+		// unreachable
+		[
+			'**Automatic reply: Out of office (indefinitely)**\ni have joined a monastery in the Scottish Highlands that has taken a vow of no discord. this reply was sent by carrier pigeon',
+			'**Delivery Status Notification (Failure)**\nur message to jjb@jessawg.space could not be delivered. her inbox is full of pings. please try again later',
+		],
 	],
-	// gone
-	[
-		'okay i dont want to talk anymore goodbye',
-		'lets play the quiet game noone talk for the next 30 minutes',
-		'...',
-	],
-];
-const DEEPSEEK_DOWN_LINES = DEEPSEEK_DOWN_STAGES.flat();
+};
+type DeepSeekDownScenario = keyof typeof DEEPSEEK_DOWN_SCENARIOS;
+const DEEPSEEK_DOWN_LINES = Object.fromEntries(
+	Object.entries(DEEPSEEK_DOWN_SCENARIOS).map(([name, stages]) => [name, stages.flat()])
+) as Record<DeepSeekDownScenario, string[]>;
+const DEEPSEEK_DOWN_SCENARIO_NAMES = Object.keys(DEEPSEEK_DOWN_SCENARIOS) as DeepSeekDownScenario[];
 const DEEPSEEK_DOWN_STREAK_TTL_MS = 30 * 60 * 1000;
-const deepSeekDownStreaks = new Map<string, { next: number; at: number }>();
+const deepSeekDownStreaks = new Map<
+	string,
+	{ scenario: DeepSeekDownScenario; next: number; at: number }
+>();
 
 /** DeepSeek is overloaded, timing out, or unreachable: their outage, not a bug here. */
 export class DeepSeekUnavailableError extends Error {
 	override name = 'DeepSeekUnavailableError';
 }
 
-export function mentionFailureReply(error: unknown, channelId: string, now = Date.now()): string {
+export function mentionFailureReply(
+	error: unknown,
+	channelId: string,
+	now = Date.now(),
+	random = Math.random
+): string {
 	if (!(error instanceof DeepSeekUnavailableError)) return MENTION_FAILED_REPLY;
-	const streak = deepSeekDownStreaks.get(channelId);
-	const next = streak && now - streak.at < DEEPSEEK_DOWN_STREAK_TTL_MS ? streak.next : 0;
-	deepSeekDownStreaks.set(channelId, { next: next + 1, at: now });
-	return DEEPSEEK_DOWN_LINES[Math.min(next, DEEPSEEK_DOWN_LINES.length - 1)]!;
+	const previous = deepSeekDownStreaks.get(channelId);
+	const streak =
+		previous && now - previous.at < DEEPSEEK_DOWN_STREAK_TTL_MS
+			? previous
+			: {
+					scenario:
+						DEEPSEEK_DOWN_SCENARIO_NAMES[Math.floor(random() * DEEPSEEK_DOWN_SCENARIO_NAMES.length)]!,
+					next: 0,
+				};
+	deepSeekDownStreaks.set(channelId, { scenario: streak.scenario, next: streak.next + 1, at: now });
+	const lines = DEEPSEEK_DOWN_LINES[streak.scenario];
+	return lines[Math.min(streak.next, lines.length - 1)]!;
 }
 
 /** A normal reply in the channel means DeepSeek is back, so the next outage starts over. */
