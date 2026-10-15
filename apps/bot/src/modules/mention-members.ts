@@ -138,7 +138,8 @@ function hasDetails(details: ReferencedMember['details']): boolean {
 			details.dislikes.length ||
 			details.pets.length ||
 			details.birthday ||
-			details.favourites.length)
+			details.favourites.length ||
+			details.notes.length)
 	);
 }
 

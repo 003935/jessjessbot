@@ -156,6 +156,22 @@ export async function handleMemberMemory(
 		await db.botMemberPreference.clearNickname(guildId, userId);
 		return 'okie, forgot ur nickname';
 	}
+	if (
+		/^(?:stop|quit|dont|don't|do not)\s+(?:remembering|saving|learning|noting|taking notes on)\s+(?:stuff|things)?\s*(?:about\s+)?me[.!?]*$/iu.test(
+			input
+		)
+	) {
+		await db.botMemberPreference.setAutoMemory(guildId, userId, false);
+		await db.botMemberPreference.forgetDetailsByPrefix(guildId, userId, 'memory_note_');
+		return 'okie, i wont pick stuff up about u anymore and i forgot what i had. “remember …” still works if u ask';
+	}
+	if (
+		/^(?:you|u) can (?:remember|learn|save) (?:stuff|things) about me(?: again)?[.!?]*$/iu.test(input) ||
+		/^(?:start|resume) (?:remembering|learning) (?:stuff|things )?(?:about )?me[.!?]*$/iu.test(input)
+	) {
+		await db.botMemberPreference.setAutoMemory(guildId, userId, true);
+		return 'okie, ill keep notes on u again (¬_¬)';
+	}
 	if (/^what (?:do|did) (?:you|u) (?:remember|know) about me\??$/iu.test(input)) {
 		const memories = await db.botMemberPreference.list(guildId, userId);
 		if (
@@ -163,7 +179,8 @@ export async function handleMemberMemory(
 			!memories.dislikes.length &&
 			!memories.pets.length &&
 			!memories.birthday &&
-			!memories.favourites.length
+			!memories.favourites.length &&
+			!memories.notes.length
 		)
 			return 'nothing saved yet. tell me “remember i like mangoes” and i will (ᵔ◡ᵔ)';
 		const parts = [
@@ -172,6 +189,7 @@ export async function handleMemberMemory(
 			memories.pets.length ? `ur pets: ${memories.pets.join(', ')}` : '',
 			memories.birthday ? `ur ${memories.birthday}` : '',
 			memories.favourites.length ? `ur favourites: ${memories.favourites.join(', ')}` : '',
+			memories.notes.length ? `stuff i picked up: ${memories.notes.join(', ')}` : '',
 		].filter(Boolean);
 		return `i remember ${parts.join('; ')} (｡•̀ᴗ-)✧`;
 	}

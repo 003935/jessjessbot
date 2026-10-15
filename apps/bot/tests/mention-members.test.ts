@@ -49,7 +49,7 @@ const mihaya = {
 	aliases: ['sushicurry'],
 	mention: true,
 	botNickname: null,
-	details: { likes: ['curry'], dislikes: [], pets: [], birthday: null, favourites: [] },
+	details: { likes: ['curry'], dislikes: [], pets: [], birthday: null, favourites: [], notes: [] },
 };
 
 test('member context names the person, mention id, and saved details', () => {

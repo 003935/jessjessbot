@@ -11,3 +11,4 @@ export * from './hall';
 export * from './pets';
 export * from './bot_relationship';
 export * from './bot_member_preference';
+export * from './bot_opinion';

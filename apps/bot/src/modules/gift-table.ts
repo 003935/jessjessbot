@@ -43,10 +43,11 @@ export function giftPoints(item: string, taste: GiftTaste): number {
 	return GIFT_POINTS[taste];
 }
 
-// Gift points are on the taste scale above (+8 = loved). The meter moves in tenths, and a
-// loved gift is worth about 1.4 points: tenths = round(points x 1.8).
+// Gift points are on the taste scale above (+8 = loved). The meter moves in tenths. One gift a
+// day is allowed, so a loved gift is worth about a good day of nice messages (+6), and a
+// hated one stings like a couple of mean ones (-4.5): tenths = round(points x 7.5).
 export function giftMeterTenths(points: number): number {
-	return Math.round(points * 1.8);
+	return Math.round(points * 7.5);
 }
 
 export function giftTaste(item: string): GiftTaste {

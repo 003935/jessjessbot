@@ -9,6 +9,9 @@ const DEFAULT_CONFIG: ConfigOptions = {
 	bot_mention_only_channels: [],
 	bot_reply_policy_configured: false,
 	bot_ignored_channels: [],
+	bot_personality: null,
+	bot_likes: [],
+	bot_dislikes: [],
 };
 
 export class ConfigTable extends DatabaseConnection {
