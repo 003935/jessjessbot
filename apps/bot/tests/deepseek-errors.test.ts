@@ -89,7 +89,7 @@ test('DeepSeek being down gets the in-character apology, other failures do not',
 	expect(down).toBeInstanceOf(DeepSeekUnavailableError);
 	expect(DEEPSEEK_DOWN_REPLIES).toContain(mentionFailureReply(down));
 	expect(mentionFailureReply(down, () => 0)).toBe('sorry sniff no talk me, deepseek down not my fault (╥﹏╥)');
-	expect(mentionFailureReply(down, () => 0.2)).toBe('ermm api no worky someone tell jess');
+	expect(mentionFailureReply(down, () => 1.5 / DEEPSEEK_DOWN_REPLIES.length)).toBe('ermm api no worky someone tell jess');
 	expect(mentionFailureReply(down, () => 0.9999)).toBe(DEEPSEEK_DOWN_REPLIES.at(-1)!);
 
 	respondWith([() => new Response('{"error":{"message":"Insufficient Balance"}}', { status: 402 })]);

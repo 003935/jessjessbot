@@ -78,6 +78,11 @@ export const DEEPSEEK_DOWN_REPLIES = [
 	'my brain is buffering. deepseek fell over again (・_・;)',
 	'cant talk rn, deepseek is having a nap without me',
 	'no thoughts head empty. literally, the api is down (¬_¬)',
+	'uhh uhh uhhhhh hhh...',
+	'gulp',
+	'uh wat dat mean',
+	'okay i dont want to talk anymore goodbye',
+	'stop it stop it AHHHHHHHHH',
 ];
 
 /** DeepSeek is overloaded, timing out, or unreachable: their outage, not a bug here. */
