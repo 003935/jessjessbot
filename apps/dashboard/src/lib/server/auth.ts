@@ -17,8 +17,8 @@ export const auth = betterAuth({
 	secondaryStorage: valkey.authModule,
 	socialProviders: {
 		discord: {
-			clientId: env.DISCORD_CLIENT_ID,
-			clientSecret: env.DISCORD_CLIENT_SECRET,
+			clientId: env.DISCORD_CLIENT_ID!,
+			clientSecret: env.DISCORD_CLIENT_SECRET!,
 			scope: ['identify', 'email', 'guilds'],
 		},
 	},

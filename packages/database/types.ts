@@ -1,4 +1,6 @@
-import { Tiers } from 'twisted/dist/constants';
+import { Constants } from 'twisted';
+
+type Tier = (typeof Constants.Tiers)[keyof typeof Constants.Tiers];
 
 declare global {
 	namespace PrismaJson {
@@ -6,7 +8,7 @@ declare global {
 			soloq?: {
 				wins: number;
 				rank: string;
-				tier: Tiers;
+				tier: Tier;
 				lp: number;
 			};
 		};

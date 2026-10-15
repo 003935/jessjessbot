@@ -1,5 +1,4 @@
 import type { PageServerLoad } from './$types';
-import { error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { discordApi } from '$lib/server/discord';
 import { throwIfNotLoggedIn } from '$lib/server/permission.utils';
@@ -12,10 +11,6 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const serverId = url.searchParams.get('serverId');
 
 	const userStats = await db.wordle.getUserStats(discordId);
-
-	if (userStats.totalGames === 0) {
-		error(404, 'No wordle data found for this user');
-	}
 
 	let discordUser: {
 		username: string;

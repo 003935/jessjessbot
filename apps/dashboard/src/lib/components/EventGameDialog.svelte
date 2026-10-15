@@ -1,23 +1,4 @@
-<script module lang="ts">
-	import * as v from 'valibot';
-
-	export const EventGame_Schema = v.object({
-		name: v.pipe(
-			v.string(),
-			v.transform((value) => value.trim()),
-			v.nonEmpty('Game name cannot be empty')
-		),
-		icon: v.pipe(
-			v.string(),
-			v.transform((value) => (value.length === 0 ? null : value))
-		),
-	});
-
-	type EventGame = v.InferOutput<typeof EventGame_Schema>;
-</script>
-
 <script lang="ts">
-	import { getEmojis } from '$lib/discord.remote';
 	import {
 		addEventGame,
 		getEventGames,
@@ -28,7 +9,7 @@
 	import DialogWithConfirm from './ui/DialogWithConfirm.svelte';
 	import {
 		createForm,
-		Field,
+		Field as SField,
 		Form,
 		reset,
 		submit,
@@ -37,10 +18,19 @@
 	import { isHttpError } from '@sveltejs/kit';
 	import Gamepad2 from '@lucide/svelte/icons/gamepad-2';
 	import Image from '@lucide/svelte/icons/image';
-	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
+	import { Button } from './ui/button';
+	import { Spinner } from './ui/spinner';
+	import { Input } from './ui/input';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import type { APIApplicationEmoji } from 'discord-api-types/v10';
+	import { EventGame_Schema, type EventGame } from '$lib/eventGame.utils';
 
 	let dialog: DialogWithConfirm;
+
+	let { emojis }: { emojis: APIApplicationEmoji[] } = $props();
 
 	let old_state = $state<EventGame | null>(null);
 
@@ -76,7 +66,7 @@
 	const handleSubmit: SubmitEventHandler<typeof EventGame_Schema> = async (output) => {
 		const submission_id = crypto.randomUUID();
 		try {
-			let submit_promise: Promise<Promise<void>>;
+			let submit_promise: Promise<void>;
 
 			const old_object_copy = old_state ? { ...old_state } : null;
 
@@ -102,13 +92,13 @@
 					name: output.name,
 					icon: output.icon,
 				}).updates(
-					getEventGames().withOverride((arr) => {
-						arr?.push({
+					getEventGames().withOverride((arr) => [
+						...arr,
+						{
 							name: output.name,
 							icon: output.icon,
-						});
-						return arr;
-					})
+						},
+					])
 				);
 			}
 
@@ -176,110 +166,121 @@
 	confirmTitle="Confirm Delete"
 	onconfirm={handle_delete}
 >
-	{#snippet confirmMessage()}
-		Are you sure you want to delete <strong class="text-base-content">{old_state?.name}</strong>
-		? This will remove it from all associated configurations.
-	{/snippet}
-	{#snippet icon()}
-		<Gamepad2 size={24} class="text-primary" />
-	{/snippet}
-	{#snippet title()}
-		{#if old_state}Edit Event Game{:else}Add Event Game{/if}
-	{/snippet}
-	{#snippet subtitle()}
-		{#if old_state}{old_state?.name}{/if}
-	{/snippet}
-
-	<Form of={form} onsubmit={handleSubmit}>
-		<Field of={form} path={['name']}>
+	<Dialog.Header>
+		<Dialog.Title>
+			{#if old_state}Edit Event Game{:else}Add Event Game{/if}
+		</Dialog.Title>
+		<Dialog.Description>
+			{#if old_state}{old_state?.name}{/if}
+		</Dialog.Description>
+	</Dialog.Header>
+	<Form of={form} onsubmit={handleSubmit} class="flex flex-col gap-4">
+		<SField of={form} path={['name']}>
 			{#snippet children(field)}
-				<fieldset class="fieldset rounded-xl">
-					<legend class="fieldset-legend flex items-center gap-2 text-sm font-semibold">
-						<Gamepad2 size={16} class="text-base-content/60" />
+				<Field.Field data-invalid={field.errors ? 'true' : undefined}>
+					<Field.Label>
+						<Gamepad2 />
 						Game Name
-					</legend>
-					<input
+					</Field.Label>
+					<Input
 						{...field.props}
 						value={field.input}
 						type="text"
-						class="input-bordered input w-full rounded-xl bg-base-200"
 						placeholder="Enter game name"
+						aria-invalid={field.errors ? 'true' : undefined}
 					/>
 					{#if field.errors}
-						<div class="mt-1 flex items-center gap-1 text-sm text-error">
-							<AlertCircle size={16} />
+						<Field.Error>
 							{field.errors[0]}
-						</div>
+						</Field.Error>
 					{/if}
-				</fieldset>
+				</Field.Field>
 			{/snippet}
-		</Field>
+		</SField>
 
-		<Field of={form} path={['icon']}>
+		<SField of={form} path={['icon']}>
 			{#snippet children(field)}
-				<fieldset class="fieldset rounded-xl">
-					<legend class="fieldset-legend flex items-center gap-2 text-sm font-semibold">
-						<Image size={16} class="text-base-content/60" />
+				<Field.Field data-invalid={field.errors ? 'true' : undefined}>
+					<Field.Label>
+						<Image />
 						Icon Emoji
-					</legend>
-					<select
+					</Field.Label>
+					<Select.Root
+						type="single"
 						{...field.props}
 						value={field.input}
-						class="select-bordered select w-full rounded-xl bg-base-200"
+						onValueChange={(value) => field.onInput(value)}
 					>
-						<option value="">Select an emoji icon</option>
-						{#each await getEmojis() as emoji (emoji.id)}
-							<option value={emoji.id}>
-								<div class="flex items-center gap-2">
-									<img
-										src={`https://cdn.discordapp.com/emojis/${emoji.id}.webp?size=96&quality=lossless${emoji.animated ? '&animated=true' : ''}`}
-										alt=""
-										class="h-6 w-6"
-									/>
-									{emoji.name}
-								</div>
-							</option>
-						{/each}
-					</select>
+						<Select.Trigger class="w-45">
+							{#if field.input}
+								{@const emoji = emojis.find((e) => e.id === field.input)}
+								{#if emoji}
+									<div class="flex items-center gap-2">
+										<img
+											src={`https://cdn.discordapp.com/emojis/${emoji.id}.webp?size=96&quality=lossless${emoji.animated ? '&animated=true' : ''}`}
+											alt=""
+											class="h-6 w-6"
+										/>
+										{emoji.name}
+									</div>
+								{:else}
+									<p class="text-destructive">Invalid emoji selected</p>
+								{/if}
+							{:else}
+								Select an emoji icon
+							{/if}
+						</Select.Trigger>
+						<Select.Content>
+							{#each emojis as emoji (emoji.id)}
+								<Select.Item value={emoji.id}>
+									<div class="flex items-center gap-2">
+										<img
+											src={`https://cdn.discordapp.com/emojis/${emoji.id}.webp?size=96&quality=lossless${emoji.animated ? '&animated=true' : ''}`}
+											alt=""
+											class="h-6 w-6"
+										/>
+										{emoji.name}
+									</div>
+								</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 					{#if field.errors}
-						<div class="mt-1 flex items-center gap-1 text-sm text-error">
-							<AlertCircle size={16} />
+						<Field.Error>
 							{field.errors[0]}
-						</div>
+						</Field.Error>
 					{/if}
-				</fieldset>
+				</Field.Field>
 			{/snippet}
-		</Field>
+		</SField>
 	</Form>
-	{#snippet actions()}
+	<Dialog.Footer>
 		{#if old_state !== null}
-			<button
-				class="btn mr-auto rounded-lg btn-ghost btn-error"
+			<Button
+				class="mr-auto"
+				variant="destructive"
 				disabled={form.isSubmitting}
 				onclick={() => dialog.openConfirm()}
 			>
-				<Trash2 size={16} />
+				<Trash2 />
 				Delete
-			</button>
+			</Button>
 		{/if}
-		<button
-			class="btn rounded-lg btn-primary"
+		<Button
 			disabled={form.isSubmitting || (old_state && !form.isDirty)}
 			onclick={() => submit(form)}
 		>
 			{#if form.isSubmitting}
-				<span class="loading loading-xs loading-spinner"></span>
-				Saving...
-			{:else}
-				Save
+				<Spinner />
 			{/if}
-		</button>
-		<button
-			class="btn rounded-lg btn-ghost"
-			disabled={form.isSubmitting}
-			onclick={() => dialog.close()}
-		>
+			Save
+		</Button>
+		<Button variant="outline" disabled={form.isSubmitting} onclick={() => dialog.close()}>
 			Cancel
-		</button>
+		</Button>
+	</Dialog.Footer>
+	{#snippet confirmMessage()}
+		Are you sure you want to delete <strong class="text-base-content">{old_state?.name}</strong>
+		?
 	{/snippet}
 </DialogWithConfirm>

@@ -1,49 +1,42 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import Dialog from './Dialog.svelte';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 
-	let dialog: Dialog;
-	let show_confirm = $state(false);
+	let is_open = $state(false);
 	let is_confirming = $state(false);
+	let confirmed = $state<undefined | boolean>(undefined);
+
+	function reset() {
+		is_confirming = false;
+		is_open = false;
+		confirmed = undefined;
+	}
 
 	export function open() {
-		show_confirm = false;
-		is_confirming = false;
-		dialog.open();
+		is_open = true;
 	}
 
 	export function close() {
-		show_confirm = false;
-		is_confirming = false;
-		dialog.close();
+		is_open = false;
 	}
 
 	export function openConfirm() {
-		show_confirm = true;
-		is_confirming = false;
-		dialog.open();
+		is_confirming = true;
 	}
 
 	let {
 		children,
-		icon: icon_snippet,
-		title: title_snippet,
-		subtitle: subtitle_snippet,
-		actions: actions_snippet,
 		onclose,
 		confirmTitle,
 		confirmMessage,
 		confirmLabel = 'Delete',
 		onconfirm,
 	}: {
-		icon: Snippet<[]>;
-		title: Snippet<[]>;
-		subtitle?: Snippet<[]>;
 		children: Snippet<[]>;
-		actions: Snippet<[]>;
 		onclose?: () => void;
 		confirmTitle: string;
 		confirmMessage: Snippet<[]>;
@@ -51,81 +44,53 @@
 		onconfirm: () => Promise<void>;
 	} = $props();
 
-	async function handle_confirm() {
-		is_confirming = true;
-		try {
-			await onconfirm();
-			show_confirm = false;
-		} catch (error) {
-			show_confirm = false;
-			throw error;
-		} finally {
-			is_confirming = false;
-		}
-	}
-
-	function handle_cancel_confirm() {
-		show_confirm = false;
-	}
-
 	function handle_dialog_close() {
-		show_confirm = false;
-		is_confirming = false;
+		reset();
 		onclose?.();
+	}
+
+	async function handle_confirm() {
+		await onconfirm();
 	}
 </script>
 
-<Dialog bind:this={dialog} onclose={handle_dialog_close}>
-	{#snippet icon()}
-		{#if show_confirm}
-			<AlertTriangle size={24} class="text-error" />
-		{:else}
-			{@render icon_snippet()}
-		{/if}
-	{/snippet}
-	{#snippet title()}
-		{#if show_confirm}{confirmTitle}{:else}{@render title_snippet()}{/if}
-	{/snippet}
-	{#snippet subtitle()}
-		{#if show_confirm}
-			<span class="text-error">This action cannot be undone</span>
-		{:else if subtitle_snippet}
-			{@render subtitle_snippet()}
-		{/if}
-	{/snippet}
+<Dialog.Root
+	open={is_open}
+	onOpenChangeComplete={(open) => open === false && handle_dialog_close()}
+>
+	<Dialog.Content>
+		{@render children()}
+	</Dialog.Content>
+</Dialog.Root>
 
-	{#if show_confirm}
-		<div class="flex flex-col items-center gap-4 py-4" transition:slide={{ duration: 200 }}>
-			<div class="rounded-full bg-error/10 p-3">
-				<AlertTriangle size={32} class="text-error" />
-			</div>
-			<p class="text-center text-sm text-base-content/70">{@render confirmMessage()}</p>
-		</div>
-	{:else}
-		<div transition:slide={{ duration: 200 }}>
-			{@render children()}
-		</div>
-	{/if}
-
-	{#snippet actions()}
-		{#if show_confirm}
-			<button class="btn rounded-lg btn-error" onclick={handle_confirm} disabled={is_confirming}>
-				{#if is_confirming}
-					<span class="loading loading-xs loading-spinner"></span>
-				{:else}
-					<Trash2 size={16} />
-				{/if}
-				{confirmLabel}
-			</button>
-			<button
-				class="btn rounded-lg btn-ghost"
-				onclick={handle_cancel_confirm}
-				disabled={is_confirming}
+<AlertDialog.Root
+	open={is_confirming}
+	onOpenChangeComplete={(open) => open === false && confirmed === true && handle_confirm()}
+>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>{confirmTitle}</AlertDialog.Title>
+			<AlertDialog.Description>
+				{@render confirmMessage()}
+			</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<AlertDialog.Cancel
+				onclick={() => {
+					confirmed = false;
+					is_confirming = false;
+				}}
 			>
 				Cancel
-			</button>
-		{:else}
-			{@render actions_snippet()}
-		{/if}
-	{/snippet}
-</Dialog>
+			</AlertDialog.Cancel>
+			<AlertDialog.Action
+				onclick={() => {
+					confirmed = true;
+					is_confirming = false;
+				}}
+			>
+				{confirmLabel}
+			</AlertDialog.Action>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>

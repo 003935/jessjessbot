@@ -15,7 +15,18 @@ import {
 	type APIUser,
 	type RESTGetAPIUserResult,
 	type RESTGetAPIGuildMembersSearchResult,
+	type RESTGetAPIGuildChannelsResult,
 } from 'discord-api-types/v10';
+
+type DiscordComponentPayload = {
+	type: number;
+	content?: string;
+	components?: DiscordComponentPayload[];
+	accessory?: { type: number; media: { url: string } };
+	style?: number;
+	label?: string;
+	custom_id?: string;
+};
 
 class DiscordApi {
 	private readonly api: REST;
@@ -122,6 +133,131 @@ class DiscordApi {
 		const fetched = await this.fetchUserGuilds(accessToken);
 		await this.cache.user_guilds.set(userId, fetched);
 		return fetched;
+	}
+
+	async getGuildChannels(guildId: string) {
+		const res = (await await this.api.get(
+			Routes.guildChannels(guildId)
+		)) as RESTGetAPIGuildChannelsResult;
+
+		return res;
+	}
+
+	async reactToMessage(channelId: string, messageID: string, emojiId: string) {
+		await this.api.put(Routes.channelMessageOwnReaction(channelId, messageID, emojiId));
+	}
+
+	async getReactionUsers(channelId: string, messageId: string, emoji: string): Promise<APIUser[]> {
+		const users: APIUser[] = [];
+		let after: string | undefined;
+		while (true) {
+			const query = new URLSearchParams({ limit: '100' });
+			if (after) query.set('after', after);
+			const page = (await this.api.get(
+				`${Routes.channelMessageReaction(channelId, messageId, encodeURIComponent(emoji))}?${query}`
+			)) as APIUser[];
+			users.push(...page.filter((user) => !user.bot));
+			if (page.length < 100) break;
+			after = page.at(-1)?.id;
+		}
+		return users;
+	}
+
+	async sendCustomMessage(
+		channelId: string,
+		content: {
+			roleId: string;
+			emojiId?: string;
+			gameName: string;
+			time: string;
+			name?: string;
+			teamCount?: number;
+		}
+	) {
+		let emoji: APIApplicationEmoji | undefined;
+		if (content.emojiId) {
+			const emojis = await this.getEmojis(); // FIXME change to single fetch?
+			emoji = emojis.find((e) => e.id === content.emojiId);
+		}
+
+		const text_components: DiscordComponentPayload[] = [
+			{
+				type: 10,
+				content: `## ${(content.name ?? `${content.gameName} customs`).replaceAll('@', '@\u200b')}`,
+			},
+		];
+
+		const date = new Date(content.time);
+		const scheduledTime = Math.floor(date.getTime() / 1000);
+
+		text_components.push({
+			type: 10,
+			content: `<@&${content.roleId}> · <t:${scheduledTime}:F>`,
+		});
+
+		if (content.teamCount)
+			text_components.push({
+				type: 10,
+				content: `React with ${['1️⃣', '2️⃣', '3️⃣', '4️⃣'].slice(0, content.teamCount).join(' ')} to pick a team. Choose one!`,
+			});
+		if (!content.teamCount) {
+			text_components.push(
+				{ type: 10, content: '**Joined (0)**\nNo one yet' },
+				{ type: 10, content: '**Maybe (0)**\nNo one yet' }
+			);
+			text_components.push({
+				type: 1,
+				components: [
+					{ type: 2, style: 3, label: 'Join · 0', custom_id: 'custom:join' },
+					{ type: 2, style: 2, label: 'Leave', custom_id: 'custom:leave' },
+					{ type: 2, style: 1, label: 'Maybe · 0', custom_id: 'custom:maybe' },
+				],
+			});
+		}
+
+		const ret = await this.api.post(Routes.channelMessages(channelId), {
+			body: {
+				allowed_mentions: { roles: [content.roleId] },
+				components: [
+					{
+						type: 17,
+						accent_color: 0xad66f2,
+						spoiler: false,
+						components: emoji
+							? [
+									{
+										type: 9,
+										components: text_components.slice(0, 2),
+										accessory: {
+											type: 11,
+											media: {
+												url: `https://cdn.discordapp.com/emojis/${emoji.id}.webp?animated=${emoji.animated}`,
+											},
+										},
+									},
+									...text_components.slice(2),
+								]
+							: text_components,
+					},
+				],
+				flags: 32768,
+			},
+		});
+		return (ret as { id: string }).id;
+	}
+
+	getMemberAvatar(member: APIGuildMember, guildId: string): string {
+		if (member.avatar)
+			return `https://cdn.discordapp.com/guilds/${guildId}/users/${member.user.id}/avatars/${member.avatar}.png`;
+
+		if (member.user.avatar)
+			return `https://cdn.discordapp.com/avatars/${member.user.id}/${member.user.avatar}.png`;
+
+		if (!Object.hasOwn(member.user, 'discriminator') || member.user.discriminator === '0') {
+			return `https://cdn.discordapp.com/embed/avatars/${(parseInt(member.user.id) >> 22) % 6}.png`;
+		} else {
+			return `https://cdn.discordapp.com/embed/avatars/${parseInt(member.user.discriminator) % 5}.png`;
+		}
 	}
 }
 

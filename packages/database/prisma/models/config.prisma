@@ -1,0 +1,6 @@
+model ServerConfig {
+  guildId        String  @id
+  custom_channel String?
+
+  @@map("server_config")
+}

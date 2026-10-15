@@ -1,8 +1,10 @@
-import { LolApi } from 'twisted';
+import { LolApi, Constants } from 'twisted';
 import { RIOT_API_KEY } from '@/environment';
-import { Regions, Tiers } from 'twisted/dist/constants';
 import { db } from '@/db';
 import { sleep, Logger } from '@/utils';
+
+type Region = (typeof Constants.Regions)[keyof typeof Constants.Regions];
+type Tier = (typeof Constants.Tiers)[keyof typeof Constants.Tiers];
 
 const logger = new Logger('League');
 const lolApi = new LolApi({ key: RIOT_API_KEY });
@@ -31,10 +33,7 @@ async function rank_update() {
 
 		for (const account of accounts) {
 			try {
-				const leagueData = await lolApi.League.byPUUID(
-					account.riotPuuid,
-					account.region as Regions
-				);
+				const leagueData = await lolApi.League.byPUUID(account.riotPuuid, account.region as Region);
 
 				if (!leagueData) {
 					throw new Error('No league data found');
@@ -52,7 +51,7 @@ async function rank_update() {
 									lp: league_soloq.leaguePoints,
 									wins: league_soloq.wins,
 									rank: league_soloq.rank,
-									tier: league_soloq.tier as Tiers,
+									tier: league_soloq.tier as Tier,
 								},
 							}
 						: null

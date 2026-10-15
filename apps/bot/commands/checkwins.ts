@@ -4,7 +4,7 @@ import { db } from '@/db';
 
 export class WinsCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
-		super(context, { ...options });
+		super(context, { ...options, preconditions: ['GuildTextOnly'] });
 	}
 
 	public override registerApplicationCommands(registry: Command.Registry) {

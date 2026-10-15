@@ -16,15 +16,20 @@
 
 <script lang="ts">
 	import { source } from 'sveltekit-sse';
-	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
 	import CheckCircle from '@lucide/svelte/icons/check-circle';
 	import Clock from '@lucide/svelte/icons/clock';
 	import ImportIcon from '@lucide/svelte/icons/download';
-	import Info from '@lucide/svelte/icons/info';
 	import { getFailedMentions } from '$lib/failedMentions.remote';
 	import { getGuildLeaderboard, getGuildSummary, getWordleStats } from '$lib/wordle.remote';
+	import * as Card from '$lib/components/ui/card/index.js';
+	import * as Empty from '$lib/components/ui/empty/index.js';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import { CircleAlertIcon, InfoIcon } from '@lucide/svelte';
+	import Button from './ui/button/button.svelte';
+	import Progress from './ui/progress/progress.svelte';
+	import * as Alert from './ui/alert';
 
-	type Progress = {
+	type ProgressState = {
 		isDone: boolean;
 		processed: number;
 		total: number;
@@ -53,7 +58,7 @@
 	let connection: ReturnType<typeof source> | null = $state(null);
 	let cleanup_fn: (() => void) | null = $state(null);
 
-	let progress = $state<Progress | null>(null);
+	let progress = $state<ProgressState | null>(null);
 	let error = $state<string | null>(null);
 	let is_importing = $state(false);
 	let last_import_time = $derived(wordleImport?.lastImport?.getTime() ?? null);
@@ -172,124 +177,99 @@
 	}
 </script>
 
-<div
-	class="animate-in fade-in slide-in-from-bottom-4 card border border-base-300/50 bg-base-100 shadow-lg delay-200 duration-500"
->
-	<div class="card-body pb-5">
-		<div class="mb-2 flex items-center justify-between">
-			<div class="flex items-center gap-3">
-				<div class="rounded-xl bg-linear-to-br from-secondary/20 to-primary/20 p-2">
-					<ImportIcon size={22} class="text-secondary" />
-				</div>
-				<div>
-					<h2 class="card-title text-xl">Wordle Import</h2>
-					<p class="text-xs text-base-content/50">
-						{#if wordleImport}
-							Last: {format_last_import()}
-						{:else}
-							No imports yet
-						{/if}
-					</p>
-				</div>
-			</div>
-		</div>
-		<div class="mb-3 h-px bg-linear-to-r from-secondary/20 to-transparent"></div>
-
-		<div class="flex flex-col gap-4">
-			<p class="text-sm text-base-content/60">
-				Import historical Wordle messages from your server. This fetches messages containing
-				yesterday's Wordle results and processes them for analytics.
-			</p>
-
-			{#if error}
-				<div class="alert rounded-xl alert-error" role="alert">
-					<AlertTriangle size={20} />
-					<div class="flex flex-col">
-						<span class="font-semibold">Import failed</span>
-						<span class="text-sm">{error}</span>
-					</div>
-				</div>
-			{:else if progress?.isDone && progress}
-				<div
-					class={[
-						'alert rounded-xl',
-						(progress?.failed ?? 0) > 0 ? 'alert-warning' : 'alert-success',
-					]}
-					role="status"
-				>
-					<CheckCircle size={20} />
-					<div class="flex flex-col">
-						<span class="font-semibold">Import complete!</span>
-						<span class="text-sm">
-							Successfully processed {progress.processed.toLocaleString()} messages.
+<Card.Root>
+	<Card.Header>
+		<Card.Title>Wordle Import</Card.Title>
+		<Card.Description>
+			{#if wordleImport}
+				Last: {format_last_import()}
+			{:else}
+				No imports yet
+			{/if}
+		</Card.Description>
+		<Card.Action>
+			<Tooltip.Provider>
+				<Tooltip.Root>
+					<Tooltip.Trigger>
+						<InfoIcon class="text-muted-foreground" />
+					</Tooltip.Trigger>
+					<Tooltip.Content>
+						<p>
+							Import historical Wordle messages from your server. This fetches messages containing
+							yesterday's Wordle results and processes them for analytics.
+						</p>
+					</Tooltip.Content>
+				</Tooltip.Root>
+			</Tooltip.Provider>
+		</Card.Action>
+	</Card.Header>
+	<Card.Content class="flex h-64 flex-col justify-center">
+		{#if error}
+			<Empty.Root>
+				<Empty.Header>
+					<Empty.Title>Error</Empty.Title>
+					<Empty.Description>Import failed</Empty.Description>
+				</Empty.Header>
+			</Empty.Root>
+		{:else if progress?.isDone && progress}
+			<Empty.Root>
+				<Empty.Header>
+					<CheckCircle />
+					<Empty.Title>Import complete!</Empty.Title>
+					<Empty.Description>
+						<p>Processed {progress.processed.toLocaleString()} messages.</p>
+						<p>
 							{progress.succeeded ?? 0} succeeded, {progress.failed ?? 0} failed, {progress.skipped ??
 								0} skipped.
-						</span>
-					</div>
-				</div>
+						</p>
+					</Empty.Description>
+				</Empty.Header>
 				{#if progress.total_failed_mentions && progress.total_failed_mentions > 0}
-					<div class="alert rounded-xl alert-warning" role="alert">
-						<AlertTriangle size={20} />
+					<Alert.Root variant="destructive">
+						<CircleAlertIcon />
+						<Alert.Title>Failed to parse mentions</Alert.Title>
+						<Alert.Description>
+							<p>
+								Could not resolve {progress.total_failed_mentions} failed mention{progress.total_failed_mentions !==
+								1
+									? 's'
+									: ''}.
+							</p>
+						</Alert.Description>
+					</Alert.Root>
+				{/if}
+			</Empty.Root>
+		{:else if is_importing}
+			<div class="flex flex-col gap-3">
+				<div class="flex items-center justify-between">
+					<span class="text-sm font-medium">Importing messages...</span>
+					<span class="font-mono text-sm font-bold text-primary">{percentage}%</span>
+				</div>
+				<Progress value={percentage} max={100}></Progress>
+				{#if progress}
+					<div class="flex items-center gap-2 text-xs">
+						<span class="loading loading-xs loading-dots"></span>
 						<span>
-							Could not resolve {progress.total_failed_mentions} failed mention{progress.total_failed_mentions !==
-							1
-								? 's'
-								: ''}.
+							{progress.processed.toLocaleString()} / {progress.total.toLocaleString()} messages
 						</span>
 					</div>
 				{/if}
-			{:else if is_importing}
-				<div class="flex flex-col gap-3" aria-live="polite" aria-busy="true">
-					<div class="flex items-center justify-between">
-						<span class="text-sm font-medium">Importing messages...</span>
-						<span class="font-mono text-sm font-bold text-secondary">{percentage}%</span>
-					</div>
-					<progress
-						class="progress w-full progress-secondary"
-						value={percentage}
-						max="100"
-					></progress>
-					{#if progress}
-						<div class="flex items-center gap-2 text-xs text-base-content/60">
-							<span class="loading loading-xs loading-dots"></span>
-							<span>
-								{progress.processed.toLocaleString()} / {progress.total.toLocaleString()} messages
-							</span>
-						</div>
-					{/if}
-				</div>
-			{:else if rate_limit?.isLimited}
-				<div class="flex flex-col gap-3">
-					<button class="btn btn-disabled gap-2 opacity-60" disabled={true} type="button">
-						<Clock size={18} />
-						On Cooldown
-					</button>
-					<div class="alert rounded-xl border-warning/20 alert-warning" role="status">
-						<Clock size={18} />
-						<div class="text-sm">
-							<strong>Available in:</strong>
-							{rate_limit.hoursRemaining}h {rate_limit.minutesRemaining}m {rate_limit.secondsRemaining}s
-						</div>
-					</div>
-				</div>
-			{:else}
-				<button
-					class="btn gap-2 shadow-md transition-all btn-secondary hover:shadow-lg"
-					onclick={start_import}
-					disabled={is_importing}
-					type="button"
-				>
-					<ImportIcon size={18} />
-					Start Import
-				</button>
-				<div class="alert rounded-xl border-info/20 alert-info" role="note">
-					<Info size={18} />
-					<div class="text-xs">
-						<strong>Rate limit:</strong>
-						One import per 24 hours per server.
-					</div>
-				</div>
-			{/if}
-		</div>
-	</div>
-</div>
+			</div>
+		{:else if rate_limit?.isLimited}
+			<Empty.Root>
+				<Empty.Header>
+					<Clock />
+					<Empty.Title>On Cooldown</Empty.Title>
+					<Empty.Description>
+						Available in: {rate_limit.hoursRemaining}h {rate_limit.minutesRemaining}m
+					</Empty.Description>
+				</Empty.Header>
+			</Empty.Root>
+		{:else}
+			<Button class="h-14 w-full self-center" onclick={start_import} disabled={is_importing}>
+				<ImportIcon />
+				Start Import
+			</Button>
+		{/if}
+	</Card.Content>
+</Card.Root>

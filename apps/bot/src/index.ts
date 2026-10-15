@@ -1,4 +1,4 @@
-import { GatewayIntentBits, Message } from 'discord.js';
+import { GatewayIntentBits, Message, Partials } from 'discord.js';
 import { BOT_TOKEN } from '@/environment';
 import { LogLevel, SapphireClient } from '@sapphire/framework';
 import { wordle_module } from '@/modules/wordle';
@@ -7,6 +7,14 @@ import { start_background_event_checker } from '@/modules/events';
 import { Check_Attachments } from '@/modules/reaction';
 import { Logger } from '@/utils';
 import { db } from '@/db';
+import { refreshReaction, removeMessage } from '@/modules/hall';
+import { Meowdule } from './modules/meowdule';
+import { handleMention } from '@/modules/mention';
+import { handleCustomSignup } from '@/modules/custom-signups';
+import { handleMemeReply } from '@/modules/meme-replies';
+import { startDailyTweets } from '@/modules/daily-tweets';
+import { uploadPoeLootEmojis } from '@/modules/poe-loot-emojis';
+import { handleLootInventoryButton } from '@/modules/poe-loot';
 
 const logger = new Logger('Bot', LogLevel.Info);
 const client = new SapphireClient({
@@ -15,7 +23,9 @@ const client = new SapphireClient({
 		GatewayIntentBits.GuildMessages,
 		GatewayIntentBits.MessageContent,
 		GatewayIntentBits.GuildMembers,
+		GatewayIntentBits.GuildMessageReactions,
 	],
+	partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 	loadMessageCommandListeners: true,
 	logger: {
 		level: LogLevel.Info,
@@ -23,6 +33,9 @@ const client = new SapphireClient({
 	},
 	enableLoaderTraceLoggings: false,
 });
+
+let meowdule: undefined | Meowdule;
+let stopDailyTweets: (() => Promise<void>) | undefined;
 
 // Global error handlers to prevent crashes
 process.on('unhandledRejection', (reason, promise) => {
@@ -35,7 +48,12 @@ process.on('uncaughtException', (error) => {
 
 client.on('clientReady', (client) => {
 	logger.info(`${client.user?.tag} is online!`);
+	meowdule = new Meowdule(client);
 	start_background_event_checker(client);
+	stopDailyTweets ??= startDailyTweets(client);
+	void uploadPoeLootEmojis().catch(error =>
+		logger.error('PoE loot emoji startup sync failed', error)
+	);
 });
 
 let isShuttingDown = false;
@@ -45,6 +63,7 @@ async function gracefulShutdown(signal: string) {
 	isShuttingDown = true;
 
 	logger.info(`${signal} received. Shutting down gracefully...`);
+	await stopDailyTweets?.();
 
 	try {
 		await client.destroy();
@@ -69,13 +88,59 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 start_background_rank_update();
 
-function messageparser(message: Message<boolean>) {
+async function messageparser(message: Message<boolean>) {
 	if (message.inGuild() === false) return;
 	wordle_module(message);
 	Check_Attachments(message);
+	meowdule?.handleMsg(message);
+	try {
+		if (await handleMemeReply(message)) return;
+	} catch (error) {
+		logger.error('Meme reply failed', error);
+	}
+	handleMention(message).catch((error) => logger.error('Mention handling failed', error));
 }
 
-client.on('messageCreate', messageparser);
+client.on('messageCreate', (message) => {
+	messageparser(message).catch((error) => logger.error('Message handling failed', error));
+});
+
+client.on('interactionCreate', (interaction) => {
+	if (!interaction.isButton()) return;
+	if (interaction.customId.startsWith('poe-inventory:')) {
+		handleLootInventoryButton(interaction).catch(async (error) => {
+			logger.error('Loot inventory button failed', error);
+			if (interaction.deferred || interaction.replied)
+				await interaction.editReply({ content: 'I could not load that inventory section right now.', embeds: [], components: [] }).catch(() => undefined);
+			else await interaction.reply({ content: 'I could not load that inventory section right now.', ephemeral: true }).catch(() => undefined);
+		});
+		return;
+	}
+	if (!interaction.customId.startsWith('custom:')) return;
+	handleCustomSignup(interaction).catch(async (error) => {
+		logger.error('Custom signup button failed', error);
+		if (!interaction.replied && !interaction.deferred)
+			await interaction
+				.reply({ content: 'I could not update your signup right now.', ephemeral: true })
+				.catch(() => undefined);
+		else
+			await interaction
+				.followUp({ content: 'I could not update the signup post right now.', ephemeral: true })
+				.catch(() => undefined);
+	});
+});
+
+client.on('messageReactionAdd', (reaction) => {
+	refreshReaction(reaction).catch((error) => logger.error('Hall reaction update failed', error));
+});
+client.on('messageReactionRemove', (reaction) => {
+	refreshReaction(reaction).catch((error) => logger.error('Hall reaction update failed', error));
+});
+client.on('messageDelete', (message) => {
+	removeMessage(message.channelId, message.id).catch((error) =>
+		logger.error('Hall message removal failed', error)
+	);
+});
 
 client.login(BOT_TOKEN).catch((error) => {
 	logger.fatal('Failed to login:', error);

@@ -23,6 +23,17 @@ export class GameRolesTable extends DatabaseConnection {
 		});
 	}
 
+	async get_by_guildId_GameName(guildId: string, gameName: string): Promise<GameRole | null> {
+		return await this._db.gameRole.findUnique({
+			where: {
+				guildId_gameName: {
+					guildId,
+					gameName,
+				},
+			},
+		});
+	}
+
 	async get_by_role(guildId: string, roleId: string): Promise<GameRole[]> {
 		return await this._db.gameRole.findMany({
 			where: { roleId, guildId },

@@ -22,7 +22,7 @@
 	import DialogWithConfirm from './ui/DialogWithConfirm.svelte';
 	import {
 		createForm,
-		Field,
+		Field as SField,
 		Form,
 		reset,
 		submit,
@@ -32,8 +32,12 @@
 	import { addGameRole, getGameRoles, removeGameRole, updateGameRole } from '$lib/gameRole.remote';
 	import Shield from '@lucide/svelte/icons/shield';
 	import Gamepad2 from '@lucide/svelte/icons/gamepad-2';
-	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import * as Dialog from './ui/dialog';
+	import { Button } from './ui/button';
+	import { Spinner } from './ui/spinner';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import * as Field from '$lib/components/ui/field/index.js';
 
 	const form = createForm({
 		schema: GameRole_Schema,
@@ -83,7 +87,7 @@
 	const handleSubmit: SubmitEventHandler<typeof GameRole_Schema> = async (output) => {
 		const submission_id = crypto.randomUUID();
 		try {
-			let submit_promise: Promise<Promise<void>>;
+			let submit_promise: Promise<void>;
 
 			const old_object_copy = old_state ? { ...old_state } : null;
 
@@ -174,107 +178,115 @@
 	confirmTitle="Confirm Delete"
 	onconfirm={handle_delete}
 >
+	<Dialog.Header>
+		<Dialog.Title>
+			{#if old_state}Edit Game Role{:else}Add Game Role{/if}
+		</Dialog.Title>
+		<Dialog.Description>
+			{#if old_state}{props.roles.find((r) => r.id === old_state?.roleId)?.name ||
+					old_state?.roleId}{/if}
+		</Dialog.Description>
+	</Dialog.Header>
+
+	<Form of={form} onsubmit={handleSubmit}>
+		<Field.Set>
+			<Field.Group>
+				<SField of={form} path={['gameName']}>
+					{#snippet children(field)}
+						<Field.Field data-invalid={field.errors ? 'true' : undefined}>
+							<Field.Label><Gamepad2 size={16} />Game Name</Field.Label>
+							<Select.Root
+								type="single"
+								{...field.props}
+								value={field.input}
+								onValueChange={(v) => field.onInput(v)}
+							>
+								<Select.Trigger>
+									{#if field.input}
+										{field.input}
+									{:else}
+										Select a game
+									{/if}
+								</Select.Trigger>
+								<Select.Content>
+									{#each props.games as game (game.name)}
+										<Select.Item value={game.name}>{game.name}</Select.Item>
+									{/each}
+								</Select.Content>
+							</Select.Root>
+							{#if field.errors}
+								<Field.Error>
+									{field.errors[0]}
+								</Field.Error>
+							{/if}
+						</Field.Field>
+					{/snippet}
+				</SField>
+
+				<SField of={form} path={['roleId']}>
+					{#snippet children(field)}
+						<Field.Field data-invalid={field.errors ? 'true' : undefined}>
+							<Field.Label><Shield size={16} />Discord Role</Field.Label>
+							<Select.Root
+								type="single"
+								{...field.props}
+								value={field.input}
+								onValueChange={(v) => field.onInput(v)}
+							>
+								<Select.Trigger>
+									{#if field.input}
+										{props.roles.find((r) => r.id === field.input)?.name ?? field.input}
+									{:else}
+										Select a role
+									{/if}
+								</Select.Trigger>
+								<Select.Content>
+									{#each props.roles as role (role.id)}
+										<Select.Item value={role.id}>{role.name}</Select.Item>
+									{/each}
+								</Select.Content>
+							</Select.Root>
+							{#if field.errors}
+								<Field.Error>
+									{field.errors[0]}
+								</Field.Error>
+							{/if}
+						</Field.Field>
+					{/snippet}
+				</SField>
+			</Field.Group>
+		</Field.Set>
+	</Form>
+	<Dialog.Footer>
+		{#if old_state !== null}
+			<Button
+				class="mr-auto"
+				variant="destructive"
+				disabled={form.isSubmitting}
+				onclick={() => dialog.openConfirm()}
+			>
+				<Trash2 />
+				Delete
+			</Button>
+		{/if}
+		<Button
+			disabled={form.isSubmitting || (old_state && !form.isDirty)}
+			onclick={() => submit(form)}
+		>
+			{#if form.isSubmitting}
+				<Spinner />
+			{/if}
+			Save
+		</Button>
+		<Button variant="outline" disabled={form.isSubmitting} onclick={() => dialog.close()}>
+			Cancel
+		</Button>
+	</Dialog.Footer>
+
 	{#snippet confirmMessage()}
 		Are you sure you want to delete the game role for <strong class="text-base-content">
 			{old_state?.gameName}
 		</strong>
 		?
-	{/snippet}
-	{#snippet icon()}
-		<Shield size={24} class="text-primary" />
-	{/snippet}
-	{#snippet title()}
-		{#if old_state}Edit Game Role{:else}Add Game Role{/if}
-	{/snippet}
-	{#snippet subtitle()}
-		{#if old_state}{props.roles.find((r) => r.id === old_state?.roleId)?.name ||
-				old_state?.roleId}{/if}
-	{/snippet}
-
-	<Form of={form} onsubmit={handleSubmit}>
-		<Field of={form} path={['gameName']}>
-			{#snippet children(field)}
-				<fieldset class="fieldset rounded-xl">
-					<legend class="fieldset-legend flex items-center gap-2 text-sm font-semibold">
-						<Gamepad2 size={16} class="text-base-content/60" />
-						Game Name
-					</legend>
-					<select
-						class="select-bordered select w-full rounded-xl bg-base-200"
-						{...field.props}
-						value={field.input}
-					>
-						<option value="">Select a game</option>
-						{#each props.games as game (game.name)}
-							<option value={game.name}>{game.name}</option>
-						{/each}
-					</select>
-					{#if field.errors}
-						<div class="mt-1 flex items-center gap-1 text-sm text-error">
-							<AlertCircle size={16} />
-							{field.errors[0]}
-						</div>
-					{/if}
-				</fieldset>
-			{/snippet}
-		</Field>
-
-		<Field of={form} path={['roleId']}>
-			{#snippet children(field)}
-				<fieldset class="fieldset rounded-xl">
-					<legend class="fieldset-legend flex items-center gap-2 text-sm font-semibold">
-						<Shield size={16} class="text-base-content/60" />
-						Discord Role
-					</legend>
-					<select
-						class="select-bordered select w-full rounded-xl bg-base-200"
-						{...field.props}
-						value={field.input}
-					>
-						<option value="">Select a role</option>
-						{#each props.roles as role (role.id)}
-							<option value={role.id}>{role.name}</option>
-						{/each}
-					</select>
-					{#if field.errors}
-						<div class="mt-1 flex items-center gap-1 text-sm text-error">
-							<AlertCircle size={16} />
-							{field.errors[0]}
-						</div>
-					{/if}
-				</fieldset>
-			{/snippet}
-		</Field>
-	</Form>
-	{#snippet actions()}
-		{#if old_state !== null}
-			<button
-				class="btn mr-auto rounded-lg btn-ghost btn-error"
-				disabled={form.isSubmitting}
-				onclick={() => dialog.openConfirm()}
-			>
-				<Trash2 size={16} />
-				Delete
-			</button>
-		{/if}
-		<button
-			class="btn rounded-lg btn-primary"
-			disabled={form.isSubmitting || (old_state && !form.isDirty)}
-			onclick={() => submit(form)}
-		>
-			{#if form.isSubmitting}
-				<span class="loading loading-xs loading-spinner"></span>
-				Saving...
-			{:else}
-				Save
-			{/if}
-		</button>
-		<button
-			class="btn rounded-lg btn-ghost"
-			disabled={form.isSubmitting}
-			onclick={() => dialog.close()}
-		>
-			Cancel
-		</button>
 	{/snippet}
 </DialogWithConfirm>
