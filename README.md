@@ -8,6 +8,7 @@ JessJessBot is a Discord bot and web dashboard for servers. She handles the anno
 
 - Conversational replies when summoned by name or mention, with saved preferences and community context
 - Remembers things members mention about themselves in chat (jobs, games they main, upcoming plans); anyone can say “stop remembering stuff about me” to turn it off and clear it, or “what do you remember about me” to check
+- Forms her own opinions in chat and stays consistent with them; admins can add personality notes, set her likes and dislikes, and delete opinions from the dashboard
 - Web search for current events and facts while chatting (optional, via Tavily)
 - Path of Exile 2 loot rolls, inventories, and leaderboards
 - Wordle and Riot API powered League of Legends leaderboards

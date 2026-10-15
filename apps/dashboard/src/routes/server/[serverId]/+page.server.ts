@@ -52,6 +52,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	let config: null | Awaited<ReturnType<typeof db.config.getConfig>> = null;
 	let hallChannels: Awaited<ReturnType<typeof db.hall.getChannels>> = [];
 	let hallImport: Awaited<ReturnType<typeof db.hall.getImport>> = null;
+	let opinions: Array<{ topic: string; opinion: string; updatedAt: string }> = [];
 	let savedUsers: Array<{
 		id: string;
 		name: string;
@@ -72,6 +73,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		config = await db.config.getConfig(guild.id);
 		hallChannels = await db.hall.getChannels(guild.id, true);
 		hallImport = await db.hall.getImport(guild.id);
+		opinions = (await db.botOpinion.list(guild.id)).map((entry) => ({
+			...entry,
+			updatedAt: entry.updatedAt.toISOString(),
+		}));
 		const [relationships, preferences, lootRows, pets, leagueAccounts, wordleRows, signupRows] =
 			await Promise.all([
 				db._db.botRelationship.findMany({ where: { guildId: guild.id } }),
@@ -198,6 +203,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 				}
 			: null,
 		savedUsers,
+		personality: config
+			? {
+					personality: config.bot_personality ?? '',
+					likes: config.bot_likes,
+					dislikes: config.bot_dislikes,
+				}
+			: null,
+		opinions,
 	};
 };
 

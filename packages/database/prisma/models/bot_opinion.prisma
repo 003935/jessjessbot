@@ -1,0 +1,12 @@
+// Opinions jjb has stated in chat, so she stays consistent and can change her mind.
+model BotOpinion {
+  guildId   String
+  topic     String
+  opinion   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([guildId, topic])
+  @@index([guildId, updatedAt])
+  @@map("bot_opinions")
+}
