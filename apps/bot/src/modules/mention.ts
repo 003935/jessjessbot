@@ -69,6 +69,8 @@ type RoleAction = { action?: unknown; roles?: unknown; target?: unknown };
 type ConversationTurn = { role: 'user' | 'assistant'; content: string };
 type DeepSeekContentPart = { type: 'text'; text: string } | VisionImageInput;
 const CONVERSATION_TTL_MS = 30 * 60 * 1000;
+const DEEPSEEK_RETRY_STATUSES = new Set([429, 500, 502, 503]);
+const DEEPSEEK_RETRY_DELAY_MS = 1500;
 const CUSTOM_DETAILS_TTL_MS = 5 * 60 * 1000;
 // Shared per channel so jjb can follow a conversation when someone else joins in.
 type StoredTurn = ConversationTurn & { speakerId?: string; at: number };
@@ -892,21 +894,34 @@ export async function askDeepSeek(
 		requestTools: unknown[],
 		requestMaxTokens: number
 	) => {
-		const response = await fetch('https://api.deepseek.com/chat/completions', {
-			method: 'POST',
-			headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				model: process.env.DEEPSEEK_MODEL || 'deepseek-flash',
-				messages: requestMessages,
-				tools: requestTools,
-				tool_choice: 'required',
-				thinking: { type: 'disabled' },
-				max_tokens: requestMaxTokens,
-				stream: false,
-			}),
-			signal: AbortSignal.timeout(30_000),
+		const body = JSON.stringify({
+			model: process.env.DEEPSEEK_MODEL || 'deepseek-flash',
+			messages: requestMessages,
+			tools: requestTools,
+			tool_choice: 'required',
+			thinking: { type: 'disabled' },
+			max_tokens: requestMaxTokens,
+			stream: false,
 		});
-		if (!response.ok) throw new Error(`DeepSeek returned HTTP ${response.status}`);
+		const send = () =>
+			fetch('https://api.deepseek.com/chat/completions', {
+				method: 'POST',
+				headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+				body,
+				signal: AbortSignal.timeout(30_000),
+			});
+		let response = await send();
+		// Brief overloads are common; one retry usually gets through.
+		if (DEEPSEEK_RETRY_STATUSES.has(response.status)) {
+			await new Promise((resolve) => setTimeout(resolve, DEEPSEEK_RETRY_DELAY_MS));
+			response = await send();
+		}
+		if (!response.ok) {
+			const detail = (await response.text().catch(() => '')).replace(/\s+/gu, ' ').trim().slice(0, 500);
+			throw new Error(
+				`DeepSeek returned HTTP ${response.status}${detail ? `: ${detail}` : ''} (request ${body.length} bytes, ${requestMessages.length} messages)`
+			);
+		}
 		const result = (await response.json()) as DeepSeekResponse;
 		return result.choices?.[0]?.message;
 	};
