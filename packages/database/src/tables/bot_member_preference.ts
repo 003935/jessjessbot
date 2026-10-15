@@ -7,9 +7,14 @@ export type MemberPreferences = {
 	pets: string[];
 	birthday: string | null;
 	favourites: string[];
+	notes: string[];
 };
 
 const MAX_PREFERENCES = 20;
+// Things jjb picked up from chat on her own, oldest dropped first.
+const MAX_NOTES = 12;
+const NOTE_PREFIX = 'memory_note_';
+const AUTO_MEMORY_OFF = 'auto_memory_off';
 
 export class BotMemberPreferenceTable extends DatabaseConnection {
 	async list(guildId: string, userId: string): Promise<MemberPreferences> {
@@ -22,7 +27,7 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 			this._db.botMemberPreference.findMany({
 				where: { guildId, userId, kind: { startsWith: 'memory_' } },
 				orderBy: { createdAt: 'asc' },
-				take: 40,
+				take: 40 + MAX_NOTES,
 			}),
 		]);
 		const pets = savedDetails.filter((row) => row.kind.startsWith('memory_pet_')).map((row) => row.value);
@@ -30,20 +35,57 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 			.filter((row) => row.kind.startsWith('memory_favourite_'))
 			.map((row) => row.value);
 		const birthday = savedDetails.find((row) => row.kind === 'memory_birthday')?.value ?? null;
+		const notes = savedDetails.filter((row) => row.kind.startsWith(NOTE_PREFIX)).map((row) => row.value);
 		return {
 			likes: rows.filter((row) => row.kind === 'like').map((row) => row.value),
 			dislikes: rows.filter((row) => row.kind === 'dislike').map((row) => row.value),
 			pets,
 			birthday,
 			favourites,
+			notes,
 		};
+	}
+
+	/** Saves notes learned from chat and drops outdated ones, keeping the newest MAX_NOTES. */
+	async saveNotes(guildId: string, userId: string, notes: string[], outdated: string[] = []): Promise<void> {
+		if (outdated.length)
+			await this._db.botMemberPreference.deleteMany({
+				where: { guildId, userId, kind: { startsWith: NOTE_PREFIX }, value: { in: outdated } },
+			});
+		for (const value of notes)
+			await this._db.botMemberPreference.create({
+				data: { guildId, userId, kind: `${NOTE_PREFIX}${crypto.randomUUID().slice(0, 8)}`, value },
+			});
+		const rows = await this._db.botMemberPreference.findMany({
+			where: { guildId, userId, kind: { startsWith: NOTE_PREFIX } },
+			orderBy: { createdAt: 'desc' },
+			select: { kind: true },
+		});
+		const extra = rows.slice(MAX_NOTES).map((row) => row.kind);
+		if (extra.length)
+			await this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind: { in: extra } } });
+	}
+
+	async autoMemoryEnabled(guildId: string, userId: string): Promise<boolean> {
+		return !(await this.getValue(guildId, userId, AUTO_MEMORY_OFF));
+	}
+
+	async setAutoMemory(guildId: string, userId: string, enabled: boolean): Promise<void> {
+		if (enabled)
+			await this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind: AUTO_MEMORY_OFF } });
+		else await this.setValue(guildId, userId, AUTO_MEMORY_OFF, 'true');
 	}
 
 	async saveDetail(guildId: string, userId: string, kind: string, value: string): Promise<boolean> {
 		const existing = await this._db.botMemberPreference.findFirst({ where: { guildId, userId, kind } });
 		if (!existing) {
 			const count = await this._db.botMemberPreference.count({
-				where: { guildId, userId, kind: { startsWith: 'memory_' } },
+				where: {
+					guildId,
+					userId,
+					kind: { startsWith: 'memory_' },
+					NOT: { kind: { startsWith: NOTE_PREFIX } },
+				},
 			});
 			if (count >= 40) return false;
 		}
@@ -135,6 +177,15 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 
 	async clearNickname(guildId: string, userId: string): Promise<void> {
 		await this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind: 'nickname' } });
+	}
+
+	async listNicknames(guildId: string): Promise<Array<{ userId: string; nickname: string }>> {
+		const rows = await this._db.botMemberPreference.findMany({
+			where: { guildId, kind: 'nickname' },
+			select: { userId: true, value: true },
+			take: 500,
+		});
+		return rows.map((row) => ({ userId: row.userId, nickname: row.value }));
 	}
 
 	async findNicknameUsers(guildId: string, nickname: string): Promise<string[]> {

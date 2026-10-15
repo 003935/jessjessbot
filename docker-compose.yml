@@ -1,4 +1,25 @@
 services:
+  omnivoice:
+    build:
+      context: .
+      dockerfile: ./apps/tts/Dockerfile
+    gpus: all
+    restart: unless-stopped
+    environment:
+      - OMNIVOICE_REFERENCE_FILE=/voice/sample2.wav
+      - OMNIVOICE_REFERENCE_TEXT=Hi, how are you doing today? I’m recording this so my voice assistant can learn how I sound. I’ll speak naturally and clearly, just like I’m chatting with a friend.
+      - OMNIVOICE_VOICE_PROMPT_FILE=/cache/voice-clone-prompt-sample2.pt
+      - HF_HOME=/cache
+    volumes:
+      - ./.local/voice:/voice:ro
+      - ./.local/omnivoice-cache:/cache
+    healthcheck:
+      test: ['CMD', 'python', '-c', 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/health", timeout=3)']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10m
+
   bot:
     container_name: bot
     build:

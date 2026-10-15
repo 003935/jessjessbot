@@ -9,12 +9,13 @@ import { Logger } from '@/utils';
 import { db } from '@/db';
 import { refreshReaction, removeMessage } from '@/modules/hall';
 import { Meowdule } from './modules/meowdule';
-import { handleMention } from '@/modules/mention';
+import { botRepliesEnabledIn, handleMention } from '@/modules/mention';
 import { handleCustomSignup } from '@/modules/custom-signups';
 import { handleMemeReply } from '@/modules/meme-replies';
 import { startDailyTweets } from '@/modules/daily-tweets';
 import { uploadPoeLootEmojis } from '@/modules/poe-loot-emojis';
 import { handleLootInventoryButton } from '@/modules/poe-loot';
+import { shutdownVoice } from '@/modules/voice/voice-manager';
 
 const logger = new Logger('Bot', LogLevel.Info);
 const client = new SapphireClient({
@@ -24,6 +25,7 @@ const client = new SapphireClient({
 		GatewayIntentBits.MessageContent,
 		GatewayIntentBits.GuildMembers,
 		GatewayIntentBits.GuildMessageReactions,
+		GatewayIntentBits.GuildVoiceStates,
 	],
 	partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 	loadMessageCommandListeners: true,
@@ -51,7 +53,7 @@ client.on('clientReady', (client) => {
 	meowdule = new Meowdule(client);
 	start_background_event_checker(client);
 	stopDailyTweets ??= startDailyTweets(client);
-	void uploadPoeLootEmojis().catch(error =>
+	void uploadPoeLootEmojis().catch((error) =>
 		logger.error('PoE loot emoji startup sync failed', error)
 	);
 });
@@ -66,6 +68,7 @@ async function gracefulShutdown(signal: string) {
 	await stopDailyTweets?.();
 
 	try {
+		shutdownVoice();
 		await client.destroy();
 		logger.info('Discord client destroyed');
 	} catch (error) {
@@ -92,6 +95,7 @@ async function messageparser(message: Message<boolean>) {
 	if (message.inGuild() === false) return;
 	wordle_module(message);
 	Check_Attachments(message);
+	if (!(await botRepliesEnabledIn(message))) return;
 	meowdule?.handleMsg(message);
 	try {
 		if (await handleMemeReply(message)) return;
@@ -111,8 +115,17 @@ client.on('interactionCreate', (interaction) => {
 		handleLootInventoryButton(interaction).catch(async (error) => {
 			logger.error('Loot inventory button failed', error);
 			if (interaction.deferred || interaction.replied)
-				await interaction.editReply({ content: 'I could not load that inventory section right now.', embeds: [], components: [] }).catch(() => undefined);
-			else await interaction.reply({ content: 'I could not load that inventory section right now.', ephemeral: true }).catch(() => undefined);
+				await interaction
+					.editReply({
+						content: 'I could not load that inventory section right now.',
+						embeds: [],
+						components: [],
+					})
+					.catch(() => undefined);
+			else
+				await interaction
+					.reply({ content: 'I could not load that inventory section right now.', ephemeral: true })
+					.catch(() => undefined);
 		});
 		return;
 	}

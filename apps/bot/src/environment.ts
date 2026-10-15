@@ -7,6 +7,8 @@ const YUM_CHANNEL_ID = process.env.YUM_CHANNEL_ID;
 const PET_CHANNEL_ID = process.env.PET_CHANNEL_ID;
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const OMDB_API_KEY = process.env.OMDB_API_KEY;
+// Voice replies stay off until the OmniVoice server is hosted.
+const voiceEnabled = () => process.env.VOICE_ENABLED === 'true';
 
 if (
 	!process.env.BOT_ID ||
@@ -27,4 +29,5 @@ export {
 	PET_CHANNEL_ID,
 	TMDB_API_KEY,
 	OMDB_API_KEY,
+	voiceEnabled,
 };

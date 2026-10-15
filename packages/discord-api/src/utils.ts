@@ -60,3 +60,37 @@ export function parse_wordle_message_v2(message: Message): WordleResultMessage |
 
 	return result;
 }
+
+type HallTextMessage = {
+	content: string;
+	components?: unknown;
+	embeds?: readonly {
+		title?: string | null;
+		description?: string | null;
+		fields?: readonly { name: string; value: string }[];
+	}[];
+};
+
+export function hallMessageText(message: HallTextMessage): string {
+	if (message.content.trim()) return message.content;
+
+	const text: string[] = [];
+	const visit = (components: unknown) => {
+		if (!Array.isArray(components)) return;
+		for (const component of components) {
+			if (typeof component !== 'object' || component === null) continue;
+			if (component.type === 10 && typeof component.content === 'string')
+				text.push(component.content);
+			visit(component.components);
+		}
+	};
+	visit(message.components);
+	if (text.length) return text.join(' ');
+
+	for (const embed of message.embeds ?? []) {
+		if (embed.title) text.push(embed.title);
+		if (embed.description) text.push(embed.description);
+		for (const field of embed.fields ?? []) text.push(field.name, field.value);
+	}
+	return text.join(' ');
+}

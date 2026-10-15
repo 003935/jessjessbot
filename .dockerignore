@@ -4,6 +4,7 @@
 **/.gitignore
 **/.env
 **/.env.example
+**/.local/
 **/scripts
 **/Dockerfile*
 **/docker-compose*

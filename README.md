@@ -1,3 +1,4 @@
+<!-- This repo is improved via pingybot. -->
 #  <img src="apps/dashboard/static/bunny-logo.png" alt="JessJessBot bunny logo" width="30"> JessJessBot
 
 
@@ -6,6 +7,9 @@ JessJessBot is a Discord bot and web dashboard for servers. She handles the anno
 ## Features
 
 - Conversational replies when summoned by name or mention, with saved preferences and community context
+- Remembers things members mention about themselves in chat (jobs, games they main, upcoming plans); anyone can say “stop remembering stuff about me” to turn it off and clear it, or “what do you remember about me” to check
+- Forms her own opinions in chat and stays consistent with them; admins can add personality notes, set her likes and dislikes, and delete opinions from the dashboard
+- Web search for current events and facts while chatting (optional, via Tavily)
 - Path of Exile 2 loot rolls, inventories, and leaderboards
 - Wordle and Riot API powered League of Legends leaderboards
 - A Hall of Fame for the server's most reacted-to messages
@@ -25,7 +29,7 @@ Requirements:
 - A Riot API key
 - Discord OAuth credentials and a Better Auth secret to run the dashboard
 
-PostgreSQL and Valkey are included in the Compose stack. TMDB, OMDb, OpenCode, and DeepSeek keys are optional and only needed for their respective features. See [llms.txt](llms.txt) for environment setup and run instructions.
+PostgreSQL and Valkey are included in the Compose stack. TMDB, OMDb, DeepSeek, and Tavily (web search) keys are optional and only needed for their respective features. See [llms.txt](llms.txt) for environment setup and run instructions.
 
 ## Tech stack
 

@@ -37,6 +37,7 @@
 	import Spinner from '$lib/components/ui/spinner/spinner.svelte';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import ServerConfig from '$lib/components/ServerConfig.svelte';
+	import JjbPersonality from '$lib/components/JjbPersonality.svelte';
 
 	let { data }: PageProps = $props();
 
@@ -247,7 +248,10 @@
 
 			<ServerConfig
 				channels={data.channels ?? []}
-				config={{ custom_channel: data.config?.custom_channel ?? undefined }}
+				config={{
+					custom_channel: data.config?.custom_channel ?? undefined,
+					bot_ignored_channels: data.config?.bot_ignored_channels ?? [],
+				}}
 				guildId={data.guild.id}
 			/>
 
@@ -304,6 +308,14 @@
 				selectedChannelIds={data.hallChannelIds}
 				hallImport={data.hallImport}
 			/>
+
+			{#if data.personality}
+				<JjbPersonality
+					guildId={data.guild.id}
+					personality={data.personality}
+					opinions={data.opinions}
+				/>
+			{/if}
 		</div>
 
 		<Card.Root>

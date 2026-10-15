@@ -114,13 +114,24 @@ export class HallTable extends DatabaseConnection {
 		await this._db.hallMessage.deleteMany({ where: { channelId, messageId } });
 	}
 
-	async getTopMessages(guildId: string, channelIds: string[], authorId?: string, since?: Date) {
+	async getTopMessages(
+		guildId: string,
+		channelIds: string[],
+		botId: string,
+		authorId?: string,
+		since?: Date
+	) {
 		if (channelIds.length === 0) return [];
+		const signups = await this._db.custom.findMany({
+			where: { guildId, channelId: { in: channelIds } },
+			select: { messageId: true },
+		});
 		return await this._db.hallMessage.findMany({
 			where: {
 				guildId,
 				channelId: { in: channelIds },
-				...(authorId ? { authorId } : {}),
+				messageId: { notIn: signups.map((signup) => signup.messageId) },
+				authorId: authorId ?? { not: botId },
 				...(since ? { createdAt: { gte: since } } : {}),
 			},
 			orderBy: [{ reactions: 'desc' }, { createdAt: 'desc' }],

@@ -10,9 +10,12 @@ export function botPrompt(
 	const mention = new RegExp(`<@!?${botId}>`, 'u');
 	if (directlyMentioned && mention.test(content)) {
 		const leadingMention = new RegExp(`^\\s*<@!?${botId}>[,:]?\\s*`, 'u');
-		return (leadingMention.test(content)
-			? content.replace(leadingMention, '')
-			: content.replace(mention, 'jjb')).trim() || 'hey';
+		return (
+			(leadingMention.test(content)
+				? content.replace(leadingMention, '')
+				: content.replace(mention, 'jjb')
+			).trim() || 'hey'
+		);
 	}
 	if (replyingToBot) return content.trim() || 'hey';
 	if (!BOT_NAME.test(content)) return null;

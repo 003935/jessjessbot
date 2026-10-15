@@ -11,6 +11,7 @@ import { error, type RequestHandler } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { discordApi } from '$lib/server/discord';
 import { throwIfNotAdmin, throwIfNotLoggedIn } from '$lib/server/permission.utils';
+import { hallMessageText } from '@repo/discord-api/utils';
 
 type HallImportMessage = {
 	isDone: boolean;
@@ -34,7 +35,7 @@ function humanReactionCount(message: APIMessage): number {
 }
 
 function preview(message: APIMessage): string {
-	const text = message.content
+	const text = hallMessageText(message)
 		.replace(
 			/https?:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net)\/attachments\/\S+/giu,
 			(url) =>
@@ -58,6 +59,7 @@ function preview(message: APIMessage): string {
 
 export const POST: RequestHandler = async ({ params, locals, url }) => {
 	const recheckSaved = url.searchParams.get('recheck') === '1';
+	const backfillBot = url.searchParams.get('backfillBot') === '1';
 	const user = throwIfNotLoggedIn(locals);
 	const serverId = params.serverId;
 	if (!serverId) error(400, 'Server ID is required');
@@ -157,7 +159,12 @@ export const POST: RequestHandler = async ({ params, locals, url }) => {
 					const candidates: Parameters<typeof db.hall.saveMessages>[0] = [];
 					for (const message of messages) {
 						scanned++;
-						if (message.author.bot) continue;
+						if (
+							backfillBot
+								? message.author.id !== env.DISCORD_CLIENT_ID
+								: message.author.bot && message.author.id !== env.DISCORD_CLIENT_ID
+						)
+							continue;
 						const reactions = humanReactionCount(message);
 						if (reactions <= 2) continue;
 						candidates.push({
@@ -181,7 +188,7 @@ export const POST: RequestHandler = async ({ params, locals, url }) => {
 				};
 
 				let newestSeen = channel.newestSeen;
-				if (newestSeen || channel.backfillComplete) {
+				if (!backfillBot && (newestSeen || channel.backfillComplete)) {
 					let before: string | undefined;
 					let latestNewMessage: string | null = null;
 					while (true) {
@@ -212,29 +219,32 @@ export const POST: RequestHandler = async ({ params, locals, url }) => {
 					}
 				}
 
-				if (!channel.backfillComplete) {
-					let before = channel.oldestBefore ?? newestSeen ?? undefined;
+				if (backfillBot || !channel.backfillComplete) {
+					let before = backfillBot ? undefined : (channel.oldestBefore ?? newestSeen ?? undefined);
 					while (true) {
 						const page = await fetchPage(before);
 						if (!page) return skipChannel();
 						if (page.length === 0) {
-							await db.hall.updateCursor(
-								serverId,
-								channel.channelId,
-								newestSeen ?? scanStartedSnowflake,
-								before ?? null,
-								true
-							);
+							if (!backfillBot)
+								await db.hall.updateCursor(
+									serverId,
+									channel.channelId,
+									newestSeen ?? scanStartedSnowflake,
+									before ?? null,
+									true
+								);
 							break;
 						}
-						newestSeen ??= page[0]!.id;
-						const fresh = previousImport
-							? page.filter((message) => new Date(message.timestamp) > previousImport.lastImport)
-							: page;
+						if (!backfillBot) newestSeen ??= page[0]!.id;
+						const fresh =
+							!backfillBot && previousImport
+								? page.filter((message) => new Date(message.timestamp) > previousImport.lastImport)
+								: page;
 						await recordMessages(fresh);
 						before = page.at(-1)!.id;
-						const complete = fresh.length < page.length || page.length < 100;
-						await db.hall.updateCursor(serverId, channel.channelId, newestSeen, before, complete);
+						const complete = (!backfillBot && fresh.length < page.length) || page.length < 100;
+						if (!backfillBot)
+							await db.hall.updateCursor(serverId, channel.channelId, newestSeen, before, complete);
 						emitProgress(false);
 						if (complete) break;
 					}
@@ -256,7 +266,8 @@ export const POST: RequestHandler = async ({ params, locals, url }) => {
 			const failed = results.find((result) => result.status === 'rejected');
 			if (failed?.status === 'rejected') throw failed.reason;
 
-			if (channelsSkipped === 0) await db.hall.saveImport(serverId, discordID, scanned, imported);
+			if (!backfillBot && channelsSkipped === 0)
+				await db.hall.saveImport(serverId, discordID, scanned, imported);
 			emitProgress(true);
 		} catch (caught) {
 			console.error('Hall of Fame import failed:', caught);
