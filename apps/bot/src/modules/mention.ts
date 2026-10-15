@@ -38,11 +38,12 @@ import { withServerEmoji } from '@/modules/server-emojis';
 import jessPreferences from '@/personality/jess-preferences.json';
 import { FOOD_TASTES, isFoodTalk } from '@/personality/food-tastes';
 import { collectVisionImages, type VisionImageInput } from '@/modules/vision-images';
+import { noThinking, OPENCODE_CHAT_URL, opencodeHeaders, opencodeModel } from '@/modules/opencode';
 
 const logger = new Logger('Mention');
 const ROLE_ADMIN_ID = '1157046480968892557';
 
-type DeepSeekResponse = {
+type ChatResponse = {
 	choices?: Array<{
 		message?: {
 			content?: string | null;
@@ -53,7 +54,7 @@ type DeepSeekResponse = {
 
 type RoleAction = { action?: unknown; roles?: unknown; target?: unknown };
 type ConversationTurn = { role: 'user' | 'assistant'; content: string };
-type DeepSeekContentPart = { type: 'text'; text: string } | VisionImageInput;
+type ChatContentPart = { type: 'text'; text: string } | VisionImageInput;
 const CONVERSATION_TTL_MS = 30 * 60 * 1000;
 const CUSTOM_DETAILS_TTL_MS = 5 * 60 * 1000;
 // Shared per channel so jjb can follow a conversation when someone else joins in.
@@ -621,7 +622,7 @@ async function repliedMessageContext(
 		: null;
 }
 
-export async function askDeepSeek(
+export async function askChatModel(
 	prompt: string,
 	history: ConversationTurn[],
 	awaitingCustomDetails: boolean,
@@ -639,7 +640,8 @@ export async function askDeepSeek(
 	speakerName = 'someone',
 	nickname: string | null = null,
 	speakerUsername = '',
-	speakerLabel = speakerName
+	speakerLabel = speakerName,
+	sessionId = 'default'
 ): Promise<{
 	reply?: string;
 	roleAction?: RoleAction;
@@ -647,8 +649,8 @@ export async function askDeepSeek(
 	customHelp?: boolean;
 	recapHours?: unknown;
 }> {
-	const apiKey = process.env.DEEPSEEK_API_KEY;
-	if (!apiKey) return { reply: 'I need a DeepSeek API key before I can chat.' };
+	const apiKey = process.env.OPENCODE_API_KEY;
+	if (!apiKey) return { reply: 'I need an OpenCode API key before I can chat.' };
 	const playingGame =
 		/\b(?:blackjack|cards?|deal|random (?:poe|path of exile) (?:loot|item|drop)|(?:poe|path of exile) (?:loot|item|drop))\b/iu.test(
 			prompt
@@ -656,11 +658,12 @@ export async function askDeepSeek(
 		(isGameMove(prompt) &&
 			(hasRecentCardGame(history) ||
 				/\b(?:blackjack|cards?|deck|dealer|hit or stand)\b/iu.test(repliedTo?.content ?? '')));
-	const response = await fetch('https://api.deepseek.com/chat/completions', {
+	const model = opencodeModel();
+	const response = await fetch(OPENCODE_CHAT_URL, {
 		method: 'POST',
-		headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+		headers: opencodeHeaders(apiKey, `chat-${sessionId}`),
 		body: JSON.stringify({
-			model: process.env.DEEPSEEK_MODEL || 'deepseek-flash',
+			model,
 			messages: [
 				{
 					role: 'system',
@@ -796,14 +799,14 @@ export async function askDeepSeek(
 							tool.function.name !== 'schedule_custom'))
 			),
 			tool_choice: 'required',
-			thinking: { type: 'disabled' },
+			...noThinking(model),
 			max_tokens: allowsLongChatReply(prompt) ? 900 : 250,
 			stream: false,
 		}),
 		signal: AbortSignal.timeout(30_000),
 	});
-	if (!response.ok) throw new Error(`DeepSeek returned HTTP ${response.status}`);
-	const result = (await response.json()) as DeepSeekResponse;
+	if (!response.ok) throw new Error(`OpenCode returned HTTP ${response.status}`);
+	const result = (await response.json()) as ChatResponse;
 	const output = result.choices?.[0]?.message;
 	const recapTool = output?.tool_calls?.find((call) => call.function?.name === 'summarize_channel');
 	if (recapTool && isRecapRequest(prompt)) {
@@ -1025,7 +1028,7 @@ export async function handleMention(message: Message): Promise<void> {
 				const savedNickname = await db.botMemberPreference
 					.getNickname(message.guildId, message.author.id)
 					.catch(() => null);
-				let result = await askDeepSeek(
+				let result = await askChatModel(
 					prompt,
 					relevantHistory,
 					awaitingCustomDetails,
@@ -1038,12 +1041,13 @@ export async function handleMention(message: Message): Promise<void> {
 					speakerName,
 					savedNickname,
 					message.author.username,
-					speakerLabel
+					speakerLabel,
+					message.channelId
 				);
 				// With shared history the model sometimes just repeats an earlier answer
 				// ("one death beats five" twice). Retry once without history if it does.
 				if (result.reply && repeatsEarlierReply(result.reply, history))
-					result = await askDeepSeek(
+					result = await askChatModel(
 						prompt,
 						[],
 						awaitingCustomDetails,
@@ -1055,7 +1059,8 @@ export async function handleMention(message: Message): Promise<void> {
 						speakerName,
 						savedNickname,
 						message.author.username,
-						speakerLabel
+						speakerLabel,
+						message.channelId
 					);
 
 				const action = result.roleAction;
@@ -1127,7 +1132,7 @@ export async function handleMention(message: Message): Promise<void> {
 			}
 		} else {
 			content =
-				'I can only chat through DeepSeek in public channels. You can still use an exact role command here.';
+				'I can only chat in public channels. You can still use an exact role command here.';
 		}
 		if (casualReply)
 			content = await withServerEmoji(message.guild, content, prompt).catch((error) => {

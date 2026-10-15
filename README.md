@@ -25,7 +25,7 @@ Requirements:
 - A Riot API key
 - Discord OAuth credentials and a Better Auth secret to run the dashboard
 
-PostgreSQL and Valkey are included in the Compose stack. TMDB, OMDb, and DeepSeek keys are optional and only needed for their respective features. See [llms.txt](llms.txt) for environment setup and run instructions.
+PostgreSQL and Valkey are included in the Compose stack. TMDB, OMDb, OpenCode, and DeepSeek keys are optional and only needed for their respective features. See [llms.txt](llms.txt) for environment setup and run instructions.
 
 ## Tech stack
 

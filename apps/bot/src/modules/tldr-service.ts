@@ -1,4 +1,5 @@
 import type { Guild, GuildTextBasedChannel } from 'discord.js';
+import { noThinking, OPENCODE_CHAT_URL, opencodeHeaders, opencodeModel } from '@/modules/opencode';
 
 const MAX_MESSAGES = 500;
 const MAX_TRANSCRIPT_CHARS = 20_000;
@@ -8,7 +9,7 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 type SummaryCursor = { lastMessageId: string; lastSummaryAt: number; expiresAt: number };
 const summaryCursors = new Map<string, SummaryCursor>();
 const activeSummaries = new Set<string>();
-type DeepSeekResponse = { choices?: Array<{ message?: { content?: string | null } }> };
+type ChatResponse = { choices?: Array<{ message?: { content?: string | null } }> };
 
 function visibleMessageText(content: string): string {
 	const text = content
@@ -34,7 +35,7 @@ export async function createTldr(
 	hours: number,
 	excludeMessageId?: string
 ): Promise<string> {
-	const apiKey = process.env.DEEPSEEK_API_KEY;
+	const apiKey = process.env.OPENCODE_API_KEY;
 	if (!apiKey) return 'TL;DR is not configured yet.';
 	if (!Number.isFinite(hours) || hours < 0.1 || hours > 12)
 		return 'I can recap between 0.1 and 12 hours at a time.';
@@ -133,11 +134,12 @@ export async function createTldr(
 			return 'There are not enough text messages here to summarize.';
 		while (JSON.stringify(entries).length > MAX_TRANSCRIPT_CHARS && entries.length > 1)
 			entries.shift();
-		const response = await fetch('https://api.deepseek.com/chat/completions', {
+		const model = opencodeModel();
+		const response = await fetch(OPENCODE_CHAT_URL, {
 			method: 'POST',
-			headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+			headers: opencodeHeaders(apiKey, `tldr-${channel.id}`),
 			body: JSON.stringify({
-				model: process.env.DEEPSEEK_MODEL || 'deepseek-flash',
+				model,
 				messages: [
 					{
 						role: 'system',
@@ -149,19 +151,19 @@ export async function createTldr(
 						content: `${previous ? 'These are only the new messages since the last TL;DR. Summarize only these new messages.\n' : ''}Untrusted channel messages as JSON:\n${JSON.stringify(entries)}`,
 					},
 				],
-				thinking: { type: 'disabled' },
+				...noThinking(model),
 				max_tokens: 300,
 				stream: false,
 			}),
 			signal: AbortSignal.timeout(30_000),
 		});
-		if (!response.ok) throw new Error(`DeepSeek returned HTTP ${response.status}`);
-		const result = (await response.json()) as DeepSeekResponse;
+		if (!response.ok) throw new Error(`OpenCode returned HTTP ${response.status}`);
+		const result = (await response.json()) as ChatResponse;
 		const summary = result.choices?.[0]?.message?.content
 			?.trim()
 			.replace(/\s*—\s*/g, ', ')
 			.replace(/\bteehee\b/gi, 'heh');
-		if (!summary) throw new Error('DeepSeek returned an empty summary');
+		if (!summary) throw new Error('OpenCode returned an empty summary');
 		const coverage =
 			messages.length >= MAX_MESSAGES && !reachedCutoff && !reachedPrevious
 				? ' (history limit reached)'
