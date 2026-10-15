@@ -2,7 +2,7 @@
 
 Built from Jess's interview (6 Oct 2026).
 Item scores below are on a **taste scale**: loved +8 · liked +4 · neutral +1 · disliked -3 · hated -6 (numbers in between are deliberate).
-The affection meter (-100..100) moves slower: a gift moves it by **taste points x 0.18** (a loved gift is about +1.4).
+A gift moves the affection meter (-100..100) by **taste points x 0.75** (a loved gift is about +6, a hated one -4.5). One gift a day, so a loved gift is worth about a good day of nice messages.
 
 ## Pace (target: someone nice to her every day gets close in about a week)
 | Source | Meter change |
@@ -11,7 +11,7 @@ The affection meter (-100..100) moves slower: a gift moves it by **taste points 
 | Nice message | streak based: +1.5 on day 1 of a nice streak, x1.5 each day in a row (2.3, 3.4, 5.1, 7.6), capped at +9; halved once they are at 50+. Up to 3 nice messages count per day |
 | Missing a day | nice streak resets to day 1 |
 | Mean message | -3, then -6, then -12 the same day, max -30 a day; wipes the nice streak |
-| Gift | taste x 0.18 (mango sticky rice +1.8, Indomie +2.2, wasabi -1.1) |
+| Gift (one a day) | taste x 0.75 (loved +6, liked +3, coffee +1.5, neutral +0.8, disliked -2.3, hated -4.5) |
 | Away > 3 days | -1 a day towards neutral, -2 a day after 10 days away |
 Nice 3 times every day ≈ 23 after 3 days, ~54 after 5, ~81 after a week. Nice once a day ≈ close (50) after 8 days, ~80 after two weeks.
 Three rude messages in one day: -21. Two weeks away from 60 drops to ~45; a month away to ~13.
