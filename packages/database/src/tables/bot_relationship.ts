@@ -33,7 +33,7 @@ export class BotRelationshipTable extends DatabaseConnection {
 		guildId: string,
 		userId: string,
 		delta: number
-	): Promise<{ score: number; lastInteractedAt: Date | null }> {
+	): Promise<{ score: number; lastInteractedAt: Date | null; interactionCount: number }> {
 		const now = new Date();
 		const current = await this._db.botRelationship.findUnique({
 			where: { guildId_userId: { guildId, userId } },
@@ -49,7 +49,11 @@ export class BotRelationshipTable extends DatabaseConnection {
 			create: { guildId, userId, score, interactionCount: 1, updatedAt: now },
 			update: { score, interactionCount: { increment: 1 }, updatedAt: now },
 		});
-		return { score: visible(score), lastInteractedAt: current?.updatedAt ?? null };
+		return {
+			score: visible(score),
+			lastInteractedAt: current?.updatedAt ?? null,
+			interactionCount: (current?.interactionCount ?? 0) + 1,
+		};
 	}
 
 	// Direct change from a gift (delta in tenths): bypasses the per-message daily caps but still

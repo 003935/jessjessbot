@@ -15,6 +15,8 @@ import { handleTeamMention } from '@/modules/custom-teams';
 import { parseVaderMinutes, runVader } from '@/modules/vader';
 import {
 	attitudeShift,
+	feelingsPrompt,
+	isFeelingsTalk,
 	isReunion,
 	relationshipState,
 	relationshipTone,
@@ -201,7 +203,7 @@ Replies the server loved, for style only (do not reuse them word for word):
 - "jjb should i get pizza or sushi" -> "sushi obviously. pizza is for quitters"
 - "i failed my driving test" -> "nooo (╥﹏╥) the cones had it out for u"
 - "what do u think of my new pfp" -> "its giving main character. i hate that i like it"
-- "jjb do u even like me" -> "ur ok. dont make it weird"
+- "jjb is it bad to text my ex" -> "put the phone in the fridge and walk away"
 
 Text like a real friend, not an AI assistant:
 - react first, answer second, and sometimes only react ("LMAOO no"). Never restate or summarise the question.
@@ -888,7 +890,8 @@ export async function askDeepSeek(
 	members: ReferencedMember[] = [],
 	linkPreviews: string | null = null,
 	channelContext: string | null = null,
-	personality: BotPersonality | null = null
+	personality: BotPersonality | null = null,
+	interactionCount = 0
 ): Promise<{
 	reply?: string;
 	imageDescription?: string;
@@ -914,7 +917,7 @@ export async function askDeepSeek(
 	const messages: unknown[] = [
 		{
 			role: 'system',
-			content: `${VOICE_PROMPT}${personalityPrompt(personality, prompt)}${isFoodTalk(prompt) ? `\n\n${FOOD_TASTES}` : ''}\n\n${PERSONAL_MEMORY_PROMPT}\n\n${MEME_PROMPT}${relevantBotPreferences(prompt, personality?.preferences ?? defaultPreferences, !!personality?.preferences)}\n\n${RELIABILITY_PROMPT}\n\n${ACTION_PROMPT}${webSearchEnabled() && !visionImages.length ? `\n\n${WEB_SEARCH_PROMPT}` : ''}\n\n${relationshipTone(relationship, cute, reunion)}${playingGame ? `\n\n${GAME_PROMPT}` : ''}${visionImages.length ? `\n\n${IMAGE_PROMPT}` : ''}${linkPreviews ? `\n\n${LINK_PROMPT}` : ''}\n\n${addressPrompt(speakerUsername, speakerName, nickname, prompt)}`,
+			content: `${VOICE_PROMPT}${personalityPrompt(personality, prompt)}${isFoodTalk(prompt) ? `\n\n${FOOD_TASTES}` : ''}\n\n${PERSONAL_MEMORY_PROMPT}\n\n${MEME_PROMPT}${relevantBotPreferences(prompt, personality?.preferences ?? defaultPreferences, !!personality?.preferences)}\n\n${RELIABILITY_PROMPT}\n\n${ACTION_PROMPT}${webSearchEnabled() && !visionImages.length ? `\n\n${WEB_SEARCH_PROMPT}` : ''}\n\n${relationshipTone(relationship, cute, reunion)}${isFeelingsTalk(prompt) ? `\n\n${feelingsPrompt(relationship, interactionCount)}` : ''}${playingGame ? `\n\n${GAME_PROMPT}` : ''}${visionImages.length ? `\n\n${IMAGE_PROMPT}` : ''}${linkPreviews ? `\n\n${LINK_PROMPT}` : ''}\n\n${addressPrompt(speakerUsername, speakerName, nickname, prompt)}`,
 		},
 		...(channelContext ? [{ role: 'user', content: channelContext }] : []),
 		...history,
@@ -1337,7 +1340,7 @@ export async function handleMention(message: Message): Promise<void> {
 	const relationship = await relationshipState(message.guildId, message.author.id, prompt).catch(
 		(error) => {
 			logger.error('Could not update relationship state', error);
-			return { score: 0, lastInteractedAt: null };
+			return { score: 0, lastInteractedAt: null, interactionCount: 0 };
 		}
 	);
 	const pendingCustom = pendingCustoms.get(pendingKey);
@@ -1553,7 +1556,8 @@ export async function handleMention(message: Message): Promise<void> {
 							members,
 							linkPreviews,
 							channelContext,
-							personality
+							personality,
+							relationship.interactionCount
 						);
 				// With shared history the model sometimes just repeats an earlier answer
 				// ("one death beats five" twice). Retry once without history if it does.
@@ -1575,7 +1579,8 @@ export async function handleMention(message: Message): Promise<void> {
 						members,
 						linkPreviews,
 						channelContext,
-						personality
+						personality,
+						relationship.interactionCount
 					);
 				savedImageDescription = imageCollection.images.length ? result.imageDescription : undefined;
 				savedImageSourceIds = imageCollection.sourceMessageIds;
