@@ -47,8 +47,8 @@ You can preview the production build with `npm run preview`.
 
 The server endpoint `POST /api/demo-chat` accepts `{ "messages": [{ "role": "user" | "assistant", "content": "..." }] }` and returns `{ "reply": "..." }`. Configure these server-side environment variables in the dashboard deployment:
 
-- `DEEPSEEK_API_KEY` — required; keep this secret and never expose it to browser code.
-- `DEEPSEEK_MODEL` — optional; defaults to `deepseek-flash`.
+- `OPENCODE_API_KEY` — required; an OpenCode Console service account key (`oc_sk_...`). Keep this secret and never expose it to browser code.
+- `OPENCODE_MODEL` — optional; defaults to `deepseek-v4.1-flash`. Must be a model served by the Chat Completions endpoint.
 - `JESSJESSBOT_DEMO_ALLOWED_ORIGIN` — required exact browser origin, currently `https://jessawg.space`.
 - `VALKEY_URL` — enables the endpoint's per-client rate limit when configured.
 

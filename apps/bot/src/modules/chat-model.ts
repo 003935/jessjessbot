@@ -15,6 +15,19 @@ export function chatApiKey(): string | undefined {
 	return process.env.CHAT_API_KEY || process.env.DEEPSEEK_API_KEY || undefined;
 }
 
+/**
+ * Request headers. OpenCode Go rejects requests without a stable per-conversation
+ * session ID and asks clients to send their own user agent.
+ */
+export function chatHeaders(apiKey: string, sessionId: string): Record<string, string> {
+	return {
+		Authorization: `Bearer ${apiKey}`,
+		'Content-Type': 'application/json',
+		'User-Agent': 'jessjessbot/1.0',
+		'x-opencode-session': `jjb-${sessionId}`,
+	};
+}
+
 export function chatModel(tier: ChatTier, hasImages = false): string {
 	const quick = process.env.CHAT_MODEL || process.env.DEEPSEEK_MODEL || 'deepseek-flash';
 	const deep = process.env.CHAT_DEEP_MODEL || quick;

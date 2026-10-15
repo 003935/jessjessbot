@@ -58,7 +58,7 @@ import { enqueueGuildSpeech } from '@/modules/voice/voice-manager';
 import { learnInBackground } from '@/modules/mention-notes';
 import { learnOpinionInBackground, relevantOpinions } from '@/modules/mention-opinions';
 import { channelBackground, linkPreviewContext, withLinkEmbeds } from '@/modules/mention-context';
-import { chatApiKey, chatRequestFields, chatUrl, type ChatTier } from '@/modules/chat-model';
+import { chatApiKey, chatHeaders, chatRequestFields, chatUrl, type ChatTier } from '@/modules/chat-model';
 
 const logger = new Logger('Mention');
 const ROLE_ADMIN_ID = '1157046480968892557';
@@ -896,7 +896,8 @@ export async function askDeepSeek(
 		interactionCount: 0,
 		niceStreak: 0,
 		daysAway: 0,
-	}
+	},
+	sessionId = 'default'
 ): Promise<{
 	reply?: string;
 	imageDescription?: string;
@@ -1111,7 +1112,7 @@ export async function askDeepSeek(
 		const send = () =>
 			fetch(chatUrl(), {
 				method: 'POST',
-				headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+				headers: chatHeaders(apiKey, `chat-${sessionId}`),
 				body,
 				signal: AbortSignal.timeout(requestTier === 'deep' ? 90_000 : 30_000),
 			}).catch((error: unknown) => {
@@ -1564,7 +1565,8 @@ export async function handleMention(message: Message): Promise<void> {
 							linkPreviews,
 							channelContext,
 							personality,
-							relationship
+							relationship,
+							message.channelId
 						);
 				// With shared history the model sometimes just repeats an earlier answer
 				// ("one death beats five" twice). Retry once without history if it does.
@@ -1587,7 +1589,8 @@ export async function handleMention(message: Message): Promise<void> {
 						linkPreviews,
 						channelContext,
 						personality,
-						relationship
+						relationship,
+						message.channelId
 					);
 				savedImageDescription = imageCollection.images.length ? result.imageDescription : undefined;
 				savedImageSourceIds = imageCollection.sourceMessageIds;

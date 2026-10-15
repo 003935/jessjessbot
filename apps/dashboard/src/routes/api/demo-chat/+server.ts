@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 const MAX_BODY_BYTES = 16 * 1024;
 const RATE_LIMIT = 10;
 const RATE_WINDOW_SECONDS = 60;
-type DeepSeekResponse = { choices?: Array<{ message?: { content?: string | null } }> };
+type ChatResponse = { choices?: Array<{ message?: { content?: string | null } }> };
 
 function corsHeaders(origin: string | null): Headers {
 	const headers = new Headers({ Vary: 'Origin' });
@@ -86,7 +86,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	}
 	const messages = validateDemoChat(body);
 	if (!messages) return json({ error: 'Invalid messages' }, 400, headers);
-	if (!env.DEEPSEEK_API_KEY) return json({ error: 'Demo chat is unavailable' }, 503, headers);
+	if (!env.OPENCODE_API_KEY) return json({ error: 'Demo chat is unavailable' }, 503, headers);
 
 	if (env.VALKEY_URL) {
 		try {
@@ -104,14 +104,16 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	}
 
 	try {
-		const response = await fetch('https://api.deepseek.com/chat/completions', {
+		const response = await fetch('https://opencode.ai/inference/go/v1/chat/completions', {
 			method: 'POST',
 			headers: {
-				Authorization: `Bearer ${env.DEEPSEEK_API_KEY}`,
+				Authorization: `Bearer ${env.OPENCODE_API_KEY}`,
 				'Content-Type': 'application/json',
+				'User-Agent': 'jessjessbot-dashboard/1.0',
+				'x-opencode-session': `jjb-demo-${createHash('sha256').update(getClientAddress()).digest('hex').slice(0, 16)}`,
 			},
 			body: JSON.stringify({
-				model: env.DEEPSEEK_MODEL || 'deepseek-flash',
+				model: env.OPENCODE_MODEL || 'deepseek-v4.1-flash',
 				messages: [
 					{
 						role: 'system',
@@ -126,7 +128,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			signal: AbortSignal.timeout(25_000),
 		});
 		if (!response.ok) return json({ error: 'Demo chat is temporarily unavailable' }, 502, headers);
-		const result = (await response.json()) as DeepSeekResponse;
+		const result = (await response.json()) as ChatResponse;
 		const reply = result.choices?.[0]?.message?.content?.trim();
 		if (!reply) return json({ error: 'Demo chat is temporarily unavailable' }, 502, headers);
 		return json({ reply: reply.slice(0, 2_000) }, 200, headers);

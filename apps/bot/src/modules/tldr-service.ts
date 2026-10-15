@@ -1,4 +1,4 @@
-import { chatApiKey, chatRequestFields, chatUrl } from '@/modules/chat-model';
+import { chatApiKey, chatHeaders, chatRequestFields, chatUrl } from '@/modules/chat-model';
 import type { Guild, GuildTextBasedChannel } from 'discord.js';
 
 const MAX_MESSAGES = 500;
@@ -138,7 +138,7 @@ export async function createTldr(
 		const requestSummary = (reasoning: boolean) =>
 			fetch(chatUrl(), {
 				method: 'POST',
-				headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+				headers: chatHeaders(apiKey, `tldr-${channel.id}`),
 				body: JSON.stringify({
 					...chatRequestFields('deep', { maxTokens: 300, reasoning }),
 					messages: [

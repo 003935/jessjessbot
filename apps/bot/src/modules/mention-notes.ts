@@ -1,6 +1,6 @@
 import { db } from '@/db';
 import { Logger } from '@/utils';
-import { chatApiKey, chatRequestFields, chatUrl } from '@/modules/chat-model';
+import { chatApiKey, chatHeaders, chatRequestFields, chatUrl } from '@/modules/chat-model';
 
 // Lets jjb pick up things people mention about themselves in normal chat
 // ("my exam is friday", "i just started working nights") without them having
@@ -47,7 +47,7 @@ export async function learnFromMessage(
 	if (!(await db.botMemberPreference.autoMemoryEnabled(guildId, userId))) return [];
 	const response = await fetch(chatUrl(), {
 		method: 'POST',
-		headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+		headers: chatHeaders(apiKey, `notes-${guildId}-${userId}`),
 		signal: AbortSignal.timeout(20_000),
 		body: JSON.stringify({
 			...chatRequestFields('quick', { temperature: 0.2, maxTokens: 150, reasoning: false }),

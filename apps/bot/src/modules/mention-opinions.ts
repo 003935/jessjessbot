@@ -1,6 +1,6 @@
 import { db } from '@/db';
 import { Logger } from '@/utils';
-import { chatApiKey, chatRequestFields, chatUrl } from '@/modules/chat-model';
+import { chatApiKey, chatHeaders, chatRequestFields, chatUrl } from '@/modules/chat-model';
 import { cleanNote } from '@/modules/mention-notes';
 
 // jjb's own opinions. When she takes a side in a reply ("sushi obviously"), it gets
@@ -57,7 +57,7 @@ export async function learnOpinion(
 	if (!apiKey || !mightHaveOpinion(prompt, reply)) return null;
 	const response = await fetch(chatUrl(), {
 		method: 'POST',
-		headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+		headers: chatHeaders(apiKey, `opinions-${guildId}`),
 		signal: AbortSignal.timeout(20_000),
 		body: JSON.stringify({
 			...chatRequestFields('quick', { temperature: 0.2, maxTokens: 120, reasoning: false }),
