@@ -24,6 +24,7 @@ type HallImportMessage = {
 type GuildAPIMessage = APIMessage & { member?: { nick?: string | null } };
 
 const rest = new REST().setToken(env.DISCORD_BOT_TOKEN!);
+const botBackfillStart = Date.parse('2026-09-29T00:00:00.000Z');
 
 function humanReactionCount(message: APIMessage): number {
 	return Math.max(
@@ -236,13 +237,14 @@ export const POST: RequestHandler = async ({ params, locals, url }) => {
 							break;
 						}
 						if (!backfillBot) newestSeen ??= page[0]!.id;
-						const fresh =
-							!backfillBot && previousImport
+						const fresh = backfillBot
+							? page.filter((message) => Date.parse(message.timestamp) >= botBackfillStart)
+							: previousImport
 								? page.filter((message) => new Date(message.timestamp) > previousImport.lastImport)
 								: page;
 						await recordMessages(fresh);
 						before = page.at(-1)!.id;
-						const complete = (!backfillBot && fresh.length < page.length) || page.length < 100;
+						const complete = fresh.length < page.length || page.length < 100;
 						if (!backfillBot)
 							await db.hall.updateCursor(serverId, channel.channelId, newestSeen, before, complete);
 						emitProgress(false);
