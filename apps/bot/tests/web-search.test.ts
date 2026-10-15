@@ -8,7 +8,7 @@ mock.module('../src/db', () => ({ db: {} }));
 const { formatSearchResults, sourceLink, webSearch, webSearchEnabled } = await import(
 	'../src/modules/web-search'
 );
-const { askDeepSeek } = await import('../src/modules/mention');
+const { askDeepSeek, historyForPrompt } = await import('../src/modules/mention');
 
 const realFetch = globalThis.fetch;
 type Call = { url: string; body: any };
@@ -152,4 +152,33 @@ test('sourceLink makes a Discord link with no preview, even for URLs with bracke
 	expect(sourceLink('https://en.wikipedia.org/wiki/Cars_(film)')).toBe(
 		'[link](<https://en.wikipedia.org/wiki/Cars_%28film%29>)'
 	);
+});
+
+test('unrelated messages do not inherit a recent link or TL;DR', () => {
+	const now = Date.now();
+	const turns = [
+		{ role: 'user' as const, content: 'alex: tldr past hour', at: now - 3000 },
+		{ role: 'assistant' as const, content: 'TL;DR: patch notes [link](<https://example.com>)', at: now - 2000 },
+	];
+	expect(historyForPrompt('what should i cook tonight?', turns, now)).toEqual([]);
+	expect(historyForPrompt('tell me about the patch notes', turns, now)).toEqual([]);
+	expect(historyForPrompt('what did we say earlier?', turns, now)).toEqual(turns.map(({ role, content }) => ({ role, content })));
+	expect(historyForPrompt('tell me about the patch notes', [
+		{ ...turns[0]!, content: 'alex: did you see the patch notes?' },
+		turns[1]!,
+	], now)).toHaveLength(2);
+});
+
+test('short follow-ups use only the latest exchange, not an older recap', () => {
+	const now = Date.now();
+	const turns = [
+		{ role: 'user' as const, content: 'alex: tldr past hour', at: now - 6000 },
+		{ role: 'assistant' as const, content: 'TL;DR: patch notes [link](<https://example.com>)', at: now - 5000 },
+		{ role: 'user' as const, content: 'sam: i baked cookies', at: now - 3000 },
+		{ role: 'assistant' as const, content: 'save me one', at: now - 2000 },
+	];
+	expect(historyForPrompt('yes bro isnt it freaking awesome', turns, now)).toEqual(
+		turns.slice(-2).map(({ role, content }) => ({ role, content }))
+	);
+	expect(historyForPrompt('yes bro isnt it freaking awesome', turns, now + 21 * 60_000)).toEqual([]);
 });
