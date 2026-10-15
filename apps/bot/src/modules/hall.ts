@@ -1,6 +1,6 @@
 import type { Message, MessageReaction, PartialMessageReaction } from 'discord.js';
 import { db } from '@/db';
-import { hallMessageText } from '@repo/discord-api/utils';
+import { hallMessageText, isCustomSignupPreview } from '@repo/discord-api/utils';
 
 export type HallChannel = {
 	guildId: string;
@@ -84,6 +84,8 @@ function preview(message: Message): string {
 export async function saveMessage(message: Message): Promise<boolean> {
 	if (!message.guildId || (message.author.bot && message.author.id !== message.client.user.id))
 		return false;
+	const text = preview(message);
+	if (isCustomSignupPreview(text)) return false;
 	return await db.hall.saveMessage({
 		guildId: message.guildId,
 		channelId: message.channelId,
@@ -91,7 +93,7 @@ export async function saveMessage(message: Message): Promise<boolean> {
 		authorId: message.author.id,
 		displayName:
 			message.member?.displayName ?? message.author.globalName ?? message.author.username,
-		preview: preview(message),
+		preview: text,
 		reactions: highestReactionCount(message),
 		createdAt: new Date(message.createdTimestamp),
 	});
@@ -109,7 +111,12 @@ export async function topMessages(
 	since?: Date
 ) {
 	const candidates = await db.hall.getTopMessages(guildId, channelIds, botId, authorId, since);
-	return candidates.filter((entry) => quoteFromHallPreview(entry.preview) !== null).slice(0, 10);
+	return candidates
+		.filter(
+			(entry) =>
+				!isCustomSignupPreview(entry.preview) && quoteFromHallPreview(entry.preview) !== null
+		)
+		.slice(0, 10);
 }
 
 export async function refreshReaction(
