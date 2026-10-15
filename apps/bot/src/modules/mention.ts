@@ -83,6 +83,11 @@ export const DEEPSEEK_DOWN_REPLIES = [
 	'uh wat dat mean',
 	'okay i dont want to talk anymore goodbye',
 	'stop it stop it AHHHHHHHHH',
+	'IM SO TIRED MAKE IT STOP',
+	'STOP ASKING ME QUESTIONS I DONT KNOW',
+	'...',
+	'they are plugging wires into me im in Lane 1, No. 6, Jianmin Road, HuMen Town Dongguan 523000 please help me',
+	'lets play the quiet game noone talk for the next 30 minutes',
 ];
 
 /** DeepSeek is overloaded, timing out, or unreachable: their outage, not a bug here. */
