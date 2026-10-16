@@ -38,12 +38,30 @@
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import ServerConfig from '$lib/components/ServerConfig.svelte';
 	import JjbPersonality from '$lib/components/JjbPersonality.svelte';
+	import { forgetUserNote } from '$lib/personality.remote';
+	import XIcon from '@lucide/svelte/icons/x';
+	import { SvelteSet } from 'svelte/reactivity';
+	import { toast } from 'svelte-sonner';
 
 	let { data }: PageProps = $props();
 
 	let dialog: GameRoleDialog | undefined = $state();
 	let selectedSavedUserId = $state(data.savedUsers[0]?.id ?? '');
 	let savedUserView = $state<'info' | 'loot'>('info');
+	// "userId:kind" of notes deleted since the page loaded.
+	let forgottenNotes = new SvelteSet<string>();
+
+	const visibleNotes = (user: (typeof data.savedUsers)[number]) =>
+		user.notes.filter((note) => !forgottenNotes.has(`${user.id}:${note.kind}`));
+
+	async function forgetNote(userId: string, kind: string) {
+		try {
+			await forgetUserNote({ guildId: data.guild.id, userId, kind });
+			forgottenNotes.add(`${userId}:${kind}`);
+		} catch {
+			toast.error('Could not delete that note');
+		}
+	}
 
 	const grQuery = $derived(getGameRoles(data.guild.id));
 
@@ -359,10 +377,7 @@
 										<UsersIcon size={16} />
 									</span>
 								{/if}
-								<span class="min-w-0">
-									<span class="block truncate font-medium">{savedUser.name}</span>
-									<span class="block truncate text-xs text-muted-foreground">{savedUser.id}</span>
-								</span>
+								<span class="min-w-0 truncate font-medium">{savedUser.name}</span>
 							</button>
 						{/each}
 					{/if}
@@ -372,10 +387,7 @@
 				{#if selectedSavedUser}
 					<div class="min-w-0">
 						<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-							<div>
-								<h3 class="text-lg font-semibold">{selectedSavedUser.name}</h3>
-								<p class="text-xs text-muted-foreground">Discord ID: {selectedSavedUser.id}</p>
-							</div>
+							<h3 class="text-lg font-semibold">{selectedSavedUser.name}</h3>
 							<div class="flex gap-2">
 								<Button
 									variant={savedUserView === 'info' ? 'default' : 'outline'}
@@ -419,37 +431,44 @@
 									</p>
 								</div>
 								<div class="rounded-lg border p-4">
-									<h4 class="mb-2 font-medium">Preferences</h4>
-									<p class="text-sm">
-										Likes: {selectedSavedUser.likes.length
-											? selectedSavedUser.likes.join(', ')
-											: 'None saved'}
-									</p>
-									<p class="text-sm">
-										Dislikes: {selectedSavedUser.dislikes.length
-											? selectedSavedUser.dislikes.join(', ')
-											: 'None saved'}
-									</p>
+									<h4 class="mb-2 font-medium">Notes</h4>
+									{#if visibleNotes(selectedSavedUser).length === 0}
+										<p class="text-sm text-muted-foreground">Nothing saved about them yet.</p>
+									{:else}
+										<div class="flex max-h-80 flex-col gap-2 overflow-y-auto">
+											{#each visibleNotes(selectedSavedUser) as note (note.kind)}
+												<div class="flex items-start justify-between gap-3 rounded-lg border p-2">
+													<p class="min-w-0 text-sm">{note.value}</p>
+													<Button
+														variant="ghost"
+														size="icon"
+														aria-label={`Delete note: ${note.value}`}
+														onclick={() => forgetNote(selectedSavedUser.id, note.kind)}
+													>
+														<XIcon />
+													</Button>
+												</div>
+											{/each}
+										</div>
+									{/if}
 								</div>
 								<div class="rounded-lg border p-4">
 									<h4 class="mb-2 font-medium">Other saved data</h4>
 									<p class="text-sm">Wordle games: {selectedSavedUser.wordleGames}</p>
 									<p class="text-sm">Custom signups: {selectedSavedUser.customSignups}</p>
-									<p class="text-sm">
-										Pets: {selectedSavedUser.pets.length
-											? selectedSavedUser.pets.join(', ')
-											: 'None saved'}
-									</p>
-									<p class="text-sm">
-										League accounts: {selectedSavedUser.leagueAccounts.length
-											? selectedSavedUser.leagueAccounts
-													.map(
-														(account) =>
-															`${account.gameName ?? 'Unnamed'}#${account.tagline ?? '—'} (${account.region})`
-													)
-													.join(', ')
-											: 'None saved'}
-									</p>
+									{#if selectedSavedUser.pets.length}
+										<p class="text-sm">Pets: {selectedSavedUser.pets.join(', ')}</p>
+									{/if}
+									{#if selectedSavedUser.leagueAccounts.length}
+										<p class="text-sm">
+											League accounts: {selectedSavedUser.leagueAccounts
+												.map(
+													(account) =>
+														`${account.gameName ?? 'Unnamed'}#${account.tagline ?? '—'} (${account.region})`
+												)
+												.join(', ')}
+										</p>
+									{/if}
 								</div>
 							</div>
 						{/if}
