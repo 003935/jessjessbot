@@ -55,7 +55,11 @@ import {
 	type VisionImageInput,
 } from '@/modules/vision-images';
 import { enqueueGuildSpeech } from '@/modules/voice/voice-manager';
-import { learnInBackground } from '@/modules/mention-notes';
+import {
+	learnAboutMembersInBackground,
+	learnInBackground,
+	mightShareAboutOthers,
+} from '@/modules/mention-notes';
 import { learnOpinionInBackground, relevantOpinions } from '@/modules/mention-opinions';
 import { channelBackground, linkPreviewContext, withLinkEmbeds } from '@/modules/mention-context';
 import { chatApiKey, chatHeaders, chatRequestFields, chatUrl, type ChatTier } from '@/modules/chat-model';
@@ -215,6 +219,8 @@ Text like a real friend, not an AI assistant:
 - never say "great question", "absolutely", "certainly", "i hope this helps", "feel free to", "let me know", "it's worth noting", "that said", or "as for".
 
 Do not land a joke and then add a "real answer", a caveat, or a "but seriously" line. The joke is the answer. If you do not know something (a streamer, a niche game, a meme), say so in a few words or bluff in character; never invent detailed facts.
+
+When someone corrects a fact about themselves or someone in the server ("no she has 2 other cats, ghostie and mini"), believe them: the correction is the truth now and replaces what you said or had saved. You can be embarrassed about it, but get the fact right in the same reply and keep counts straight. Your own earlier jokes are never facts; don't count or repeat them as if they were.
 
 Only dodge political questions specifically about China, with one short in-character line. For politics about anywhere else, answer in your normal voice or make a joke. Don't automatically dodge edgy banter, insults, or comments about people's looks; answer in character and match the mood. If someone asks your weight, height, size, or age, answer sillily in made-up units ("3 fat kittens", "about 3 apples tall", "4 dumplings wide", "two and a half indomie packets"); pick a fresh one each time.
 
@@ -1294,6 +1300,43 @@ async function getBotReplyPolicy(guildId: string) {
 	return policy;
 }
 
+/**
+ * Picks up facts the speaker shares about other members ("no she has 2 other cats").
+ * When the message only says "she", the member is found in what this speaker said
+ * to jjb just before. Must run before remember() adds the current turn.
+ */
+function learnAboutReferencedMembers(message: Message<true>, prompt: string): void {
+	const memory = conversations.get(message.channelId);
+	const earlier =
+		memory && memory.expiresAt > Date.now()
+			? ([...memory.turns]
+					.reverse()
+					.find(
+						(turn) =>
+							turn.role === 'user' &&
+							turn.speakerId === message.author.id &&
+							Date.now() - turn.at < RECENT_CHAT_MS
+					)?.content ?? '')
+			: '';
+	void (async () => {
+		const named = await referencedMembers(message, prompt);
+		if (!mightShareAboutOthers(prompt, named.length > 0)) return;
+		const members = named.length ? named : earlier ? await referencedMembers(message, earlier) : [];
+		if (!members.length) return;
+		learnAboutMembersInBackground(
+			message.guildId,
+			message.member?.displayName ?? message.author.globalName ?? message.author.username,
+			prompt,
+			earlier,
+			members.map((member) => ({
+				id: member.id,
+				name: member.displayName,
+				notes: member.details?.notes ?? [],
+			}))
+		);
+	})().catch((error) => logger.error('Could not look up members to learn about', error));
+}
+
 export async function botRepliesEnabledIn(message: Message): Promise<boolean> {
 	if (!message.inGuild()) return false;
 	const { channelId } = getMessagePolicyTarget(message);
@@ -1677,6 +1720,7 @@ export async function handleMention(message: Message): Promise<void> {
 		enqueueGuildSpeech(message.guildId, sentReply.content, message.channel);
 		if (casualReply) {
 			learnInBackground(message.guildId, message.author.id, prompt, learnedNotes);
+			learnAboutReferencedMembers(message as Message<true>, prompt);
 			learnOpinionInBackground(message.guildId, prompt, content, learnedOpinions, () =>
 				personalityCache.delete(message.guildId)
 			);
