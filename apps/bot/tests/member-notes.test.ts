@@ -5,19 +5,22 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 	process.env[key] ||= 'test';
 
 const saved: Array<{ notes: string[]; outdated: string[] }> = [];
+const savedFor: string[] = [];
 let autoMemory = true;
+const autoMemoryOff = new Set<string>();
 mock.module('../src/db', () => ({
 	db: {
 		botMemberPreference: {
-			autoMemoryEnabled: async () => autoMemory,
-			saveNotes: async (_guild: string, _user: string, notes: string[], outdated: string[]) => {
+			autoMemoryEnabled: async (_guild: string, user: string) => autoMemory && !autoMemoryOff.has(user),
+			saveNotes: async (_guild: string, user: string, notes: string[], outdated: string[]) => {
 				saved.push({ notes, outdated });
+				savedFor.push(user);
 			},
 		},
 	},
 }));
 
-const { cleanNote, learnFromMessage, mightShareSomething } =
+const { cleanNote, learnAboutMembers, learnFromMessage, mightShareAboutOthers, mightShareSomething } =
 	await import('../src/modules/mention-notes');
 const { textLikeAFriend } = await import('../src/modules/mention');
 
@@ -26,10 +29,12 @@ afterEach(() => {
 	globalThis.fetch = realFetch;
 	delete process.env.DEEPSEEK_API_KEY;
 	saved.length = 0;
+	savedFor.length = 0;
 	autoMemory = true;
+	autoMemoryOff.clear();
 });
 
-function modelReturns(args: unknown) {
+function modelReturns(args: unknown, name = 'save_notes') {
 	let calls = 0;
 	globalThis.fetch = (async () => {
 		calls++;
@@ -38,7 +43,7 @@ function modelReturns(args: unknown) {
 				choices: [
 					{
 						message: {
-							tool_calls: [{ function: { name: 'save_notes', arguments: JSON.stringify(args) } }],
+							tool_calls: [{ function: { name, arguments: JSON.stringify(args) } }],
 						},
 					},
 				],
@@ -102,6 +107,55 @@ test('does not call the model for people who turned auto memory off', async () =
 	const calls = modelReturns({ notes: ['plays the cello'] });
 	expect(await learnFromMessage('g', 'u', 'i play the cello in an orchestra', [])).toEqual([]);
 	expect(calls()).toBe(0);
+});
+
+test('looks at messages about other people, not just the speaker', () => {
+	expect(mightShareAboutOthers('no she has 2 other cats ones ghostie ones mini', false)).toBe(true);
+	expect(mightShareAboutOthers('hannah has three cats', true)).toBe(true);
+	expect(mightShareAboutOthers('lol', true)).toBe(false);
+	expect(mightShareAboutOthers('what is the capital of france', false)).toBe(false);
+});
+
+test("saves a friend's correction about another member and drops the old note", async () => {
+	process.env.DEEPSEEK_API_KEY = 'test';
+	modelReturns(
+		{
+			people: [
+				{
+					name: 'Hannah',
+					notes: ['has 3 cats: cheesy, ghostie and mini'],
+					outdated: ['has a cat called cheesy'],
+				},
+				{ name: 'Someone Not Listed', notes: ['secretly a spy'] },
+			],
+		},
+		'save_member_notes'
+	);
+	const learned = await learnAboutMembers(
+		'g',
+		'donkeyboy',
+		'no she has 2 other cats ones ghostie ones mini',
+		'donkeyboy: jjb how many cats does hannah have',
+		[{ id: 'hannah-id', name: 'hannah', notes: ['has a cat called cheesy'] }]
+	);
+	expect(learned).toEqual([{ id: 'hannah-id', notes: ['has 3 cats: cheesy, ghostie and mini'] }]);
+	expect(savedFor).toEqual(['hannah-id']);
+	expect(saved).toEqual([
+		{ notes: ['has 3 cats: cheesy, ghostie and mini'], outdated: ['has a cat called cheesy'] },
+	]);
+});
+
+test('never learns about someone who turned auto memory off', async () => {
+	process.env.DEEPSEEK_API_KEY = 'test';
+	autoMemoryOff.add('hannah-id');
+	const calls = modelReturns({ people: [{ name: 'hannah', notes: ['has 3 cats'] }] }, 'save_member_notes');
+	expect(
+		await learnAboutMembers('g', 'donkeyboy', 'hannah has 3 cats', '', [
+			{ id: 'hannah-id', name: 'hannah', notes: [] },
+		])
+	).toEqual([]);
+	expect(calls()).toBe(0);
+	expect(saved).toEqual([]);
 });
 
 test('texts like a friend instead of an assistant', () => {
