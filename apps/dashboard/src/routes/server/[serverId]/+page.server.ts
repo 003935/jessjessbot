@@ -59,8 +59,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		avatar: string | null;
 		loot: Array<{ itemName: string; quantity: number }>;
 		nickname: string | null;
-		likes: string[];
-		dislikes: string[];
+		notes: Array<{ kind: string; value: string }>;
 		relationship: { score: number; interactionCount: number; updatedAt: Date } | null;
 		pets: string[];
 		leagueAccounts: Array<{ gameName: string | null; tagline: string | null; region: string }>;
@@ -103,10 +102,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			]);
 		const ids = new Set<string>([
 			...relationships.filter((row) => row.interactionCount > 0).map((row) => row.userId),
+			...preferences.filter((row) => row.kind.startsWith('memory_')).map((row) => row.userId),
 		]);
 		const preferenceByUser = new Map<string, typeof preferences>();
 		for (const row of preferences) {
-			if (!['like', 'dislike', 'nickname'].includes(row.kind)) continue;
+			if (row.kind !== 'nickname' && !row.kind.startsWith('memory_')) continue;
 			preferenceByUser.set(row.userId, [...(preferenceByUser.get(row.userId) ?? []), row]);
 		}
 		const relationshipByUser = new Map(relationships.map((row) => [row.userId, row]));
@@ -148,8 +148,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 						quantity,
 					})),
 					nickname: userPreferences.find((row) => row.kind === 'nickname')?.value ?? null,
-					likes: userPreferences.filter((row) => row.kind === 'like').map((row) => row.value),
-					dislikes: userPreferences.filter((row) => row.kind === 'dislike').map((row) => row.value),
+					// Everything jjb remembers about them: notes from chat, pets, birthday, favourites.
+					notes: userPreferences
+						.filter((row) => row.kind.startsWith('memory_'))
+						.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+						.map(({ kind, value }) => ({ kind, value })),
 					relationship: relationship
 						? {
 								score: relationship.score / 10,

@@ -71,7 +71,7 @@
 	<Card.Header>
 		<Card.Title>JJB personality</Card.Title>
 		<Card.Description>
-			Fine-tune how jjb acts in this server and see the opinions she has formed in chat. Changes
+			Fine-tune how jjb acts in this server and see the notes she keeps from chat. Changes
 			reach her within a minute.
 		</Card.Description>
 		<Card.Action>
@@ -121,12 +121,7 @@
 		</div>
 		<div class="flex min-w-0 flex-col gap-3">
 			<div class="flex items-center justify-between gap-3">
-				<div>
-					<p class="text-sm font-semibold">Opinions she has formed</p>
-					<p class="text-xs text-muted-foreground">
-						Saved when she takes a side in chat. Delete any you don’t want her to keep.
-					</p>
-				</div>
+				<p class="text-sm font-semibold">Notes</p>
 				{#if opinions.length}
 					<Button variant="outline" size="sm" onclick={forgetAll}>Delete all</Button>
 				{/if}

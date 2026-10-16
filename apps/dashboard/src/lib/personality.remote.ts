@@ -36,7 +36,15 @@ export const forgetOpinion = command(
 	}
 );
 
-export const forgetAllOpinions = command(v.object({ guildId: v.string() }), async ({ guildId }) => {
+export const forgetUserNote = command(
+	v.object({ guildId: v.string(), userId: v.string(), kind: v.pipe(v.string(), v.startsWith('memory_')) }),
+	async ({ guildId, userId, kind }) => {
+		await requireAdmin(guildId);
+		await db.botMemberPreference.forgetDetail(guildId, userId, kind);
+	}
+);
+
+export const forgetAllOpinions =command(v.object({ guildId: v.string() }), async ({ guildId }) => {
 	await requireAdmin(guildId);
 	await db.botOpinion.forgetAll(guildId);
 });
