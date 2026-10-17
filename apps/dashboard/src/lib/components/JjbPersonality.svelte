@@ -3,8 +3,13 @@
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Button } from './ui/button';
 	import { Input } from './ui/input';
-	import { SaveIcon, XIcon } from '@lucide/svelte';
-	import { editPersonality, forgetAllOpinions, forgetOpinion } from '$lib/personality.remote';
+	import { PencilIcon, SaveIcon, XIcon } from '@lucide/svelte';
+	import {
+		editOpinion,
+		editPersonality,
+		forgetAllOpinions,
+		forgetOpinion,
+	} from '$lib/personality.remote';
 	import { toast } from 'svelte-sonner';
 
 	let {
@@ -26,6 +31,10 @@
 	// svelte-ignore state_referenced_locally
 	let opinions = $state(initialOpinions);
 	let submitting = $state(false);
+	let editingTopic = $state<string | null>(null);
+	let draftTopic = $state('');
+	let draftOpinion = $state('');
+	let savingOpinion = $state(false);
 
 	const list = (text: string) =>
 		[...new Set(text.split(',').map((item) => item.trim().toLowerCase()))].filter(Boolean);
@@ -56,6 +65,30 @@
 		}
 	}
 
+	async function saveOpinion() {
+		if (editingTopic === null || !draftTopic.trim() || !draftOpinion.trim()) return;
+		savingOpinion = true;
+		try {
+			await editOpinion({
+				guildId,
+				originalTopic: editingTopic,
+				topic: draftTopic,
+				opinion: draftOpinion,
+			});
+			opinions = opinions.map((entry) =>
+				entry.topic === editingTopic
+					? { ...entry, topic: draftTopic.trim(), opinion: draftOpinion.trim() }
+					: entry
+			);
+			editingTopic = null;
+			toast.success('Saved note');
+		} catch {
+			toast.error('Could not save note. Check its length or whether that topic already exists.');
+		} finally {
+			savingOpinion = false;
+		}
+	}
+
 	async function forgetAll() {
 		if (!confirm('Delete every opinion jjb has picked up in this server?')) return;
 		try {
@@ -71,8 +104,8 @@
 	<Card.Header>
 		<Card.Title>JJB personality</Card.Title>
 		<Card.Description>
-			Fine-tune how jjb acts in this server and see the notes she keeps from chat. Changes
-			reach her within a minute.
+			Fine-tune how jjb acts in this server and see the notes she keeps from chat. Changes reach her
+			within a minute.
 		</Card.Description>
 		<Card.Action>
 			<Button onclick={save} disabled={submitting}>
@@ -84,7 +117,7 @@
 	<Card.Content class="grid gap-6 md:grid-cols-2">
 		<div class="flex flex-col gap-5">
 			<Field.Field>
-				<Field.Label for="jjb-personality">Extra personality</Field.Label>
+				<Field.Label for="jjb-personality">Extra</Field.Label>
 				<textarea
 					id="jjb-personality"
 					class="min-h-36 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
@@ -132,18 +165,67 @@
 				{:else}
 					{#each opinions as entry (entry.topic)}
 						<div class="flex items-start justify-between gap-3 rounded-lg border p-2">
-							<p class="min-w-0 text-sm">
-								<span class="font-medium">{entry.topic}</span>
-								<span class="text-muted-foreground">· {entry.opinion}</span>
-							</p>
-							<Button
-								variant="ghost"
-								size="icon"
-								aria-label={`Delete opinion on ${entry.topic}`}
-								onclick={() => forget(entry.topic)}
-							>
-								<XIcon />
-							</Button>
+							{#if editingTopic === entry.topic}
+								<div class="flex min-w-0 flex-1 flex-col gap-2">
+									<Input
+										aria-label="Note topic"
+										maxlength={50}
+										bind:value={draftTopic}
+										disabled={savingOpinion}
+									/>
+									<textarea
+										aria-label="Note opinion"
+										class="min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+										maxlength={100}
+										bind:value={draftOpinion}
+										disabled={savingOpinion}
+									></textarea>
+									<div class="flex gap-2">
+										<Button
+											size="sm"
+											onclick={saveOpinion}
+											disabled={savingOpinion || !draftTopic.trim() || !draftOpinion.trim()}
+										>
+											Save
+										</Button>
+										<Button
+											variant="outline"
+											size="sm"
+											onclick={() => (editingTopic = null)}
+											disabled={savingOpinion}
+										>
+											Cancel
+										</Button>
+									</div>
+								</div>
+							{:else}
+								<p class="min-w-0 flex-1 text-sm">
+									<span class="font-medium">{entry.topic}</span>
+									<span class="text-muted-foreground">· {entry.opinion}</span>
+								</p>
+								<div class="flex shrink-0">
+									<Button
+										variant="ghost"
+										size="icon"
+										aria-label={`Edit note on ${entry.topic}`}
+										onclick={() => {
+											editingTopic = entry.topic;
+											draftTopic = entry.topic;
+											draftOpinion = entry.opinion;
+										}}
+									>
+										<PencilIcon />
+									</Button>
+									<Button
+										variant="ghost"
+										size="icon"
+										aria-label={`Delete opinion on ${entry.topic}`}
+										onclick={() => forget(entry.topic)}
+									>
+										<XIcon />
+									</Button>
+								</div>
+							{/if}
 						</div>
 					{/each}
 				{/if}

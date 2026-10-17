@@ -34,6 +34,18 @@ export class BotOpinionTable extends DatabaseConnection {
 			});
 	}
 
+	async edit(
+		guildId: string,
+		originalTopic: string,
+		topic: string,
+		opinion: string
+	): Promise<void> {
+		await this._db.botOpinion.update({
+			where: { guildId_topic: { guildId, topic: originalTopic } },
+			data: { topic, opinion },
+		});
+	}
+
 	async forget(guildId: string, topic: string): Promise<boolean> {
 		const result = await this._db.botOpinion.deleteMany({ where: { guildId, topic } });
 		return result.count > 0;
