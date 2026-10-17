@@ -15,6 +15,7 @@ import {
 	topMessages,
 	trackedChannels,
 } from '@/modules/hall';
+import { escapeHallMarkdown } from '@/modules/hall-format';
 import { db } from '@/db';
 
 const MAX_PREVIEW = 120;
@@ -24,10 +25,6 @@ function canRead(channel: GuildBasedChannel): channel is TextChannel | NewsChann
 		'messages' in channel &&
 		(channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement)
 	);
-}
-
-function escapeMarkdown(text: string): string {
-	return text.replace(/([\\`*_{}\[\]()#+.!>|~-])/g, '\\$1');
 }
 
 function topReactionEmoji(message: Message): string | null {
@@ -107,7 +104,7 @@ export async function showFame(
 		const refreshed = await Promise.all(
 			winners.map(async (entry) => {
 				const readable = quoteFromHallPreview(entry.preview)!;
-				const preview = escapeMarkdown(readable.slice(0, MAX_PREVIEW));
+				const preview = escapeHallMarkdown(readable.slice(0, MAX_PREVIEW));
 				const link = `https://discord.com/channels/${guildId}/${entry.channelId}/${entry.messageId}`;
 				const channel = channels.find((channel) => channel?.id === entry.channelId);
 				const message =

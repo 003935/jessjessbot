@@ -12,6 +12,7 @@ import { Meowdule } from './modules/meowdule';
 import { botRepliesEnabledIn, handleMention } from '@/modules/mention';
 import { handleCustomSignup } from '@/modules/custom-signups';
 import { handleMemeReply } from '@/modules/meme-replies';
+import { handleMediaReply } from '@/modules/media-replies';
 import { startDailyTweets } from '@/modules/daily-tweets';
 import { uploadPoeLootEmojis } from '@/modules/poe-loot-emojis';
 import { handleLootInventoryButton } from '@/modules/poe-loot';
@@ -102,6 +103,7 @@ async function messageparser(message: Message<boolean>) {
 	} catch (error) {
 		logger.error('Meme reply failed', error);
 	}
+	if (await handleMediaReply(message)) return;
 	handleMention(message).catch((error) => logger.error('Mention handling failed', error));
 }
 
