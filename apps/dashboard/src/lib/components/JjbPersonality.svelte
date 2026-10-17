@@ -67,18 +67,14 @@
 
 	async function saveOpinion() {
 		if (editingTopic === null || !draftTopic.trim() || !draftOpinion.trim()) return;
+		const originalTopic = editingTopic;
+		const topic = draftTopic.trim();
+		const opinion = draftOpinion.trim();
 		savingOpinion = true;
 		try {
-			await editOpinion({
-				guildId,
-				originalTopic: editingTopic,
-				topic: draftTopic,
-				opinion: draftOpinion,
-			});
+			await editOpinion({ guildId, originalTopic, topic, opinion });
 			opinions = opinions.map((entry) =>
-				entry.topic === editingTopic
-					? { ...entry, topic: draftTopic.trim(), opinion: draftOpinion.trim() }
-					: entry
+				entry.topic === originalTopic ? { ...entry, topic, opinion } : entry
 			);
 			editingTopic = null;
 			toast.success('Saved note');
@@ -156,7 +152,9 @@
 			<div class="flex items-center justify-between gap-3">
 				<p class="text-sm font-semibold">Notes</p>
 				{#if opinions.length}
-					<Button variant="outline" size="sm" onclick={forgetAll}>Delete all</Button>
+					<Button variant="outline" size="sm" onclick={forgetAll} disabled={savingOpinion}>
+						Delete all
+					</Button>
 				{/if}
 			</div>
 			<div class="flex max-h-80 flex-col gap-2 overflow-y-auto">
@@ -208,6 +206,7 @@
 										variant="ghost"
 										size="icon"
 										aria-label={`Edit note on ${entry.topic}`}
+										disabled={savingOpinion}
 										onclick={() => {
 											editingTopic = entry.topic;
 											draftTopic = entry.topic;
@@ -220,6 +219,7 @@
 										variant="ghost"
 										size="icon"
 										aria-label={`Delete opinion on ${entry.topic}`}
+										disabled={savingOpinion}
 										onclick={() => forget(entry.topic)}
 									>
 										<XIcon />
