@@ -109,7 +109,7 @@ const REACTIONS: Record<GiftTaste, Array<(item: string) => string>> = {
 	],
 };
 
-// For Jess and Hannah: she is too scared to be rude, so bad gifts get nervous politeness.
+// For people with a behaviour set on the dashboard: she is too scared to be rude, so bad gifts get nervous politeness.
 const POLITE_REACTIONS: Record<GiftTaste, Array<(item: string) => string>> = {
 	loved: [(item) => `${item}!! thank u thank u, ill treasure it forever`],
 	liked: [(item) => `thank u for ${item}, i like it a lot`],
