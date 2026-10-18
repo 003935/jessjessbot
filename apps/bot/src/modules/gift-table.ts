@@ -1,5 +1,5 @@
 // Stardew-style gift tastes. Pure data and parsing, no Discord or database imports,
-// so it can be tested directly. Keep likes in sync with personality/jess-preferences.json.
+// so it can be tested directly. Keep likes in sync with DEFAULT_LIKES in @repo/database/defaults.
 
 export type GiftTaste = 'loved' | 'liked' | 'neutral' | 'disliked' | 'hated';
 
