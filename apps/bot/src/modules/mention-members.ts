@@ -37,7 +37,7 @@ function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
 
-/** Members whose name appears as a whole word in the text, longest names first. */
+/** Members whose name appears as a whole word (or possessive, "hannies") in the text, longest names first. */
 export function membersNamedIn(text: string, candidates: MemberCandidate[], limit = MAX_REFERENCED): string[] {
 	const haystack = text.replace(/<@!?\d+>/gu, ' ').toLocaleLowerCase();
 	const hits: Array<{ id: string; length: number; index: number }> = [];
@@ -45,7 +45,7 @@ export function membersNamedIn(text: string, candidates: MemberCandidate[], limi
 		let best: { length: number; index: number } | null = null;
 		for (const name of candidate.names.flatMap(nameVariants)) {
 			const pattern = new RegExp(
-				`(?<![\\p{L}\\p{N}_])@?${escapeRegExp(name.toLocaleLowerCase())}(?![\\p{L}\\p{N}_])`,
+				`(?<![\\p{L}\\p{N}_])@?${escapeRegExp(name.toLocaleLowerCase())}(?:['’]?s)?(?![\\p{L}\\p{N}_])`,
 				'u'
 			);
 			const match = pattern.exec(haystack);
@@ -57,6 +57,73 @@ export function membersNamedIn(text: string, candidates: MemberCandidate[], limi
 		.sort((a, b) => a.index - b.index || b.length - a.length)
 		.slice(0, limit)
 		.map((hit) => hit.id);
+}
+
+/**
+ * Members a loosely written name could mean ("hannies", "@Hannie", "fat ark"):
+ * exact name matches if any, otherwise names starting with it.
+ */
+export function findMembersByName(query: string, candidates: MemberCandidate[]): string[] {
+	const raw = query.trim().replace(/^@/u, '').toLocaleLowerCase();
+	const forms = [...new Set([raw, raw.replace(/['’]?s$/u, '')])].filter((form) => form.length >= 3);
+	if (!forms.length) return [];
+	const variants = candidates.map((candidate) => ({
+		id: candidate.id,
+		names: candidate.names.flatMap(nameVariants).map((name) => name.toLocaleLowerCase()),
+	}));
+	const exact = variants.filter((c) => c.names.some((name) => forms.includes(name))).map((c) => c.id);
+	if (exact.length) return exact;
+	return variants
+		.filter((c) => c.names.some((name) => forms.some((form) => name.startsWith(form))))
+		.map((c) => c.id);
+}
+
+export type MemberLookup =
+	| { status: 'found'; member: ReferencedMember }
+	| { status: 'ambiguous'; names: string[] }
+	| { status: 'none' };
+
+/** Looks up a server member by whatever name someone used, with their saved details. */
+export async function lookupMember(message: Message<true>, name: string): Promise<MemberLookup> {
+	const [members, nicknames] = await Promise.all([
+		guildMembers(message),
+		db.botMemberPreference.listNicknames(message.guildId).catch(() => []),
+	]);
+	const botNicknames = new Map(nicknames.map((row) => [row.userId, row.nickname]));
+	const people = members.filter((member) => !member.user.bot);
+	const ids = findMembersByName(
+		name,
+		people.map((member) => ({ id: member.id, names: memberNames(member, botNicknames) }))
+	);
+	if (!ids.length) return { status: 'none' };
+	const byId = new Map(people.map((member) => [member.id, member]));
+	if (ids.length > 1)
+		return { status: 'ambiguous', names: ids.slice(0, 3).map((id) => cleanName(byId.get(id)!.displayName)) };
+	const member = byId.get(ids[0]!)!;
+	const displayName = cleanName(member.displayName);
+	return {
+		status: 'found',
+		member: {
+			id: member.id,
+			displayName,
+			aliases: memberNames(member, botNicknames).filter(
+				(alias) => alias.toLocaleLowerCase() !== displayName.toLocaleLowerCase()
+			),
+			mention: false,
+			botNickname: botNicknames.get(member.id) ?? null,
+			details: await db.botMemberPreference.list(message.guildId, member.id).catch(() => null),
+		},
+	};
+}
+
+function memberNames(member: GuildMember, botNicknames: Map<string, string>): string[] {
+	return [
+		...new Set(
+			[member.displayName, member.nickname, member.user.globalName, member.user.username, botNicknames.get(member.id)]
+				.filter((name): name is string => !!name?.trim())
+				.map(cleanName)
+		),
+	];
 }
 
 /** Rewrites <@id> tokens as @name so stored history reads like chat. */

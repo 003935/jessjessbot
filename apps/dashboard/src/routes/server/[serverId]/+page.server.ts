@@ -53,6 +53,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	let hallChannels: Awaited<ReturnType<typeof db.hall.getChannels>> = [];
 	let hallImport: Awaited<ReturnType<typeof db.hall.getImport>> = null;
 	let opinions: Array<{ topic: string; opinion: string; updatedAt: string }> = [];
+	let behaviours: Array<{ userId: string; name: string; behaviour: string; whenUpset: string }> = [];
 	let savedUsers: Array<{
 		id: string;
 		name: string;
@@ -172,6 +173,20 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			})
 		);
 		savedUsers.sort((a, b) => a.name.localeCompare(b.name));
+		const savedNames = new Map(savedUsers.map((saved) => [saved.id, saved.name]));
+		behaviours = await Promise.all(
+			(await db.botMemberBehaviour.list(guild.id)).map(async (row) => ({
+				userId: row.userId,
+				name:
+					savedNames.get(row.userId) ??
+					(await discordApi
+						.getUser(row.userId)
+						.then((found) => found.global_name || found.username)
+						.catch(() => row.userId)),
+				behaviour: row.behaviour,
+				whenUpset: row.when_upset ?? '',
+			}))
+		);
 	}
 
 	return {
@@ -211,9 +226,22 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 					personality: config.bot_personality ?? '',
 					likes: config.bot_likes,
 					dislikes: config.bot_dislikes,
+					lore: config.bot_lore ?? '',
 				}
 			: null,
 		opinions,
+		cannedLines: config
+			? {
+					greeting: config.bot_greeting_lines,
+					annoyed: config.bot_annoyed_lines,
+					lazy: config.bot_lazy_lines,
+					fallback: config.bot_fallback_reply ?? '',
+					downLines: (config.bot_down_lines as Record<string, string[][]> | null) ?? null,
+					memeEnabled: config.bot_meme_enabled,
+					memePrompt: config.bot_meme_prompt ?? '',
+				}
+			: null,
+		behaviours,
 	};
 };
 

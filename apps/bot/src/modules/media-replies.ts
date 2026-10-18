@@ -1,3 +1,4 @@
+import { getVoice } from '@/personality/voice';
 import type { Attachment, Message } from 'discord.js';
 import { askDeepSeek, isPublicChannel } from '@/modules/mention';
 import { botPrompt } from '@/modules/mention-trigger';
@@ -90,7 +91,8 @@ export async function handleMediaReply(message: Message<true>): Promise<boolean>
 			[],
 			null,
 			null,
-			null,
+			// Media reactions only use her voice; server notes and opinions are for conversation.
+			{ voice: await getVoice(), extra: null, preferences: null, opinions: [] },
 			undefined,
 			message.channelId,
 			kind

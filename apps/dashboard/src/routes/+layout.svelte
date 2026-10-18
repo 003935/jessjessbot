@@ -10,7 +10,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { ChartColumnIcon, LogOutIcon } from '@lucide/svelte';
+	import { ChartColumnIcon, LogOutIcon, MessageCircleHeartIcon } from '@lucide/svelte';
 
 	let { data, children }: LayoutProps = $props();
 </script>
@@ -52,6 +52,12 @@
 							<ChartColumnIcon />
 							Stats
 						</DropdownMenu.Item>
+						{#if data.user.role === 'admin'}
+							<DropdownMenu.Item onclick={() => goto(resolve('/voice'))}>
+								<MessageCircleHeartIcon />
+								jjb voice
+							</DropdownMenu.Item>
+						{/if}
 						<DropdownMenu.Separator />
 						<DropdownMenu.Item
 							variant="destructive"

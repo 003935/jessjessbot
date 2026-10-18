@@ -1,0 +1,16 @@
+// jjb's global voice, edited by the site admin. One row (id "global"); null fields fall back to the code defaults.
+model BotVoice {
+  id          String   @id @default("global")
+  identity    String?
+  style       String?
+  rules       String?
+  examples    String?
+  emoji       String?
+  food_tastes String?
+  likes       String[] @default([])
+  dislikes    String[] @default([])
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("bot_voice")
+}

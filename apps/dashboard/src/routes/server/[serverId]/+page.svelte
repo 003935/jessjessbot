@@ -38,6 +38,8 @@
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import ServerConfig from '$lib/components/ServerConfig.svelte';
 	import JjbPersonality from '$lib/components/JjbPersonality.svelte';
+	import JjbCannedLines from '$lib/components/JjbCannedLines.svelte';
+	import JjbMemberBehaviour from '$lib/components/JjbMemberBehaviour.svelte';
 	import { forgetUserNote } from '$lib/personality.remote';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -334,6 +336,14 @@
 					opinions={data.opinions}
 				/>
 			{/if}
+			{#if data.cannedLines}
+				<JjbCannedLines guildId={data.guild.id} saved={data.cannedLines} />
+			{/if}
+			<JjbMemberBehaviour
+				guildId={data.guild.id}
+				members={data.savedUsers.map((saved) => ({ id: saved.id, name: saved.name }))}
+				behaviours={data.behaviours}
+			/>
 		</div>
 
 		<Card.Root>

@@ -203,3 +203,130 @@ test('sourceLink makes a Discord link with no preview, even for URLs with bracke
 		'[link](<https://en.wikipedia.org/wiki/Cars_%28film%29>)'
 	);
 });
+
+const replyChatParams = (call: Call) =>
+	call.body.tools.find((tool: any) => tool.function.name === 'reply_chat').function.parameters.properties;
+const mediaArgs = (mediaKind: 'pet' | 'food') =>
+	['cute cat', [], false, ...Array(16).fill(undefined), mediaKind] as unknown as Parameters<typeof askDeepSeek>;
+
+test('askDeepSeek returns memory changes from reply_chat', async () => {
+	mockFetch(() =>
+		toolCall('reply_chat', {
+			reply: 'cheesy ghosty mini, locked in',
+			remember: [{ kind: 'pet', name: 'cheesy', value: 'cat' }],
+		})
+	);
+	const result = await askDeepSeek('remember my cat cheesy', [], false);
+	expect(result.memoryChanges).toEqual([{ op: 'remember', about: null, kind: 'pet', name: 'cheesy', value: 'cat' }]);
+	expect(result.memoryDropped).toBe(0);
+	expect(Object.keys(replyChatParams(calls[0]!))).toEqual(expect.arrayContaining(['remember', 'forget']));
+});
+
+test('plain replies carry no memory changes', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'hi there friend' }));
+	const result = await askDeepSeek('hello', [], false);
+	expect(result.memoryChanges).toBeUndefined();
+});
+
+test('media reactions get no memory fields', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'what a chonk' }));
+	await askDeepSeek(...mediaArgs('pet'));
+	expect(replyChatParams(calls[0]!).remember).toBeUndefined();
+});
+
+test('prompt tells her to only claim saves she sent', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'hi there friend' }));
+	await askDeepSeek('hello', [], false);
+	expect(calls[0]!.body.messages[0].content).toContain('Only say you saved something if you included it');
+});
+
+const withLookup = (prompt: string, lookup: unknown, mediaKind?: 'pet') =>
+	[prompt, [], false, ...Array(16).fill(undefined), mediaKind, lookup] as unknown as Parameters<typeof askDeepSeek>;
+const toolNames = (call: Call) => call.body.tools.map((tool: any) => tool.function.name);
+
+test('recall_member looks up the member and answers from it', async () => {
+	const asked: string[] = [];
+	const lookup = async (name: string) => {
+		asked.push(name);
+		return {
+			status: 'found',
+			member: {
+				id: 'h',
+				displayName: 'boss cuck',
+				aliases: ['hannie'],
+				mention: false,
+				botNickname: null,
+				details: {
+					likes: [],
+					dislikes: [],
+					pets: ['cheesy is my cat', 'ghosty is my cat', 'mini is my cat'],
+					birthday: null,
+					favourites: [],
+					notes: [],
+				},
+			},
+		};
+	};
+	let n = 0;
+	mockFetch(() =>
+		++n === 1
+			? toolCall('recall_member', { name: 'hannies' }, 'call_recall')
+			: toolCall('reply_chat', { reply: 'cheesy, ghosty and mini' })
+	);
+	const result = await askDeepSeek(...withLookup('jjb list out hannies cats', lookup));
+	expect(asked).toEqual(['hannies']);
+	expect(toolNames(calls[0]!)).toContain('recall_member');
+	const toolMessage = calls[1]!.body.messages.find((message: any) => message.role === 'tool');
+	expect(toolMessage.tool_call_id).toBe('call_recall');
+	expect(toolMessage.content).toContain('cheesy is my cat');
+	expect(toolNames(calls[1]!)).toEqual(['reply_chat']);
+	expect(result.reply).toBe('cheesy, ghosty and mini');
+});
+
+test('recall_member with no match tells her not to invent', async () => {
+	let n = 0;
+	mockFetch(() =>
+		++n === 1
+			? toolCall('recall_member', { name: 'zorbo' }, 'call_recall')
+			: toolCall('reply_chat', { reply: 'who even is that' })
+	);
+	await askDeepSeek(...withLookup('jjb list out zorbos cats', async () => ({ status: 'none' })));
+	const toolMessage = calls[1]!.body.messages.find((message: any) => message.role === 'tool');
+	expect(toolMessage.content).toContain('Do not invent details');
+});
+
+test('recall_member not offered without a lookup or for media', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'hi there friend' }));
+	await askDeepSeek('hello', [], false);
+	await askDeepSeek(...withLookup('cute cat', async () => ({ status: 'none' }), 'pet'));
+	expect(toolNames(calls[0]!)).not.toContain('recall_member');
+	expect(toolNames(calls[1]!)).not.toContain('recall_member');
+});
+
+test('null memory fields leave a plain reply alone', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'hii', remember: null, forget: null }));
+	const result = await askDeepSeek('hello', [], false);
+	expect(result.memoryChanges).toBeUndefined();
+});
+
+test('server info goes into her system prompt', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'fat club obviously' }));
+	await askDeepSeek(
+		...(['whats this server called', [], false, ...Array(17).fill(undefined), null, 'You are in the Discord server "fat club"'] as unknown as Parameters<
+			typeof askDeepSeek
+		>)
+	);
+	expect(calls[0]!.body.messages[0].content).toContain('You are in the Discord server "fat club"');
+});
+
+test('a server can turn the meme bit off', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'gg' }));
+	const { DEFAULT_SERVER_SETTINGS } = await import('../src/personality/server-settings');
+	const personality = { extra: null, preferences: null, opinions: [], server: { ...DEFAULT_SERVER_SETTINGS, memeEnabled: false } };
+	await askDeepSeek(
+		...(['we won', [], false, ...Array(13).fill(undefined), personality] as unknown as Parameters<typeof askDeepSeek>)
+	);
+	expect(calls[0]!.body.messages[0].content).not.toContain('gg fkin ez');
+	await askDeepSeek('we won', [], false);
+	expect(calls[1]!.body.messages[0].content).toContain('gg fkin ez');
+});

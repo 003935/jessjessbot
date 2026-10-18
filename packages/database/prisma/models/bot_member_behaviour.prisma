@@ -1,0 +1,12 @@
+// How jjb treats a specific member, written by that server's admins on the dashboard.
+model BotMemberBehaviour {
+  guildId    String
+  userId     String
+  behaviour  String
+  when_upset String?
+  updatedBy  String?
+  updatedAt  DateTime @updatedAt
+
+  @@id([guildId, userId])
+  @@map("bot_member_behaviours")
+}

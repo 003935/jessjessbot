@@ -1,5 +1,5 @@
 // Stardew-style gift tastes. Pure data and parsing, no Discord or database imports,
-// so it can be tested directly. Keep likes in sync with personality/jess-preferences.json.
+// so it can be tested directly. Keep likes in sync with DEFAULT_LIKES in @repo/database/defaults.
 
 export type GiftTaste = 'loved' | 'liked' | 'neutral' | 'disliked' | 'hated';
 
@@ -109,7 +109,7 @@ const REACTIONS: Record<GiftTaste, Array<(item: string) => string>> = {
 	],
 };
 
-// For Jess and Hannah: she is too scared to be rude, so bad gifts get nervous politeness.
+// For people with a behaviour set on the dashboard: she is too scared to be rude, so bad gifts get nervous politeness.
 const POLITE_REACTIONS: Record<GiftTaste, Array<(item: string) => string>> = {
 	loved: [(item) => `${item}!! thank u thank u, ill treasure it forever`],
 	liked: [(item) => `thank u for ${item}, i like it a lot`],
