@@ -92,6 +92,19 @@ export const deleteMemberBehaviour = command(
 	}
 );
 
+export const editOpinion = command(
+	v.object({
+		guildId: v.string(),
+		originalTopic: v.string(),
+		topic: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(50)),
+		opinion: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(100)),
+	}),
+	async ({ guildId, originalTopic, topic, opinion }) => {
+		await requireAdmin(guildId);
+		await db.botOpinion.edit(guildId, originalTopic, topic, opinion);
+	}
+);
+
 export const forgetOpinion = command(
 	v.object({ guildId: v.string(), topic: v.string() }),
 	async ({ guildId, topic }) => {
@@ -101,14 +114,18 @@ export const forgetOpinion = command(
 );
 
 export const forgetUserNote = command(
-	v.object({ guildId: v.string(), userId: v.string(), kind: v.pipe(v.string(), v.startsWith('memory_')) }),
+	v.object({
+		guildId: v.string(),
+		userId: v.string(),
+		kind: v.pipe(v.string(), v.startsWith('memory_')),
+	}),
 	async ({ guildId, userId, kind }) => {
 		await requireAdmin(guildId);
 		await db.botMemberPreference.forgetDetail(guildId, userId, kind);
 	}
 );
 
-export const forgetAllOpinions =command(v.object({ guildId: v.string() }), async ({ guildId }) => {
+export const forgetAllOpinions = command(v.object({ guildId: v.string() }), async ({ guildId }) => {
 	await requireAdmin(guildId);
 	await db.botOpinion.forgetAll(guildId);
 });
