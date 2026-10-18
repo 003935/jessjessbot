@@ -14,6 +14,9 @@ const MAX_PREFERENCES = 20;
 // Things jjb picked up from chat on her own, oldest dropped first.
 const MAX_NOTES = 12;
 const NOTE_PREFIX = 'memory_note_';
+// Facts other members told jjb about someone; kept apart so they can't push out the person's own notes.
+const HEARSAY_PREFIX = 'memory_hearsay_';
+const MAX_HEARSAY = 8;
 const AUTO_MEMORY_OFF = 'auto_memory_off';
 
 export class BotMemberPreferenceTable extends DatabaseConnection {
@@ -27,7 +30,7 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 			this._db.botMemberPreference.findMany({
 				where: { guildId, userId, kind: { startsWith: 'memory_' } },
 				orderBy: { createdAt: 'asc' },
-				take: 40 + MAX_NOTES,
+				take: 40 + MAX_NOTES + MAX_HEARSAY,
 			}),
 		]);
 		const pets = savedDetails.filter((row) => row.kind.startsWith('memory_pet_')).map((row) => row.value);
@@ -35,7 +38,9 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 			.filter((row) => row.kind.startsWith('memory_favourite_'))
 			.map((row) => row.value);
 		const birthday = savedDetails.find((row) => row.kind === 'memory_birthday')?.value ?? null;
-		const notes = savedDetails.filter((row) => row.kind.startsWith(NOTE_PREFIX)).map((row) => row.value);
+		const notes = savedDetails
+			.filter((row) => row.kind.startsWith(NOTE_PREFIX) || row.kind.startsWith(HEARSAY_PREFIX))
+			.map((row) => row.value);
 		return {
 			likes: rows.filter((row) => row.kind === 'like').map((row) => row.value),
 			dislikes: rows.filter((row) => row.kind === 'dislike').map((row) => row.value),
@@ -66,6 +71,25 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 			await this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind: { in: extra } } });
 	}
 
+	/** Saves something another member said about this person, skipping repeats and keeping the newest MAX_HEARSAY. */
+	async saveHearsay(guildId: string, userId: string, note: string): Promise<void> {
+		const existing = await this._db.botMemberPreference.findFirst({
+			where: { guildId, userId, kind: { startsWith: HEARSAY_PREFIX }, value: note },
+		});
+		if (existing) return;
+		await this._db.botMemberPreference.create({
+			data: { guildId, userId, kind: `${HEARSAY_PREFIX}${crypto.randomUUID().slice(0, 8)}`, value: note },
+		});
+		const rows = await this._db.botMemberPreference.findMany({
+			where: { guildId, userId, kind: { startsWith: HEARSAY_PREFIX } },
+			orderBy: { createdAt: 'desc' },
+			select: { kind: true },
+		});
+		const extra = rows.slice(MAX_HEARSAY).map((row) => row.kind);
+		if (extra.length)
+			await this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind: { in: extra } } });
+	}
+
 	async autoMemoryEnabled(guildId: string, userId: string): Promise<boolean> {
 		return !(await this.getValue(guildId, userId, AUTO_MEMORY_OFF));
 	}
@@ -84,7 +108,7 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 					guildId,
 					userId,
 					kind: { startsWith: 'memory_' },
-					NOT: { kind: { startsWith: NOTE_PREFIX } },
+					AND: [{ NOT: { kind: { startsWith: NOTE_PREFIX } } }, { NOT: { kind: { startsWith: HEARSAY_PREFIX } } }],
 				},
 			});
 			if (count >= 40) return false;
@@ -100,7 +124,12 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 
 	async forgetNoteValue(guildId: string, userId: string, value: string): Promise<boolean> {
 		const result = await this._db.botMemberPreference.deleteMany({
-			where: { guildId, userId, kind: { startsWith: NOTE_PREFIX }, value },
+			where: {
+				guildId,
+				userId,
+				value,
+				OR: [{ kind: { startsWith: NOTE_PREFIX } }, { kind: { startsWith: HEARSAY_PREFIX } }],
+			},
 		});
 		return result.count > 0;
 	}

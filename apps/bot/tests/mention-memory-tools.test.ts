@@ -7,6 +7,7 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 let calls: unknown[][] = [];
 let saveResult = true;
 let autoMemory = true;
+let forgetResult: boolean | number = true;
 const record =
 	(method: string, result: () => unknown) =>
 	async (...args: unknown[]) => {
@@ -19,11 +20,12 @@ mock.module('../src/db', () => ({
 			saveDetail: record('saveDetail', () => saveResult),
 			save: record('save', () => saveResult),
 			saveNotes: record('saveNotes', () => undefined),
+			saveHearsay: record('saveHearsay', () => undefined),
 			autoMemoryEnabled: record('autoMemoryEnabled', () => autoMemory),
-			forgetDetail: record('forgetDetail', () => true),
-			forgetDetailsByPrefix: record('forgetDetailsByPrefix', () => 1),
-			forget: record('forget', () => true),
-			forgetNoteValue: record('forgetNoteValue', () => true),
+			forgetDetail: record('forgetDetail', () => forgetResult),
+			forgetDetailsByPrefix: record('forgetDetailsByPrefix', () => (forgetResult ? 1 : 0)),
+			forget: record('forget', () => forgetResult),
+			forgetNoteValue: record('forgetNoteValue', () => forgetResult),
 		},
 	},
 }));
@@ -53,6 +55,7 @@ beforeEach(() => {
 	calls = [];
 	saveResult = true;
 	autoMemory = true;
+	forgetResult = true;
 });
 
 test("saves hannie's three cats", async () => {
@@ -91,7 +94,7 @@ test('maps birthday, favourite and like', async () => {
 test('hearsay becomes an attributed note', async () => {
 	const { failures } = await applyMemoryChanges('g', speaker, [pet('cheesy', 'cat', 'hannie')], found('h'));
 	expect(failures).toEqual([]);
-	expect(writes()).toEqual([['saveNotes', 'g', 'h', ['donkeyboy says: has a cat called cheesy']]]);
+	expect(writes()).toEqual([['saveHearsay', 'g', 'h', 'donkeyboy says: has a cat called cheesy']]);
 });
 
 test('hearsay skipped when target opted out', async () => {
@@ -191,4 +194,35 @@ test('finalizeMemoryReply leaves plain replies alone', async () => {
 		reply: 'hi',
 		touchedMemory: false,
 	});
+});
+
+test('null memory fields mean nothing to save', () => {
+	expect(parseMemoryChanges({ remember: null, forget: null })).toEqual({ changes: [], dropped: 0 });
+});
+
+test('hearsay is capped at two facts per person per message', async () => {
+	await applyMemoryChanges(
+		'g',
+		speaker,
+		[pet('a', 'cat', 'hannie'), pet('b', 'cat', 'hannie'), pet('c', 'cat', 'hannie')],
+		found('h')
+	);
+	expect(writes().map((call) => call[0])).toEqual(['saveHearsay', 'saveHearsay']);
+});
+
+test('forgetting something that was not saved is reported', async () => {
+	forgetResult = false;
+	const { failures } = await applyMemoryChanges(
+		'g',
+		speaker,
+		[{ op: 'forget', kind: 'pet', name: 'cheesy', value: null }],
+		noLookup
+	);
+	expect(failures).toEqual([{ reason: 'not_found' }]);
+	expect(memoryFailureReply(failures)).toBe("i didn't have that saved (・_・;)");
+});
+
+test('note forgets use the same normalisation notes are saved with', async () => {
+	await applyMemoryChanges('g', speaker, [{ op: 'forget', kind: 'note', name: null, value: 'Main Jinx.' }], noLookup);
+	expect(writes()).toEqual([['forgetNoteValue', 'g', 's', 'main jinx']]);
 });

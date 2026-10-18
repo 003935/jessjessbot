@@ -50,6 +50,7 @@ export async function handleMemberMemory(
 	) {
 		await db.botMemberPreference.setAutoMemory(guildId, userId, false);
 		await db.botMemberPreference.forgetDetailsByPrefix(guildId, userId, 'memory_note_');
+		await db.botMemberPreference.forgetDetailsByPrefix(guildId, userId, 'memory_hearsay_');
 		return 'okie, i wont pick stuff up about u anymore and i forgot what i had. “remember …” still works if u ask';
 	}
 	if (

@@ -14,11 +14,13 @@ export type MemoryKind = (typeof KINDS)[number];
 export type MemoryChange =
 	| { op: 'remember'; about: string | null; kind: MemoryKind; name: string | null; value: string }
 	| { op: 'forget'; kind: MemoryKind; name: string | null; value: string | null };
-export type MemoryFailure = { reason: 'full' | 'invalid' | 'unknown_member' | 'error'; name?: string };
+export type MemoryFailure = { reason: 'full' | 'invalid' | 'unknown_member' | 'not_found' | 'error'; name?: string };
 
 const MAX_CHANGES = 10;
 const MAX_NAME_LENGTH = 40;
 const MAX_NOTE_LENGTH = 100;
+// So one message cannot flood someone else's memory.
+const MAX_HEARSAY_PER_PERSON = 2;
 
 const KIND_DESCRIPTION =
 	'pet (name = pet name, value = species plus optional detail like "cat; very fat"), birthday (value = date), favourite (name = category like "food", value = the thing), like, dislike, or note (value = a short lowercase fact)';
@@ -128,7 +130,7 @@ export function parseMemoryChanges(args: { remember?: unknown; forget?: unknown 
 		[args.remember, parseRemember],
 		[args.forget, parseForget],
 	] as const) {
-		if (field === undefined) continue;
+		if (field === undefined || field === null) continue;
 		if (!Array.isArray(field)) {
 			dropped++;
 			continue;
@@ -218,26 +220,25 @@ async function forgetForSpeaker(
 	guildId: string,
 	userId: string,
 	change: Extract<MemoryChange, { op: 'forget' }>
-): Promise<void> {
+): Promise<boolean> {
 	const prefs = db.botMemberPreference;
 	switch (change.kind) {
 		case 'pet':
-			if (change.name) await prefs.forgetDetail(guildId, userId, `memory_pet_${memorySlug(change.name)}`);
-			else await prefs.forgetDetailsByPrefix(guildId, userId, 'memory_pet_');
-			return;
+			return change.name
+				? prefs.forgetDetail(guildId, userId, `memory_pet_${memorySlug(change.name)}`)
+				: (await prefs.forgetDetailsByPrefix(guildId, userId, 'memory_pet_')) > 0;
 		case 'birthday':
-			await prefs.forgetDetail(guildId, userId, 'memory_birthday');
-			return;
+			return prefs.forgetDetail(guildId, userId, 'memory_birthday');
 		case 'favourite':
-			await prefs.forgetDetail(guildId, userId, `memory_favourite_${memorySlug(change.name!)}`);
-			return;
+			return prefs.forgetDetail(guildId, userId, `memory_favourite_${memorySlug(change.name!)}`);
 		case 'like':
 		case 'dislike':
-			await prefs.forget(guildId, userId, change.kind, change.value!);
-			return;
-		case 'note':
-			await prefs.forgetNoteValue(guildId, userId, change.value!);
-			return;
+			return prefs.forget(guildId, userId, change.kind, change.value!);
+		case 'note': {
+			// Notes are stored through cleanNote, so match them the same way.
+			const note = cleanNote(change.value!);
+			return note ? prefs.forgetNoteValue(guildId, userId, note) : false;
+		}
 	}
 }
 
@@ -249,10 +250,11 @@ export async function applyMemoryChanges(
 	resolveMember: (name: string) => Promise<MemberLookup>
 ): Promise<{ failures: MemoryFailure[] }> {
 	const failures: MemoryFailure[] = [];
+	const hearsayCounts = new Map<string, number>();
 	for (const change of changes) {
 		try {
 			if (change.op === 'forget') {
-				await forgetForSpeaker(guildId, speaker.id, change);
+				if (!(await forgetForSpeaker(guildId, speaker.id, change))) failures.push({ reason: 'not_found' });
 				continue;
 			}
 			if (!change.about) {
@@ -270,6 +272,12 @@ export async function applyMemoryChanges(
 				if (failure) failures.push(failure);
 				continue;
 			}
+			const count = hearsayCounts.get(lookup.member.id) ?? 0;
+			if (count >= MAX_HEARSAY_PER_PERSON) {
+				failures.push({ reason: 'invalid' });
+				continue;
+			}
+			hearsayCounts.set(lookup.member.id, count + 1);
 			if (!(await db.botMemberPreference.autoMemoryEnabled(guildId, lookup.member.id))) continue;
 			const fact = cleanNote(hearsayFact(change));
 			const note = fact ? `${speaker.displayName} says: ${fact}` : null;
@@ -277,7 +285,7 @@ export async function applyMemoryChanges(
 				failures.push({ reason: 'invalid' });
 				continue;
 			}
-			await db.botMemberPreference.saveNotes(guildId, lookup.member.id, [note]);
+			await db.botMemberPreference.saveHearsay(guildId, lookup.member.id, note);
 		} catch (error) {
 			logger.error('Could not apply a memory change', error);
 			failures.push({ reason: 'error' });
@@ -290,6 +298,7 @@ export function memoryFailureReply(failures: MemoryFailure[]): string {
 	const failure = failures[0];
 	if (failure?.reason === 'full') return "my memory's full for u, forget an old pet or favourite first (・_・;)";
 	if (failure?.reason === 'unknown_member') return `who's ${failure.name}? i couldn't find them here`;
+	if (failure?.reason === 'not_found') return "i didn't have that saved (・_・;)";
 	return "i couldn't save that one (・_・;)";
 }
 

@@ -302,3 +302,9 @@ test('recall_member not offered without a lookup or for media', async () => {
 	expect(toolNames(calls[0]!)).not.toContain('recall_member');
 	expect(toolNames(calls[1]!)).not.toContain('recall_member');
 });
+
+test('null memory fields leave a plain reply alone', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'hii', remember: null, forget: null }));
+	const result = await askDeepSeek('hello', [], false);
+	expect(result.memoryChanges).toBeUndefined();
+});
