@@ -6,6 +6,7 @@
 	import { SaveIcon, XIcon } from '@lucide/svelte';
 	import { editPersonality, forgetAllOpinions, forgetOpinion } from '$lib/personality.remote';
 	import { toast } from 'svelte-sonner';
+	import { PERSONALITY_LIMITS } from '@repo/database/defaults';
 
 	let {
 		guildId,
@@ -13,12 +14,14 @@
 		opinions: initialOpinions,
 	}: {
 		guildId: string;
-		personality: { personality: string; likes: string[]; dislikes: string[] };
+		personality: { personality: string; likes: string[]; dislikes: string[]; lore: string };
 		opinions: Array<{ topic: string; opinion: string; updatedAt: string }>;
 	} = $props();
 
 	// svelte-ignore state_referenced_locally
 	let personality = $state(initial.personality);
+	// svelte-ignore state_referenced_locally
+	let lore = $state(initial.lore);
 	// svelte-ignore state_referenced_locally
 	let likes = $state(initial.likes.join(', '));
 	// svelte-ignore state_referenced_locally
@@ -38,6 +41,7 @@
 				personality,
 				likes: list(likes),
 				dislikes: list(dislikes),
+				lore,
 			});
 			toast.success('Saved jjb’s personality');
 		} catch {
@@ -95,6 +99,20 @@
 				></textarea>
 				<Field.Description>
 					Added on top of her built-in personality. {personality.length}/1500
+				</Field.Description>
+			</Field.Field>
+			<Field.Field>
+				<Field.Label for="jjb-lore">Server lore</Field.Label>
+				<textarea
+					id="jjb-lore"
+					class="min-h-36 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
+					maxlength={PERSONALITY_LIMITS.lore}
+					placeholder="e.g. a friends' server that started as a league group. 'the fat club' is the server nickname. regulars: ..."
+					bind:value={lore}
+					disabled={submitting}
+				></textarea>
+				<Field.Description>
+					What this server is about, inside jokes, who the regulars are. She already knows the server and channel names. {lore.length}/{PERSONALITY_LIMITS.lore}
 				</Field.Description>
 			</Field.Field>
 			<Field.Field>
