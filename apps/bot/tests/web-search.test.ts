@@ -308,3 +308,13 @@ test('null memory fields leave a plain reply alone', async () => {
 	const result = await askDeepSeek('hello', [], false);
 	expect(result.memoryChanges).toBeUndefined();
 });
+
+test('server info goes into her system prompt', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'fat club obviously' }));
+	await askDeepSeek(
+		...(['whats this server called', [], false, ...Array(17).fill(undefined), null, 'You are in the Discord server "fat club"'] as unknown as Parameters<
+			typeof askDeepSeek
+		>)
+	);
+	expect(calls[0]!.body.messages[0].content).toContain('You are in the Discord server "fat club"');
+});
