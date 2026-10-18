@@ -12,3 +12,5 @@ export * from './pets';
 export * from './bot_relationship';
 export * from './bot_member_preference';
 export * from './bot_opinion';
+export * from './bot_voice';
+export * from './bot_member_behaviour';

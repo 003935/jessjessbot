@@ -8,6 +8,14 @@ model ServerConfig {
 	bot_personality              String?
 	bot_likes                    String[] @default([])
 	bot_dislikes                 String[] @default([])
+	bot_lore                     String?
+	bot_greeting_lines           String[] @default([])
+	bot_annoyed_lines            String[] @default([])
+	bot_lazy_lines               String[] @default([])
+	bot_fallback_reply           String?
+	bot_down_lines               Json?
+	bot_meme_enabled             Boolean  @default(true)
+	bot_meme_prompt              String?
 
   @@map("server_config")
 }
