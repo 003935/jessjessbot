@@ -144,3 +144,9 @@ test('an outage picks one storyline and plays it in order per channel', () => {
 	expect(mentionFailureReply(down, 'channel-d', now + 1, pickBreakdown)).toBe(breakdown[1]!);
 	expect(mentionFailureReply(down, 'channel-d', now + 1 + 30 * 60 * 1000, pickBreakdown)).toBe(breakdown[0]!);
 });
+
+test("failure replies use the server's own scenarios", () => {
+	expect(mentionFailureReply(new DeepSeekUnavailableError('x'), 'custom-c9', 0, () => 0, { only: [['custom down line']] })).toBe(
+		'custom down line'
+	);
+});
