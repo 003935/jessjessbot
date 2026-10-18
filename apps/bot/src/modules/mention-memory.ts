@@ -4,7 +4,7 @@ import type { Message } from 'discord.js';
 type PreferenceKind = 'like' | 'dislike';
 type SavedDetail = { kind: string; value: string };
 
-function memorySlug(value: string): string {
+export function memorySlug(value: string): string {
 	return value
 		.normalize('NFKD')
 		.toLocaleLowerCase()
@@ -13,7 +13,7 @@ function memorySlug(value: string): string {
 		.slice(0, 40);
 }
 
-function cleanMemoryValue(value: string): string | null {
+export function cleanMemoryValue(value: string): string | null {
 	const cleaned = value.replace(/[\r\n]+/gu, ' ').replace(/\s+/gu, ' ').trim();
 	if (
 		cleaned.length < 2 ||

@@ -98,6 +98,13 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 		return result.count > 0;
 	}
 
+	async forgetNoteValue(guildId: string, userId: string, value: string): Promise<boolean> {
+		const result = await this._db.botMemberPreference.deleteMany({
+			where: { guildId, userId, kind: { startsWith: NOTE_PREFIX }, value },
+		});
+		return result.count > 0;
+	}
+
 	async forgetDetailsByPrefix(guildId: string, userId: string, prefix: string): Promise<number> {
 		const result = await this._db.botMemberPreference.deleteMany({
 			where: { guildId, userId, kind: { startsWith: prefix } },
