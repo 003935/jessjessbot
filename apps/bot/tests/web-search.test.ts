@@ -203,3 +203,39 @@ test('sourceLink makes a Discord link with no preview, even for URLs with bracke
 		'[link](<https://en.wikipedia.org/wiki/Cars_%28film%29>)'
 	);
 });
+
+const replyChatParams = (call: Call) =>
+	call.body.tools.find((tool: any) => tool.function.name === 'reply_chat').function.parameters.properties;
+const mediaArgs = (mediaKind: 'pet' | 'food') =>
+	['cute cat', [], false, ...Array(16).fill(undefined), mediaKind] as unknown as Parameters<typeof askDeepSeek>;
+
+test('askDeepSeek returns memory changes from reply_chat', async () => {
+	mockFetch(() =>
+		toolCall('reply_chat', {
+			reply: 'cheesy ghosty mini, locked in',
+			remember: [{ kind: 'pet', name: 'cheesy', value: 'cat' }],
+		})
+	);
+	const result = await askDeepSeek('remember my cat cheesy', [], false);
+	expect(result.memoryChanges).toEqual([{ op: 'remember', about: null, kind: 'pet', name: 'cheesy', value: 'cat' }]);
+	expect(result.memoryDropped).toBe(0);
+	expect(Object.keys(replyChatParams(calls[0]!))).toEqual(expect.arrayContaining(['remember', 'forget']));
+});
+
+test('plain replies carry no memory changes', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'hi there friend' }));
+	const result = await askDeepSeek('hello', [], false);
+	expect(result.memoryChanges).toBeUndefined();
+});
+
+test('media reactions get no memory fields', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'what a chonk' }));
+	await askDeepSeek(...mediaArgs('pet'));
+	expect(replyChatParams(calls[0]!).remember).toBeUndefined();
+});
+
+test('prompt tells her to only claim saves she sent', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'hi there friend' }));
+	await askDeepSeek('hello', [], false);
+	expect(calls[0]!.body.messages[0].content).toContain('Only say you saved something if you included it');
+});
