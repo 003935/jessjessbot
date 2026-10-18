@@ -5,7 +5,7 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 	process.env[key] ||= 'test';
 mock.module('../src/db', () => ({ db: {} }));
 
-const { formatMemberContext, membersNamedIn, nameVariants, queryNamesMember, replaceUserMentions } =
+const { findMembersByName, formatMemberContext, membersNamedIn, nameVariants, queryNamesMember, replaceUserMentions } =
 	await import('../src/modules/mention-members');
 const { askDeepSeek } = await import('../src/modules/mention');
 
@@ -34,6 +34,29 @@ test('finds members named as whole words, in message order', () => {
 	expect(membersNamedIn('ask @dust about it', candidates)).toEqual(['2']);
 	expect(membersNamedIn('the sushicurryrecipe and stardust', candidates)).toEqual([]);
 	expect(membersNamedIn('<@1> hi al', candidates)).toEqual([]);
+});
+
+test('possessive names match with or without an apostrophe', () => {
+	expect(membersNamedIn('jjb list out mihayas cats', candidates)).toEqual(['1']);
+	expect(membersNamedIn("list mihaya's cats", candidates)).toEqual(['1']);
+	expect(membersNamedIn('list mihaya’s cats', candidates)).toEqual(['1']);
+});
+
+test('findMembersByName resolves loose names', () => {
+	const people = [
+		{ id: 'h', names: ['boss cuck', 'hannie'] },
+		{ id: 'f', names: ['fat ark [fat],'] },
+		{ id: 'd1', names: ['dustbunny'] },
+		{ id: 'd2', names: ['dustpan'] },
+	];
+	expect(findMembersByName('hannies', people)).toEqual(['h']);
+	expect(findMembersByName("hannie's", people)).toEqual(['h']);
+	expect(findMembersByName('@Hannie', people)).toEqual(['h']);
+	expect(findMembersByName('fat ark', people)).toEqual(['f']);
+	expect(findMembersByName('boss', people)).toEqual(['h']);
+	expect(findMembersByName('dust', people)).toEqual(['d1', 'd2']);
+	expect(findMembersByName('zz', people)).toEqual([]);
+	expect(findMembersByName('nobody', people)).toEqual([]);
 });
 
 test('rewrites raw user mentions as names', () => {
