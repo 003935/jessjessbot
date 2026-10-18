@@ -156,3 +156,24 @@ export const PERSONALITY_LIMITS = {
 	behaviour: 1500,
 	whenUpset: 600,
 } as const;
+
+// The dashboard edits a storyline as text: entries separated by a blank line (an entry may span lines),
+// stages separated by a line containing only "---".
+const STAGE_BREAK = /^[ \t]*---[ \t]*$/mu;
+
+export function storylinesToText(stages: string[][]): string {
+	return stages.map((stage) => stage.join('\n\n')).join('\n\n---\n\n');
+}
+
+export function storylinesFromText(text: string): string[][] {
+	return text
+		.replace(/\r\n/gu, '\n')
+		.split(STAGE_BREAK)
+		.map((stage) =>
+			stage
+				.split(/\n[ \t]*\n/u)
+				.map((entry) => entry.trim())
+				.filter(Boolean)
+		)
+		.filter((stage) => stage.length);
+}

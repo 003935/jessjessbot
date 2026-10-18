@@ -318,3 +318,15 @@ test('server info goes into her system prompt', async () => {
 	);
 	expect(calls[0]!.body.messages[0].content).toContain('You are in the Discord server "fat club"');
 });
+
+test('a server can turn the meme bit off', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'gg' }));
+	const { DEFAULT_SERVER_SETTINGS } = await import('../src/personality/server-settings');
+	const personality = { extra: null, preferences: null, opinions: [], server: { ...DEFAULT_SERVER_SETTINGS, memeEnabled: false } };
+	await askDeepSeek(
+		...(['we won', [], false, ...Array(13).fill(undefined), personality] as unknown as Parameters<typeof askDeepSeek>)
+	);
+	expect(calls[0]!.body.messages[0].content).not.toContain('gg fkin ez');
+	await askDeepSeek('we won', [], false);
+	expect(calls[1]!.body.messages[0].content).toContain('gg fkin ez');
+});

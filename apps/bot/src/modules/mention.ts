@@ -262,9 +262,10 @@ export type BotPersonality = {
 const personalityCache = new Map<string, { expiresAt: number; personality: BotPersonality }>();
 
 /** Her voice and this server's dashboard settings plus her learned opinions, cached briefly. */
-async function getBotSettings(guildId: string): Promise<BotPersonality> {
+export async function getBotSettings(guildId: string): Promise<BotPersonality> {
 	const cached = personalityCache.get(guildId);
-	if (cached && cached.expiresAt > Date.now()) return cached.personality;
+	// The voice has its own 60s cache; reading it fresh keeps a voice edit from waiting out both caches.
+	if (cached && cached.expiresAt > Date.now()) return { ...cached.personality, voice: await getVoice() };
 	const [voice, config, opinions] = await Promise.all([
 		getVoice(),
 		db.config.getConfig(guildId),
@@ -309,7 +310,7 @@ function isGreeting(input: string): boolean {
 	return /^(?:hi+|he+y+|hello+|yo+|hey+|wass?up|what'?s up)[!? .]*$/iu.test(input.trim());
 }
 
-function rareCasualLine(prompt: string, settings: ServerSettings = DEFAULT_SERVER_SETTINGS): string | null {
+export function rareCasualLine(prompt: string, settings: ServerSettings = DEFAULT_SERVER_SETTINGS): string | null {
 	const now = Date.now();
 	if (now - lastRareLineAt < RARE_LINE_COOLDOWN_MS || prompt.length > 160) return null;
 	if (isGameMove(prompt) || /\b(?:blackjack|cards?|deal)\b/iu.test(prompt)) return null;
@@ -329,7 +330,9 @@ function rareCasualLine(prompt: string, settings: ServerSettings = DEFAULT_SERVE
 					? settings.annoyedLines
 					: null;
 	if (!lines) return null;
-	const options = lines.filter((line) => line !== lastRareLine);
+	const fresh = lines.filter((line) => line !== lastRareLine);
+	// A one-line list can only repeat itself.
+	const options = fresh.length ? fresh : lines;
 	const line = options[Math.floor(Math.random() * options.length)]!;
 	lastRareLineAt = now;
 	lastRareLine = line;

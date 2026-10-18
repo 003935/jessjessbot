@@ -13,6 +13,8 @@
 		LAZY_LINES,
 		MEME_PROMPT,
 		PERSONALITY_LIMITS,
+		storylinesFromText,
+		storylinesToText,
 	} from '@repo/database/defaults';
 
 	type Saved = {
@@ -27,20 +29,15 @@
 
 	let { guildId, saved }: { guildId: string; saved: Saved } = $props();
 
-	const STAGE_BREAK = '---';
 	const toText = (lines: string[]) => lines.join('\n');
 	const toLines = (text: string) =>
 		text
 			.split('\n')
 			.map((line) => line.trim())
 			.filter(Boolean);
-	// One textarea per storyline; stages are separated by a line that is just "---".
-	const scenarioText = (stages: string[][]) => stages.map(toText).join(`\n${STAGE_BREAK}\n`);
-	const scenarioStages = (text: string) =>
-		text
-			.split(new RegExp(`^\\s*${STAGE_BREAK}\\s*$`, 'mu'))
-			.map(toLines)
-			.filter((stage) => stage.length);
+	// One textarea per storyline. Some lines span several lines, so entries are separated by a blank line.
+	const scenarioText = storylinesToText;
+	const scenarioStages = storylinesFromText;
 
 	// svelte-ignore state_referenced_locally
 	let greeting = $state(toText(saved.greeting));
@@ -189,7 +186,7 @@
 					<p class="text-sm font-semibold">“DeepSeek is down” storylines</p>
 					<p class="text-sm text-muted-foreground">
 						When her brain is offline she plays one storyline, escalating a stage each time she’s pinged.
-						Separate stages with a line containing only <code>---</code>. Empty means her default storylines.
+						Put a blank line between lines, and a line containing only <code>---</code> between stages. Empty means her default storylines.
 					</p>
 				</div>
 				<div class="flex gap-2">
