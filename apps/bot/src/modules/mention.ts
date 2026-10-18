@@ -46,6 +46,7 @@ import {
 	queryNamesMember,
 	referencedMembers,
 	replaceUserMentions,
+	type MemberLookup,
 	type ReferencedMember,
 } from '@/modules/mention-members';
 import defaultPreferences from '@/personality/jess-preferences.json';
@@ -905,6 +906,30 @@ async function fetchReferencedMessages(message: Message, maxMessages = 6): Promi
 	return messages;
 }
 
+/** What recall_member hands back to the model; always tells her not to invent when nothing is saved. */
+async function recallMemberContent(
+	name: string,
+	lookupMember: (name: string) => Promise<MemberLookup>
+): Promise<string> {
+	const noMatch = `No server member called "${name}". If they meant someone here, say you don't know who that is. Do not invent details.`;
+	if (!name) return noMatch;
+	try {
+		const lookup = await lookupMember(name);
+		if (lookup.status === 'none') return noMatch;
+		if (lookup.status === 'ambiguous')
+			return `Several members match "${name}": ${lookup.names.join(', ')}. Ask which one they mean.`;
+		const details = lookup.member.details;
+		const hasSaved =
+			!!details && Object.values(details).some((value) => (Array.isArray(value) ? value.length > 0 : !!value));
+		return hasSaved
+			? formatMemberContext([lookup.member])!
+			: `You have nothing saved about ${lookup.member.displayName}. Say you don't know instead of guessing.`;
+	} catch (error) {
+		logger.error('Member lookup failed', error);
+		return "Couldn't look them up right now. Don't guess.";
+	}
+}
+
 export async function askDeepSeek(
 	prompt: string,
 	history: ConversationTurn[],
@@ -936,7 +961,8 @@ export async function askDeepSeek(
 		daysAway: 0,
 	},
 	sessionId = 'default',
-	mediaKind?: 'food' | 'pet'
+	mediaKind?: 'food' | 'pet',
+	lookupMember: ((name: string) => Promise<MemberLookup>) | null = null
 ): Promise<{
 	reply?: string;
 	imageDescription?: string;
@@ -1124,6 +1150,21 @@ export async function askDeepSeek(
 		{
 			type: 'function',
 			function: {
+				name: 'recall_member',
+				description:
+					'Look up what you have saved about a member of this server, by whatever name or nickname was used. Use when someone asks about a person whose saved details are not already in your context.',
+				parameters: {
+					type: 'object',
+					properties: {
+						name: { type: 'string', description: 'The name, nickname, or @mention used for them' },
+					},
+					required: ['name'],
+				},
+			},
+		},
+		{
+			type: 'function',
+			function: {
 				name: 'web_search',
 				description:
 					'Look something up on the web. Use only when the person asks for current or recent information (news, scores, patch notes, releases, prices, weather, schedules), a specific real-world fact you do not know, or asks you to look it up. Never use it for reactions, banter, opinions, roleplay, follow-ups to your own last message, or anything about this server, its members, their pets, server tags, or inside jokes. When unsure, reply_chat instead.',
@@ -1146,7 +1187,8 @@ export async function askDeepSeek(
 					tool.function.name !== 'schedule_custom')) &&
 			((searchAllowed && !mediaKind) ||
 				tool.function.name !== 'web_search') &&
-			(!mediaKind || tool.function.name === 'reply_chat')
+			(!mediaKind || tool.function.name === 'reply_chat') &&
+			(!!lookupMember || tool.function.name !== 'recall_member')
 	);
 	const maxTokens = visionImages.length ? 500 : allowsLongChatReply(prompt) ? 900 : 250;
 	const requestDeepSeek = async (
@@ -1202,6 +1244,35 @@ export async function askDeepSeek(
 		return result.choices?.[0]?.message;
 	};
 	let output = await requestDeepSeek(messages, tools, maxTokens);
+	const recallTool = output?.tool_calls?.find((call) => call.function?.name === 'recall_member');
+	if (recallTool && lookupMember) {
+		let name = '';
+		try {
+			const args = JSON.parse(recallTool.function?.arguments ?? '{}') as { name?: unknown };
+			if (typeof args.name === 'string') name = args.name.trim();
+		} catch {
+			// An unreadable lookup is treated like no match below.
+		}
+		logger.info(`Member lookup: ${JSON.stringify(name)}`);
+		output = await requestDeepSeek(
+			[
+				...messages,
+				{
+					role: 'assistant',
+					content: output?.content ?? '',
+					...(output?.reasoning_content ? { reasoning_content: output.reasoning_content } : {}),
+					tool_calls: [recallTool],
+				},
+				{ role: 'tool', tool_call_id: recallTool.id, content: await recallMemberContent(name, lookupMember) },
+				{
+					role: 'system',
+					content: "Answer the user's message with reply_chat using what recall_member returned, in jjb's voice and briefly.",
+				},
+			],
+			tools.filter((tool) => tool.function.name === 'reply_chat'),
+			maxTokens
+		);
+	}
 	let sourceUrls: string[] = [];
 	const searchTool = output?.tool_calls?.find((call) => call.function?.name === 'web_search');
 	if (searchTool) {

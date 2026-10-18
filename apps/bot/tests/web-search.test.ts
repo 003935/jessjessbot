@@ -239,3 +239,66 @@ test('prompt tells her to only claim saves she sent', async () => {
 	await askDeepSeek('hello', [], false);
 	expect(calls[0]!.body.messages[0].content).toContain('Only say you saved something if you included it');
 });
+
+const withLookup = (prompt: string, lookup: unknown, mediaKind?: 'pet') =>
+	[prompt, [], false, ...Array(16).fill(undefined), mediaKind, lookup] as unknown as Parameters<typeof askDeepSeek>;
+const toolNames = (call: Call) => call.body.tools.map((tool: any) => tool.function.name);
+
+test('recall_member looks up the member and answers from it', async () => {
+	const asked: string[] = [];
+	const lookup = async (name: string) => {
+		asked.push(name);
+		return {
+			status: 'found',
+			member: {
+				id: 'h',
+				displayName: 'boss cuck',
+				aliases: ['hannie'],
+				mention: false,
+				botNickname: null,
+				details: {
+					likes: [],
+					dislikes: [],
+					pets: ['cheesy is my cat', 'ghosty is my cat', 'mini is my cat'],
+					birthday: null,
+					favourites: [],
+					notes: [],
+				},
+			},
+		};
+	};
+	let n = 0;
+	mockFetch(() =>
+		++n === 1
+			? toolCall('recall_member', { name: 'hannies' }, 'call_recall')
+			: toolCall('reply_chat', { reply: 'cheesy, ghosty and mini' })
+	);
+	const result = await askDeepSeek(...withLookup('jjb list out hannies cats', lookup));
+	expect(asked).toEqual(['hannies']);
+	expect(toolNames(calls[0]!)).toContain('recall_member');
+	const toolMessage = calls[1]!.body.messages.find((message: any) => message.role === 'tool');
+	expect(toolMessage.tool_call_id).toBe('call_recall');
+	expect(toolMessage.content).toContain('cheesy is my cat');
+	expect(toolNames(calls[1]!)).toEqual(['reply_chat']);
+	expect(result.reply).toBe('cheesy, ghosty and mini');
+});
+
+test('recall_member with no match tells her not to invent', async () => {
+	let n = 0;
+	mockFetch(() =>
+		++n === 1
+			? toolCall('recall_member', { name: 'zorbo' }, 'call_recall')
+			: toolCall('reply_chat', { reply: 'who even is that' })
+	);
+	await askDeepSeek(...withLookup('jjb list out zorbos cats', async () => ({ status: 'none' })));
+	const toolMessage = calls[1]!.body.messages.find((message: any) => message.role === 'tool');
+	expect(toolMessage.content).toContain('Do not invent details');
+});
+
+test('recall_member not offered without a lookup or for media', async () => {
+	mockFetch(() => toolCall('reply_chat', { reply: 'hi there friend' }));
+	await askDeepSeek('hello', [], false);
+	await askDeepSeek(...withLookup('cute cat', async () => ({ status: 'none' }), 'pet'));
+	expect(toolNames(calls[0]!)).not.toContain('recall_member');
+	expect(toolNames(calls[1]!)).not.toContain('recall_member');
+});
