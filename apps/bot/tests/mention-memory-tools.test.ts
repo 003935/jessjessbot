@@ -28,7 +28,7 @@ mock.module('../src/db', () => ({
 	},
 }));
 
-const { applyMemoryChanges, memoryFailureReply, parseMemoryChanges } = await import(
+const { applyMemoryChanges, finalizeMemoryReply, memoryFailureReply, parseMemoryChanges } = await import(
 	'../src/modules/mention-memory-tools'
 );
 type Change = Parameters<typeof applyMemoryChanges>[2][number];
@@ -158,4 +158,37 @@ test('parse keeps a repeated pet once and maps "me" to the speaker', () => {
 			],
 		})
 	).toEqual({ changes: [pet('cheesy')], dropped: 0 });
+});
+
+const okApply = async () => ({ failures: [] });
+
+test('finalizeMemoryReply keeps the reply when saves succeed', async () => {
+	expect(await finalizeMemoryReply('locked in', [pet('cheesy')], 0, okApply)).toEqual({
+		reply: 'locked in',
+		touchedMemory: true,
+	});
+});
+
+test('finalizeMemoryReply replaces the reply when a save fails', async () => {
+	const result = await finalizeMemoryReply('locked in', [pet('cheesy')], 0, async () => ({
+		failures: [{ reason: 'full' as const }],
+	}));
+	expect(result.reply).toBe("my memory's full for u, forget an old pet or favourite first (・_・;)");
+});
+
+test('finalizeMemoryReply treats an all-dropped list as a failure', async () => {
+	let applied = false;
+	const result = await finalizeMemoryReply('got it', [], 2, async () => {
+		applied = true;
+		return { failures: [] };
+	});
+	expect(result.reply).toBe("i couldn't save that one (・_・;)");
+	expect(applied).toBe(false);
+});
+
+test('finalizeMemoryReply leaves plain replies alone', async () => {
+	expect(await finalizeMemoryReply('hi', undefined, undefined, okApply)).toEqual({
+		reply: 'hi',
+		touchedMemory: false,
+	});
 });

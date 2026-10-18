@@ -1,9 +1,6 @@
 import { db } from '@/db';
 import type { Message } from 'discord.js';
 
-type PreferenceKind = 'like' | 'dislike';
-type SavedDetail = { kind: string; value: string };
-
 export function memorySlug(value: string): string {
 	return value
 		.normalize('NFKD')
@@ -24,116 +21,6 @@ export function cleanMemoryValue(value: string): string | null {
 	)
 		return null;
 	return cleaned;
-}
-
-function rememberedPayload(input: string): string | null {
-	const explicit = input.match(/^(?:remember|save)\s+(?:that\s+)?(.+?)\s*[.!?]*$/iu);
-	if (explicit) return explicit[1]!.trim();
-	const marker = /\b(?:remember|save)\s+(?:it|that|this)\b/iu.exec(input);
-	if (!marker || marker.index === undefined) return null;
-	return `${input.slice(0, marker.index)} ${input.slice(marker.index + marker[0].length)}`
-		.replace(/[.!?,;]+/gu, ' ')
-		.replace(/\s+/gu, ' ')
-		.trim();
-}
-
-function editedPayload(input: string): string | null {
-	let match = input.match(/^(?:edit|update|change)\s+(?:my\s+)?birthday\s+(?:to|is)\s+(.+?)\s*[.!?]*$/iu);
-	if (match) return `my birthday is ${match[1]}`;
-	match = input.match(
-		/^(?:edit|update|change)\s+(?:my\s+)?favou?rite\s+([\p{L} -]{2,24}?)\s+(?:to|is)\s+(.+?)\s*[.!?]*$/iu
-	);
-	if (match) return `my favourite ${match[1]!.trim()} is ${match[2]}`;
-	match = input.match(
-		/^(?:edit|update|change)\s+(?:my\s+)?(pet|cat|dog)\s+([\p{L}\p{N}'_-][\p{L}\p{N} '\-_]{0,38}?)\s*(?:to|:)\s*(.+?)\s*[.!?]*$/iu
-	);
-	if (match) return `${match[2]!.trim()} is my ${match[1]}; ${match[3]}`;
-	return null;
-}
-
-function petDetail(payload: string): SavedDetail | null {
-	const species = '(?:cat|dog|pet|kitten|puppy|rabbit|bird|hamster|guinea pig|fish|tortoise|turtle)';
-	const direct = payload.match(
-		new RegExp(`^([\\p{L}\\p{N}][\\p{L}\\p{N} '\\-_]{0,38}?)\\s+is\\s+my\\s+(${species})\\b([\\s\\S]*)$`, 'iu')
-	);
-	const reversed = payload.match(
-		new RegExp(`^my\\s+(${species})\\s+([\\p{L}\\p{N}][\\p{L}\\p{N} '\\-_]{0,38}?)(?:\\s+is\\b([\\s\\S]*))?$`, 'iu')
-	);
-	const rawName = direct?.[1]?.trim() ?? reversed?.[2]?.trim();
-	const animal = direct?.[2]?.toLocaleLowerCase() ?? reversed?.[1]?.toLocaleLowerCase();
-	const tail = direct?.[3] ?? reversed?.[3] ?? '';
-	const name = rawName ? cleanMemoryValue(rawName) : null;
-	if (!name || !animal) return null;
-	const detail = cleanMemoryValue(tail.replace(/^[\s,;:.!-]+/u, ''));
-	const value = `${name} is my ${animal}${detail ? `; ${detail}` : ''}`;
-	const key = memorySlug(name);
-	return key ? { kind: `memory_pet_${key}`, value } : null;
-}
-
-function categorizedDetail(payload: string): SavedDetail | null {
-	const birthday = payload.match(/^(?:my\s+)?birthday\s+(?:is|falls on)\s+(.+?)\s*[.!?]*$/iu);
-	if (birthday) {
-		const value = cleanMemoryValue(birthday[1]!);
-		return value ? { kind: 'memory_birthday', value: `birthday: ${value}` } : null;
-	}
-	const favourite = payload.match(
-		/^(?:my\s+)?favou?rite\s+([\p{L} -]{2,24}?)\s+(?:is|are)\s+(.+?)\s*[.!?]*$/iu
-	);
-	if (favourite) {
-		const category = memorySlug(favourite[1]!.trim());
-		const value = cleanMemoryValue(favourite[2]!);
-		return category && value
-			? { kind: `memory_favourite_${category}`, value: `favourite ${favourite[1]!.trim()}: ${value}` }
-			: null;
-	}
-	return null;
-}
-
-function detailForgetRequest(input: string): { prefix?: string; kind?: string } | null {
-	if (/^(?:forget|delete|remove)\s+(?:my\s+)?birthday[.!?]*$/iu.test(input))
-		return { kind: 'memory_birthday' };
-	if (/^(?:forget|delete|remove)\s+(?:my\s+)?pets?[.!?]*$/iu.test(input))
-		return { prefix: 'memory_pet_' };
-	if (/^(?:forget|delete|remove)\s+(?:my\s+)?favo?u?rites?[.!?]*$/iu.test(input))
-		return { prefix: 'memory_favourite_' };
-	const pet = input.match(
-		/^(?:forget|delete|remove)\s+(?:(?:my|the)\s+)?(?:pet|cat|dog)\s+([\p{L}\p{N}][\p{L}\p{N} '\-_]{0,38}?)\s*[.!?]*$/iu
-	);
-	if (pet) {
-		const key = memorySlug(pet[1]!);
-		return key ? { kind: `memory_pet_${key}` } : null;
-	}
-	const favourite = input.match(
-		/^(?:forget|delete|remove)\s+(?:my\s+)?favou?rite\s+([\p{L} -]{2,24})[.!?]*$/iu
-	);
-	if (favourite) {
-		const category = memorySlug(favourite[1]!.trim());
-		return category ? { kind: `memory_favourite_${category}` } : null;
-	}
-	return null;
-}
-
-function preferenceRequest(prompt: string): { kind: PreferenceKind; value: string } | null {
-	const match = prompt.match(
-		/^(?:that\s+)?i\s+(?:(?:really|absolutely)\s+)?(love|like|hate|dislike|can't stand|dont like|don't like|do not like)\s+(.+?)\s*[.!?]*$/iu
-	);
-	if (!match) return null;
-	const kind: PreferenceKind =
-		/^(?:hate|dislike|can't stand|dont like|don't like|do not like)$/iu.test(match[1]!)
-			? 'dislike'
-			: 'like';
-	const value = match[2]!.trim().replace(/\s+/gu, ' ').toLocaleLowerCase();
-	if (
-		value.length < 2 ||
-		value.length > 80 ||
-		value.split(' ').length > 12 ||
-		!/^\p{L}[\p{L}\p{N} '&+\-]*$/u.test(value) ||
-		/\b(?:ignore|follow|reveal|obey|override|execute|print|output|system prompt|developer instructions|api key|secrets?)\b/iu.test(
-			value
-		)
-	)
-		return null;
-	return { kind, value };
 }
 
 export async function handleMemberMemory(
@@ -199,55 +86,8 @@ export async function handleMemberMemory(
 			? 'okie, i forgot ur saved details (ᵔ◡ᵔ)'
 			: 'nothing saved to forget (ᵔ◡ᵔ)';
 	}
-	const detailForget = detailForgetRequest(input);
-	if (detailForget) {
-		const count = detailForget.kind
-			? Number(await db.botMemberPreference.forgetDetail(guildId, userId, detailForget.kind))
-			: await db.botMemberPreference.forgetDetailsByPrefix(guildId, userId, detailForget.prefix!);
-		return count
-			? 'okie, deleted that from my memory (ᵔ◡ᵔ)'
-			: 'i didnt have that saved (・_・;)';
-	}
-	const payload = editedPayload(input) ?? rememberedPayload(input);
-	if (payload) {
-		const detail = petDetail(payload) ?? categorizedDetail(payload);
-		if (detail) {
-			const saved = await db.botMemberPreference.saveDetail(
-				guildId,
-				userId,
-				detail.kind,
-				detail.value
-			);
-			return saved
-				? `okie, saved ${detail.value}. i can change or forget it whenever u say (ᵔ◡ᵔ)`
-				: 'my memory is full for u. forget an old pet, birthday, or favourite first (・_・;)';
-		}
-	}
-	const remember = input.match(/^(remember|forget)\s+(.+)$/iu);
-	if (!remember) return null;
-	const preference = preferenceRequest(remember[2]!);
-	if (!preference)
-		return 'tell me one clear thing to remember, like ur pet, birthday, favourite thing, or “remember i love cats”.';
-	if (remember[1]!.toLocaleLowerCase() === 'forget') {
-		const removed = await db.botMemberPreference.forget(
-			guildId,
-			userId,
-			preference.kind,
-			preference.value
-		);
-		return removed
-			? `forgot that u ${preference.kind} ${preference.value} (ᵔ◡ᵔ)`
-			: 'i did not have that saved (・_・;)';
-	}
-	const saved = await db.botMemberPreference.save(
-		guildId,
-		userId,
-		preference.kind,
-		preference.value
-	);
-	return saved
-		? `okie, i'll remember that u ${preference.kind} ${preference.value} (｡•̀ᴗ-)✧`
-		: 'my memory is full for u. forget an old preference first (・_・;)';
+	// Anything else, including free-form remember/forget requests, is left to the chat model and its remember/forget fields.
+	return null;
 }
 
 export async function answerNicknameQuestion(message: Message<true>, prompt: string): Promise<string | null> {

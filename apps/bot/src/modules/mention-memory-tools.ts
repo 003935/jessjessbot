@@ -292,3 +292,16 @@ export function memoryFailureReply(failures: MemoryFailure[]): string {
 	if (failure?.reason === 'unknown_member') return `who's ${failure.name}? i couldn't find them here`;
 	return "i couldn't save that one (・_・;)";
 }
+
+/** Applies the reply's memory changes; if anything failed, her reply becomes an honest one. */
+export async function finalizeMemoryReply(
+	reply: string,
+	changes: MemoryChange[] | undefined,
+	dropped: number | undefined,
+	apply: (changes: MemoryChange[]) => Promise<{ failures: MemoryFailure[] }>
+): Promise<{ reply: string; touchedMemory: boolean }> {
+	if (!changes?.length && !dropped) return { reply, touchedMemory: false };
+	if (!changes?.length) return { reply: memoryFailureReply([{ reason: 'invalid' }]), touchedMemory: true };
+	const { failures } = await apply(changes);
+	return { reply: failures.length ? memoryFailureReply(failures) : reply, touchedMemory: true };
+}

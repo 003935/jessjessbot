@@ -23,7 +23,13 @@ import {
 	relationshipTone,
 } from '@/modules/mention-relationship';
 import { answerNicknameQuestion, handleMemberMemory } from '@/modules/mention-memory';
-import { MEMORY_TOOL_PROPERTIES, parseMemoryChanges, type MemoryChange } from '@/modules/mention-memory-tools';
+import {
+	applyMemoryChanges,
+	finalizeMemoryReply,
+	MEMORY_TOOL_PROPERTIES,
+	parseMemoryChanges,
+	type MemoryChange,
+} from '@/modules/mention-memory-tools';
 import { replyToGroupBlameBait } from '@/modules/mention-bait';
 import { answerWordleSuspicion } from '@/modules/mention-wordle';
 import { answerFavoriteUser, isFavoriteUserRequest } from '@/modules/mention-favorite';
@@ -42,6 +48,7 @@ import { withServerEmoji } from '@/modules/server-emojis';
 import { formatSearchResults, sourceLink, webSearch, webSearchEnabled } from '@/modules/web-search';
 import {
 	formatMemberContext,
+	lookupMember,
 	mentionNames,
 	queryNamesMember,
 	referencedMembers,
@@ -1558,6 +1565,7 @@ export async function handleMention(message: Message): Promise<void> {
 		let casualReply = false;
 		let teamResponse: string[] | null = null;
 		let learnedNotes: string[] = [];
+		let touchedMemory = false;
 		let learnedOpinions: BotPersonality['opinions'] = [];
 		const baitReply = replyToGroupBlameBait(message.guildId, message.author.id, prompt);
 		const memoryAnswer = baitReply
@@ -1730,6 +1738,7 @@ export async function handleMention(message: Message): Promise<void> {
 				]);
 				learnedOpinions = personality?.opinions ?? [];
 				const linkPreviews = linkPreviewContext(linkMessage, referencedMessages);
+				const findMember = (name: string) => lookupMember(message as Message<true>, name);
 				const savedNickname = await db.botMemberPreference
 					.getNickname(message.guildId, message.author.id)
 					.catch(() => null);
@@ -1757,7 +1766,9 @@ export async function handleMention(message: Message): Promise<void> {
 							channelContext,
 							personality,
 							relationship,
-							message.channelId
+							message.channelId,
+							undefined,
+							findMember
 						);
 				// With shared history the model sometimes just repeats an earlier answer
 				// ("one death beats five" twice). Retry once without history if it does.
@@ -1781,8 +1792,27 @@ export async function handleMention(message: Message): Promise<void> {
 						channelContext,
 						personality,
 						relationship,
-						message.channelId
+						message.channelId,
+						undefined,
+						findMember
 					);
+				// Saves what she said she'd remember; if any of it failed, she says so instead.
+				if (result.reply) {
+					const memory = await finalizeMemoryReply(
+						result.reply,
+						result.memoryChanges,
+						result.memoryDropped,
+						(changes) =>
+							applyMemoryChanges(
+								message.guildId,
+								{ id: message.author.id, displayName: speakerName },
+								changes,
+								findMember
+							)
+					);
+					result = { ...result, reply: memory.reply };
+					touchedMemory = memory.touchedMemory;
+				}
 				savedImageDescription = imageCollection.images.length ? result.imageDescription : undefined;
 				savedImageSourceIds = imageCollection.sourceMessageIds;
 
@@ -1847,7 +1877,7 @@ export async function handleMention(message: Message): Promise<void> {
 							: isExplicitRoleAction(prompt)
 								? 'i didnt change anything, couldnt tell which role. try "give me the <role> role"'
 								: result.reply
-									? ((!result.webSearched && rareCasualLine(prompt)) || result.reply)
+									? ((!result.webSearched && !touchedMemory && rareCasualLine(prompt)) || result.reply)
 									: 'huh (・_・;)';
 				}
 			}
