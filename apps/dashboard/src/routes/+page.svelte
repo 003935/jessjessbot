@@ -87,7 +87,22 @@
 
 {#if data.user}
 	<div class="container mx-auto grid h-fit max-w-7xl grid-cols-2 gap-4 px-4 py-8">
-		{#if data.servers}
+		{#if data.discordLoginExpired}
+			<Card.Root class="col-span-2">
+				<Card.Header>
+					<Card.Title>Discord login expired</Card.Title>
+					<Card.Description>
+						<Button
+							class="p-0"
+							variant="link"
+							onclick={() => authClient.signIn.social({ provider: 'discord' })}
+						>
+							Log in again
+						</Button> to see your servers.
+					</Card.Description>
+				</Card.Header>
+			</Card.Root>
+		{:else if data.servers}
 			<Card.Root class="col-span-2">
 				<Card.Header>
 					<Card.Title>Your Servers</Card.Title>
