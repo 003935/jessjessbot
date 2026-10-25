@@ -45,6 +45,7 @@ import {
 	lootReply,
 } from '@/modules/poe-loot';
 import { withServerEmoji } from '@/modules/server-emojis';
+import { collapseOwnReplies } from '@/modules/mention-history';
 import { formatSearchResults, sourceLink, webSearch, webSearchEnabled } from '@/modules/web-search';
 import { serverContext } from '@/modules/mention-server';
 import {
@@ -525,6 +526,14 @@ export function historyForPrompt(
 	prompt: string,
 	turns: Array<ConversationTurn & { at?: number }>,
 	now = Date.now()
+): ConversationTurn[] {
+	return collapseOwnReplies(historyWindow(prompt, turns, now));
+}
+
+function historyWindow(
+	prompt: string,
+	turns: Array<ConversationTurn & { at?: number }>,
+	now: number
 ): ConversationTurn[] {
 	if (!turns.length) return [];
 	// Anything said to jjb in this channel in the last few minutes is the live conversation,
