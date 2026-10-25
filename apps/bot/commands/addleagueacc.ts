@@ -12,6 +12,11 @@ const lolApi = new LolApi({ key: RIOT_API_KEY });
 type Region = (typeof Constants.Regions)[keyof typeof Constants.Regions];
 type Tier = (typeof Constants.Tiers)[keyof typeof Constants.Tiers];
 
+// Prisma unique-constraint violation (account already linked, possibly to someone else).
+function isUniqueConstraintError(e: unknown): boolean {
+	return typeof e === 'object' && e !== null && 'code' in e && e.code === 'P2002';
+}
+
 export class AddLeagueAccountCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
 		super(context, { ...options, preconditions: ['GuildTextOnly'] });
@@ -45,17 +50,15 @@ export class AddLeagueAccountCommand extends Command {
 	}
 
 	public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
+		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
 		const riotID = interaction.options.getString('game_id', true);
 		const region = interaction.options.getString('region', true);
 
 		const splitted = riotID.split('#').map((s) => s.trim());
 
 		if (splitted.length !== 2 || splitted[0]!.length === 0 || splitted[1]!.length === 0) {
-			await interaction.reply({
-				content: 'Provide a valid game ID in the format "gamename#tagline"',
-				withResponse: true,
-				flags: MessageFlags.Ephemeral,
-			});
+			await interaction.editReply('Provide a valid game ID in the format "gamename#tagline"');
 			return;
 		}
 
@@ -72,11 +75,7 @@ export class AddLeagueAccountCommand extends Command {
 			const alreadyAdded = dbAccounts?.some((acc) => acc.riotPuuid === account.response.puuid);
 
 			if (alreadyAdded) {
-				await interaction.reply({
-					content: 'Account already added',
-					withResponse: true,
-					flags: MessageFlags.Ephemeral,
-				});
+				await interaction.editReply('Account already added');
 				return;
 			}
 
@@ -106,19 +105,16 @@ export class AddLeagueAccountCommand extends Command {
 				},
 			});
 
-			await interaction.reply({
-				content: 'account added',
-				withResponse: true,
-				flags: MessageFlags.Ephemeral,
-			});
+			await interaction.editReply('account added');
 		} catch (e) {
+			if (isUniqueConstraintError(e)) {
+				await interaction.editReply('That account is already linked.');
+				return;
+			}
 			logger.error('Failed to get acc info', e);
-			await interaction.reply({
-				content: 'Failed to get account info. Please ensure the summoner name and tag are correct.',
-				withResponse: true,
-				flags: MessageFlags.Ephemeral,
-			});
-			return;
+			await interaction.editReply(
+				'Failed to get account info. Please ensure the summoner name and tag are correct.'
+			);
 		}
 	}
 }

@@ -8,16 +8,21 @@ const teamEmoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'];
 
 export const load: PageServerLoad = async ({ params }) => {
 	const user = throwIfNotLoggedIn();
+	const eventId = Number(params.eventId);
+	// Custom.id is a 32-bit Int column
+	if (!/^\d+$/.test(params.eventId) || eventId > 2_147_483_647) error(404, 'Event not found');
 	await getDiscordAcc(user, params.serverId);
 	const event = await db._db.custom.findFirst({
-		where: { id: Number(params.eventId), guildId: params.serverId },
+		where: { id: eventId, guildId: params.serverId },
 	});
 	if (!event || event.scheduledTime.getTime() <= Date.now()) error(404, 'Event not found');
 	const emojis = event.teamCount ? teamEmoji.slice(0, event.teamCount) : ['✅'];
 	const reactionGroups = await Promise.all(
 		emojis.map(async (emoji) => ({
 			emoji,
-			users: await discordApi.getReactionUsers(event.channelId, event.messageId, emoji),
+			users: await discordApi
+				.getReactionUsers(event.channelId, event.messageId, emoji)
+				.catch(() => []),
 		}))
 	);
 	const signups = await db.events.getSignups(event.id);

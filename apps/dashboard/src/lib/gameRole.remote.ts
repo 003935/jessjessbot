@@ -50,7 +50,7 @@ export const addGameRole = command(addGameRole_Schema, async (gameRole) => {
 
 	await Promise.all([
 		db.game_roles
-			.role_exists_in_guild(gameRole.roleId, gameRole.guildId)
+			.role_exists_in_guild(gameRole.guildId, gameRole.roleId)
 			.then((exists) => exists && error(400, 'Role already assigned')),
 		db.game_roles.game_exists_in_guild(gameRole.guildId, gameRole.gameName).then((exists) => {
 			if (exists) error(400, 'Game already assigned');

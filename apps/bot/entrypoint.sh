@@ -8,4 +8,4 @@ cd ../..
 
 echo "Starting bot..."
 cd apps/bot
-bun --bun src/index.ts
+exec bun --bun src/index.ts

@@ -12,9 +12,16 @@ test('names summon jjb anywhere in a message', () => {
 
 test('real mentions still work and partial names stay quiet', () => {
 	assert.equal(botPrompt('<@123> hello', '123', true), 'hello');
-	assert.equal(botPrompt('<@!123>', '123', true), 'hey');
 	assert.equal(botPrompt('what does <@123> think?', '123', true), 'what does jjb think?');
 	assert.equal(botPrompt('jjbot is here', '123', false), null);
 	assert.equal(botPrompt('superjessjessbotter', '123', false), null);
 	assert.equal(botPrompt('hello', '123', false), null);
+});
+
+test('a bare ping is left to Meowdule so jjb only replies once', () => {
+	assert.equal(botPrompt('<@!123>', '123', true), null);
+	assert.equal(botPrompt('  <@123> <@123> ', '123', true), null);
+	assert.equal(botPrompt('', '123', true, true), null);
+	assert.equal(botPrompt('<@123>', '123', true, false, true), 'hey');
+	assert.equal(botPrompt('', '123', false, true, true), 'hey');
 });

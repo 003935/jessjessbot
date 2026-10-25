@@ -10,6 +10,7 @@ model Custom {
   game          CustomGame @relation(fields: [gameName], references: [name], onDelete: Cascade, onUpdate: Cascade)
   signups       CustomSignup[]
 
+  @@index([guildId, messageId])
   @@map("customs")
 }
 

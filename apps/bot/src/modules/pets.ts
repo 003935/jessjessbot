@@ -96,7 +96,7 @@ export async function identifyOwnersPet(
 		method: 'POST',
 		headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
 		body: JSON.stringify({
-			model: 'deepseek-flash',
+			model: process.env.DEEPSEEK_MODEL || 'deepseek-flash',
 			messages: [
 				{
 					role: 'system',

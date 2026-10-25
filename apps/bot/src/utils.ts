@@ -32,6 +32,19 @@ function colorize(color: string, text: string): string {
 	return `${color}${text}${colors.reset}`;
 }
 
+function formatValue(value: unknown): string {
+	if (typeof value === 'string') return value;
+	if (value instanceof Error) {
+		const text = value.stack ?? `${value.name}: ${value.message}`;
+		return value.cause === undefined ? text : `${text}\n[cause] ${formatValue(value.cause)}`;
+	}
+	return Bun.inspect(value, { depth: 4 });
+}
+
+export function formatLogValues(values: readonly unknown[]): string {
+	return values.map(formatValue).join(' ');
+}
+
 export class Logger implements ILogger {
 	private prefix: string | null;
 	private minLevel: LogLevel;
@@ -85,57 +98,57 @@ export class Logger implements ILogger {
 
 	error(...values: readonly unknown[]) {
 		if (!this.has(LogLevel.Error)) return;
-		console.error(this.format(LogLevel.Error, values.join(' ')));
+		console.error(this.format(LogLevel.Error, formatLogValues(values)));
 	}
 
 	warn(...values: readonly unknown[]) {
 		if (!this.has(LogLevel.Warn)) return;
-		console.warn(this.format(LogLevel.Warn, values.join(' ')));
+		console.warn(this.format(LogLevel.Warn, formatLogValues(values)));
 	}
 
 	info(...values: readonly unknown[]) {
 		if (!this.has(LogLevel.Info)) return;
-		console.info(this.format(LogLevel.Info, values.join(' ')));
+		console.info(this.format(LogLevel.Info, formatLogValues(values)));
 	}
 
 	debug(...values: readonly unknown[]) {
 		if (!this.has(LogLevel.Debug)) return;
-		console.log(this.format(LogLevel.Debug, values.join(' ')));
+		console.log(this.format(LogLevel.Debug, formatLogValues(values)));
 	}
 
 	trace(...values: readonly unknown[]) {
 		if (!this.has(LogLevel.Trace)) return;
-		console.log(this.format(LogLevel.Trace, values.join(' ')));
+		console.log(this.format(LogLevel.Trace, formatLogValues(values)));
 	}
 
 	fatal(...values: readonly unknown[]) {
 		if (!this.has(LogLevel.Fatal)) return;
-		console.error(this.format(LogLevel.Fatal, values.join(' ')));
+		console.error(this.format(LogLevel.Fatal, formatLogValues(values)));
 	}
 
 	write(level: LogLevel, ...values: readonly unknown[]): void {
 		if (!this.has(level)) return;
 		switch (level) {
 			case LogLevel.Error:
-				this.error(values.join(' '));
+				this.error(...values);
 				break;
 			case LogLevel.Warn:
-				this.warn(values.join(' '));
+				this.warn(...values);
 				break;
 			case LogLevel.Info:
-				this.info(values.join(' '));
+				this.info(...values);
 				break;
 			case LogLevel.Debug:
-				this.debug(values.join(' '));
+				this.debug(...values);
 				break;
 			case LogLevel.Trace:
-				this.trace(values.join(' '));
+				this.trace(...values);
 				break;
 			case LogLevel.Fatal:
-				this.fatal(values.join(' '));
+				this.fatal(...values);
 				break;
 			case LogLevel.None:
-				this.info(values.join(' '));
+				this.info(...values);
 				break;
 			default:
 				const _exhaustive: never = level;

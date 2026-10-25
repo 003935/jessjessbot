@@ -16,7 +16,7 @@ model WordleResultMessage {
 model WordleResult {
   channelId String
   messageId String
-  message   WordleResultMessage @relation(fields: [channelId, messageId], references: [channelId, messageId])
+  message   WordleResultMessage @relation(fields: [channelId, messageId], references: [channelId, messageId], onDelete: Cascade)
 
   discordId      String
   score          Int
@@ -45,7 +45,7 @@ enum FailedMentionStatus {
 model FailedMention {
   channelId String
   messageId String
-  message   WordleResultMessage @relation(fields: [channelId, messageId], references: [channelId, messageId])
+  message   WordleResultMessage @relation(fields: [channelId, messageId], references: [channelId, messageId], onDelete: Cascade)
 
   displayName String
   score       Int

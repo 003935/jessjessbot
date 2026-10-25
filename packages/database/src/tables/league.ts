@@ -92,8 +92,11 @@ export class LeagueTable extends DatabaseConnection {
 		});
 	}
 
-	async leaderboard(limit: number = 7) {
-		const users = await this._db.leagueAccount.findMany();
+	/** Pass the guild's member ids to rank only that server's players. */
+	async leaderboard(limit: number = 7, discordIds?: string[]) {
+		const users = await this._db.leagueAccount.findMany(
+			discordIds ? { where: { discordId: { in: discordIds } } } : undefined
+		);
 		const [ranked, unranked] = users.reduce<[LeagueAccount[], LeagueAccount[]]>(
 			([ranked, unranked], user) => {
 				const soloq = (user.leaguedata as LeagueData)?.soloq;

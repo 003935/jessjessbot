@@ -119,11 +119,29 @@ export async function topMessages(
 		.slice(0, 10);
 }
 
+const TRACKED_CACHE_MS = 60_000;
+const trackedChannelCache = new Map<string, { ids: Set<string>; expiresAt: number }>();
+
+async function isTrackedChannel(guildId: string, channelId: string): Promise<boolean> {
+	let cached = trackedChannelCache.get(guildId);
+	if (!cached || cached.expiresAt <= Date.now()) {
+		const channels = await trackedChannels(guildId);
+		cached = {
+			ids: new Set(channels.map((channel) => channel.channelId)),
+			expiresAt: Date.now() + TRACKED_CACHE_MS,
+		};
+		trackedChannelCache.set(guildId, cached);
+	}
+	return cached.ids.has(channelId);
+}
+
 export async function refreshReaction(
 	reaction: MessageReaction | PartialMessageReaction
 ): Promise<void> {
 	const message = reaction.message;
 	if (!message.guildId) return;
+	// Only spend an API call re-fetching messages from channels the hall actually tracks.
+	if (!(await isTrackedChannel(message.guildId, message.channelId))) return;
 	const full = await message.fetch(true);
 	if (full.partial) return;
 	await saveMessage(full);

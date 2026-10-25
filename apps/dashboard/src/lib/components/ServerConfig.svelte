@@ -40,7 +40,7 @@
 					submitting = true;
 					editConfig({
 						guildId,
-						custom_channel: channelId,
+						custom_channel: channelId || null,
 						bot_ignored_channels: [...ignoredChannels],
 					})
 						.then(() => {
@@ -83,7 +83,9 @@
 		<div class="space-y-3">
 			<div>
 				<p class="text-sm font-semibold">Bot replies by channel</p>
-				<p class="text-xs text-muted-foreground">Only checked channels are ignored. Slash commands still work.</p>
+				<p class="text-xs text-muted-foreground">
+					Only checked channels are ignored. Slash commands still work.
+				</p>
 			</div>
 			{#each channels as channel (channel.id)}
 				<Field.Field orientation="horizontal">
