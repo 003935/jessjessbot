@@ -1,11 +1,12 @@
 /// <reference types="bun" />
-import { expect, mock, test } from 'bun:test';
+import { expect, mock, setSystemTime, test } from 'bun:test';
 
 for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'])
 	process.env[key] ||= 'test';
 mock.module('../src/db', () => ({ db: {} }));
 
-const { dropFollowUpQuestion } = await import('../src/modules/mention');
+const { dropFollowUpQuestion, rareCasualLine, shouldRetryForRepeats } = await import('../src/modules/mention');
+const { DEFAULT_SERVER_SETTINGS } = await import('../src/personality/server-settings');
 
 test('generic chat-extender questions are cut', () => {
 	expect(dropFollowUpQuestion('sushi obviously. pizza is for quitters. what about u?')).toBe(
@@ -23,4 +24,38 @@ test('in-bit questions are kept', () => {
 	expect(dropFollowUpQuestion('bold claim from a nilah player. is choco a fat latina? u tell me')).toBe(
 		'bold claim from a nilah player. is choco a fat latina? u tell me'
 	);
+});
+
+function withRandom<T>(value: number, run: () => T): T {
+	const realRandom = Math.random;
+	Math.random = () => value;
+	try {
+		return run();
+	} finally {
+		Math.random = realRandom;
+	}
+}
+
+test('no canned line mid-conversation', () => {
+	setSystemTime(new Date(50_000_000));
+	const line = withRandom(0.005, () =>
+		rareCasualLine('theres a 7 car pileup on your block', DEFAULT_SERVER_SETTINGS, Date.now() - 60_000)
+	);
+	expect(line).toBeNull();
+});
+
+test('lazy lines only on a bare ping', () => {
+	setSystemTime(new Date(60_000_000));
+	expect(withRandom(0.005, () => rareCasualLine('jjb what do u think of the new champ', DEFAULT_SERVER_SETTINGS, null))).toBeNull();
+	setSystemTime(new Date(70_000_000));
+	expect(withRandom(0.005, () => rareCasualLine('yo', { ...DEFAULT_SERVER_SETTINGS, lazyLines: ['on break'] }, null))).toBe('on break');
+	setSystemTime();
+});
+
+test('games, loot rolls and recipes are never retried for repeats', () => {
+	expect(shouldRetryForRepeats('hit', ['phrase:noted'])).toBe(false);
+	expect(shouldRetryForRepeats('jjb give me random poe loot', ['opener:u got'])).toBe(false);
+	expect(shouldRetryForRepeats('give me a recipe for congee', ['phrase:crime'])).toBe(false);
+	expect(shouldRetryForRepeats('jjb u up', ['phrase:oh ur alive'])).toBe(true);
+	expect(shouldRetryForRepeats('jjb u up', [])).toBe(false);
 });
