@@ -1,7 +1,7 @@
 /// <reference types="bun" />
 import { expect, mock, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { DEFAULT_LIKES } from '@repo/database/defaults';
+import { DEFAULT_LIKES, PERSONALITY_LIMITS } from '@repo/database/defaults';
 
 for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'])
 	process.env[key] ||= 'test';
@@ -43,4 +43,14 @@ test('blank fields and empty lists fall back to the defaults', () => {
 	const voice = resolveVoice({ ...emptyRow, identity: '   ', likes: [] });
 	expect(voice.identity).toContain('You are jessjessbot');
 	expect(voice.likes).toEqual(DEFAULT_LIKES);
+});
+
+test('default voice teaches mix, modes, bits and photo corrections', () => {
+	const prompt = buildVoicePrompt(resolveVoice(null));
+	expect(prompt).toContain('About a third are a word or a fragment');
+	expect(prompt).toContain('a bit is something you add to an answer, never a reason not to answer');
+	expect(prompt).toContain('misread their photo');
+	expect(prompt).not.toMatch(/great question|i hope this helps|ok first of all/u);
+	for (const field of ['style', 'rules', 'examples'] as const)
+		expect(resolveVoice(null)[field].length).toBeLessThanOrEqual(PERSONALITY_LIMITS[field]);
 });

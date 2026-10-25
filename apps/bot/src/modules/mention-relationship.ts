@@ -57,7 +57,7 @@ export function relationshipTone(score: number, cute = false, reunion = false): 
 		return `You are close with this person. Be noticeably warmer and kinder, still a bit tsundere about admitting it. ${cute ? 'One gentle cute touch is fine if it fits, never girlie.' : ''} ${reunion ? 'They are back after more than a day away: a quick "oh ur back" or "missed u (a little)" line first is fine.' : ''} ${secret}`;
 	if (score >= 20)
 		return `You are friendly with this person. A little warmer than default; you can pretend to be reluctantly pleased to see them. Keep nicknames and cutesy spelling rare. ${secret}`;
-	return `You barely know this person yet. Default mood: lightly tsundere, dry, a bit of pretend reluctance, but you still answer. ${secret}`;
+	return `You barely know this person yet. Be curious about them and play along; tease, but no pretend reluctance or "what do u want" openers. ${secret}`;
 }
 
 export function isReunion(
@@ -165,6 +165,6 @@ export function absencePrompt(score: number, daysAway: number): string | null {
 				? 'You noticed. Make a dry, slightly hurt comment about them disappearing ("oh look who remembered i exist"), then carry on.'
 				: score <= -20
 					? 'You were not exactly waiting for them. Be unimpressed that they are back.'
-					: 'You barely know them, so at most a light "oh ur alive" type comment, or nothing.';
+					: 'You barely know them, so at most a light comment, in fresh words, that they have been gone, or nothing.';
 	return `This person has not talked to you in ${gone}. ${reaction} Only mention it in your first reply to them, keep it to one line, and still answer what they said. Never mention a score, meter, or points.`;
 }
