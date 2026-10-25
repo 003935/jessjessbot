@@ -32,43 +32,78 @@ TRANSCRIBE_SAMPLE_RATE = 48_000
 TRANSCRIBE_MAX_SECONDS = 15
 WHISPER_MODEL_NAME = "small.en"
 WHISPER_CACHE = Path("/cache/whisper")
+# Socket timeout for slow or stalled clients (applies to socket reads/writes, not inference).
+REQUEST_TIMEOUT_SECONDS = 30
+# POST requests beyond this many in flight are rejected with 503 instead of piling up threads.
+MAX_CONCURRENT_REQUESTS = max(1, int(os.environ.get("OMNIVOICE_MAX_CONCURRENT_REQUESTS", "4")))
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("omnivoice")
 
 model: OmniVoice | None = None
 voice_clone_prompt: VoiceClonePrompt | None = None
 whisper_model: whisper.Whisper | None = None
-model_lock = threading.Lock()
 whisper_lock = threading.Lock()
 inference_lock = threading.Lock()
+request_slots = threading.BoundedSemaphore(MAX_CONCURRENT_REQUESTS)
+# Set once the background loader has finished, successfully or not.
+model_loaded = threading.Event()
+# Cached load failure so neither requests nor /health ever retry the load.
+model_error: BaseException | None = None
+
+
+class ModelNotReady(RuntimeError):
+    pass
+
+
+def load_model() -> None:
+    """Load OmniVoice once. Runs in a background thread started at startup."""
+    global model, voice_clone_prompt, model_error
+    try:
+        if not REFERENCE_FILE.is_file():
+            raise FileNotFoundError("voice reference is not configured")
+        reference_info = sf.info(str(REFERENCE_FILE))
+        if reference_info.format != "WAV" or not 3 <= reference_info.duration <= 30:
+            raise ValueError("voice reference must be a 3–30 second WAV file")
+        loaded_model = OmniVoice.from_pretrained(
+            MODEL_NAME,
+            device_map="cuda:0",
+            dtype=torch.float16,
+        )
+        if VOICE_PROMPT_FILE.is_file():
+            loaded_prompt = VoiceClonePrompt.load(str(VOICE_PROMPT_FILE))
+        else:
+            VOICE_PROMPT_FILE.parent.mkdir(parents=True, exist_ok=True)
+            loaded_prompt = loaded_model.create_voice_clone_prompt(
+                ref_audio=str(REFERENCE_FILE),
+                ref_text=REFERENCE_TEXT or None,
+            )
+            loaded_prompt.save(str(VOICE_PROMPT_FILE))
+        model = loaded_model
+        voice_clone_prompt = loaded_prompt
+        logger.info("OmniVoice model and cloned voice prompt are ready on the NVIDIA GPU")
+    except Exception as error:
+        model_error = error
+        if isinstance(error, FileNotFoundError):
+            logger.warning("Voice reference is not configured; speech is unavailable")
+        else:
+            logger.warning("OmniVoice startup failed (%s)", type(error).__name__)
+    finally:
+        model_loaded.set()
+    if model is not None:
+        # Warm Whisper so the first transcription is not slow. A failure here is
+        # not cached: get_whisper_model() retries lazily on the next request.
+        try:
+            get_whisper_model()
+        except Exception as error:
+            logger.warning("Whisper warm-up failed (%s)", type(error).__name__)
 
 
 def get_model() -> tuple[OmniVoice, VoiceClonePrompt]:
-    global model, voice_clone_prompt
-    if not REFERENCE_FILE.is_file():
-        raise FileNotFoundError("voice reference is not configured")
-    reference_info = sf.info(str(REFERENCE_FILE))
-    if reference_info.format != "WAV" or not 3 <= reference_info.duration <= 30:
-        raise ValueError("voice reference must be a 3–30 second WAV file")
-    with model_lock:
-        if model is None:
-            loaded_model = OmniVoice.from_pretrained(
-                MODEL_NAME,
-                device_map="cuda:0",
-                dtype=torch.float16,
-            )
-            if VOICE_PROMPT_FILE.is_file():
-                loaded_prompt = VoiceClonePrompt.load(str(VOICE_PROMPT_FILE))
-            else:
-                VOICE_PROMPT_FILE.parent.mkdir(parents=True, exist_ok=True)
-                loaded_prompt = loaded_model.create_voice_clone_prompt(
-                    ref_audio=str(REFERENCE_FILE),
-                    ref_text=REFERENCE_TEXT or None,
-                )
-                loaded_prompt.save(str(VOICE_PROMPT_FILE))
-            model = loaded_model
-            voice_clone_prompt = loaded_prompt
-            logger.info("OmniVoice model and cloned voice prompt are ready on the NVIDIA GPU")
+    """Return the loaded model. Never triggers a load."""
+    if not model_loaded.is_set():
+        raise ModelNotReady("speech model is still loading")
+    if model_error is not None:
+        raise model_error
     if model is None or voice_clone_prompt is None:
         raise RuntimeError("OmniVoice was not initialized")
     return model, voice_clone_prompt
@@ -92,6 +127,7 @@ def get_whisper_model() -> whisper.Whisper:
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "JessJessBotTTS/1.0"
+    timeout = REQUEST_TIMEOUT_SECONDS
 
     def log_message(self, _format: str, *_args: object) -> None:
         # Do not log request bodies or URL query data.
@@ -109,13 +145,13 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/health":
             self.send_json(404, "not found")
             return
+        # Reports the background loader's state; never triggers a load.
         try:
             get_model()
         except FileNotFoundError:
             self.send_json(503, "voice reference is not ready")
             return
-        except Exception as error:
-            logger.warning("OmniVoice readiness failed (%s)", type(error).__name__)
+        except Exception:
             self.send_json(503, "speech model is not ready")
             return
         self.send_response(200)
@@ -123,12 +159,21 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self) -> None:
-        if self.path == "/transcribe":
-            self.do_transcribe()
-            return
-        if self.path != "/synthesize":
+        if self.path not in ("/synthesize", "/transcribe"):
             self.send_json(404, "not found")
             return
+        if not request_slots.acquire(blocking=False):
+            self.send_json(503, "speech service is busy")
+            return
+        try:
+            if self.path == "/transcribe":
+                self.do_transcribe()
+            else:
+                self.do_synthesize()
+        finally:
+            request_slots.release()
+
+    def do_synthesize(self) -> None:
         raw_length = self.headers.get("Content-Length", "")
         try:
             length = int(raw_length)
@@ -155,6 +200,13 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             tts, clone_prompt = get_model()
+        except FileNotFoundError:
+            self.send_json(503, "voice reference is not ready")
+            return
+        except Exception:
+            self.send_json(503, "speech model is not ready")
+            return
+        try:
             # Serialize TTS with ASR, but bound how long requests may wait.
             if not inference_lock.acquire(timeout=60):
                 self.send_json(503, "speech service is busy")
@@ -178,9 +230,6 @@ class Handler(BaseHTTPRequestHandler):
             if not wav.startswith(b"RIFF") or len(wav) > MAX_AUDIO_BYTES:
                 self.send_json(502, "speech output was invalid or too large")
                 return
-        except FileNotFoundError:
-            self.send_json(503, "voice reference is not ready")
-            return
         except Exception as error:
             logger.warning("OmniVoice generation failed (%s)", type(error).__name__)
             self.send_json(502, "speech generation failed")
@@ -251,12 +300,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    if REFERENCE_FILE.is_file():
-        try:
-            get_model()
-            logger.info("OmniVoice model is ready")
-        except Exception as error:
-            logger.warning("OmniVoice startup deferred (%s)", type(error).__name__)
-    else:
-        logger.warning("Voice reference is not configured; health is currently unavailable")
+    # Load the model once in the background so /health answers immediately.
+    threading.Thread(target=load_model, name="model-loader", daemon=True).start()
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()

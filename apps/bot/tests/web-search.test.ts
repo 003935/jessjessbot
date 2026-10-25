@@ -107,8 +107,10 @@ test('askDeepSeek searches, then answers with a verified source link', async () 
 	const toolMessage = followUp.messages.find((message: any) => message.role === 'tool');
 	expect(toolMessage.tool_call_id).toBe('call_search');
 	expect(toolMessage.content).toContain('https://example.com/patch');
+	// The source link comes back separately so voice never reads it out.
+	expect(result.reply).toBe('patch 25.20 dropped oct 8');
 	// A made-up URL falls back to the top real result.
-	expect(result.reply).toBe('patch 25.20 dropped oct 8\n-# <https://example.com/patch>');
+	expect(result.sourceUrl).toBe('https://example.com/patch');
 });
 
 test('askDeepSeek still replies when the search fails', async () => {

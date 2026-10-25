@@ -3,6 +3,10 @@ import { MessageFlags } from 'discord.js';
 import { joinGuildVoice, VoiceCommandError } from '@/modules/voice/voice-manager';
 
 export class JoinCommand extends Command {
+	public constructor(context: Command.LoaderContext, options: Command.Options) {
+		super(context, { ...options, preconditions: ['GuildOnly'] });
+	}
+
 	public override registerApplicationCommands(registry: Command.Registry) {
 		registry.registerChatInputCommand((builder) =>
 			builder.setName('join').setDescription('Join your voice channel and speak summoned replies')

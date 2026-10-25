@@ -137,19 +137,27 @@ export async function lootImages(): Promise<Map<string, string>> {
 	return new Map(imageByItem);
 }
 
+// "poe", "poe 2", "poe2" or "path of exile (2)" as whole words, but not "poem" or "poe 1".
+const MENTIONS_POE = /\b(?:poe|path of exile)(?:\s*2\b|(?!\s*\d)\b)/iu;
+
 export function isLootInventoryRequest(prompt: string): boolean {
-	return /\b(?:my|check|show|view|what(?:'s| is)? in (?:my|the)?)\b/iu.test(prompt) &&
+	if (/\bmy\s+(?:loot\s+)?(?:inventory|stash)\b/iu.test(prompt)) return true;
+	return MENTIONS_POE.test(prompt) &&
+		/\b(?:my|check|show|view|what(?:'s| is)? in (?:my|the)?)\b/iu.test(prompt) &&
 		/\b(?:inventory|stash|bag|loot|drops?)\b/iu.test(prompt);
 }
 
 export function isLootLeaderboardRequest(prompt: string): boolean {
-	return /\b(?:poe\s*2?|path of exile\s*2)\b/iu.test(prompt) &&
+	return MENTIONS_POE.test(prompt) &&
 		/\b(?:loot|drop|inventory|stash)\b/iu.test(prompt) &&
 		/\b(?:leaderboard|ranking|rankings|rank|top|value|richest|wealth)\b/iu.test(prompt);
 }
 
 export async function lootLeaderboardReply(guild: Guild) {
-	const rows = await db._db.lootInventory.findMany({ where: { quantity: { gt: 0 } } });
+	const members = await guild.members.fetch();
+	const rows = await db._db.lootInventory.findMany({
+		where: { quantity: { gt: 0 }, discordId: { in: [...members.keys()] } },
+	});
 	if (!rows.length) return 'The PoE 2 loot leaderboard is empty so far. Ask jjb for a loot drop to get started.';
 	let prices: Snapshot | undefined;
 	try { prices = await ensurePriceSnapshot(); } catch { prices = snapshot; }

@@ -51,7 +51,8 @@
 	let saving = $state(false);
 	let importing = $state(false);
 	let rechecking = $state(false);
-	let hasImported = $state(Boolean(hallImport));
+	// Writable derived: resets when hallImport changes (e.g. navigation)
+	let hasImported = $derived(Boolean(hallImport));
 	let error = $state<string | null>(null);
 	let progress = $state<HallImportMessage | null>(null);
 	let connection: ReturnType<typeof source> | null = $state(null);

@@ -9,14 +9,15 @@ import type {
 	RESTAPIPartialCurrentUserGuild,
 } from 'discord-api-types/v10';
 
+// TTLs are in seconds (used with SETEX)
 const TTLConfig = {
-	guildMember: 1000 * 60 * 10, // 10 minutes
-	user: 1000 * 60 * 10, // 10 minutes
+	guildMember: 60, // 1 minute (dashboard admin checks depend on this)
+	user: 60 * 10, // 10 minutes
 
-	guild: 1000 * 60 * 10, // 10 minutes
-	user_guilds: 1000 * 60 * 10, // 10 minutes
+	guild: 60 * 10, // 10 minutes
+	user_guilds: 60 * 10, // 10 minutes
 
-	emojis: 1000 * 60 * 60, // 1 hour
+	emojis: 60 * 60, // 1 hour
 };
 
 class ValkeyDiscordApiSubModule<T extends object, K> {
@@ -28,11 +29,18 @@ class ValkeyDiscordApiSubModule<T extends object, K> {
 	) {}
 
 	async get(key: K): Promise<T | null> {
-		const v = await this.module.get(this.prefix + this.serialize(key));
-		if (v) return JSON.parse(v);
-		return null;
+		const fullKey = this.prefix + this.serialize(key);
+		const v = await this.module.get(fullKey);
+		if (!v) return null;
+		try {
+			return JSON.parse(v);
+		} catch {
+			await this.module.delete(fullKey);
+			return null;
+		}
 	}
 
+	/** @param overrideTTL TTL in seconds */
 	async set(key: K, value: T, overrideTTL?: number): Promise<void> {
 		await this.module.set(this.prefix + this.serialize(key), value, overrideTTL ?? this.ttl);
 	}

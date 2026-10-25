@@ -41,7 +41,8 @@
 	let { data }: PageProps = $props();
 
 	let dialog: GameRoleDialog | undefined = $state();
-	let selectedSavedUserId = $state(data.savedUsers[0]?.id ?? '');
+	// Writable derived: resets when navigating to another server
+	let selectedSavedUserId = $derived(data.savedUsers[0]?.id ?? '');
 	let savedUserView = $state<'info' | 'loot'>('info');
 
 	const grQuery = $derived(getGameRoles(data.guild.id));

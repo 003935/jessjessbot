@@ -18,6 +18,9 @@ const WORDLE_BOT_ID = env.WORDLE_BOT_ID!;
 // Rate limit: 24 hours between imports
 const RATE_LIMIT_MS = 24 * 60 * 60 * 1000;
 
+// Guilds with an import in progress (single dashboard process)
+const activeImports = new Set<string>();
+
 export const POST: RequestHandler = async ({ params, locals }) => {
 	const { serverId } = params;
 
@@ -38,6 +41,9 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 		const hoursRemaining = Math.ceil((canImport.remainingMs ?? 0) / (1000 * 60 * 60));
 		error(429, `Wordle import is on cooldown. Please wait ${hoursRemaining} more hour(s).`);
 	}
+
+	if (activeImports.has(serverId)) error(409, 'A Wordle import is already running for this server');
+	activeImports.add(serverId);
 
 	return produce(async function start({ emit }) {
 		let last_id: Snowflake | undefined;
@@ -161,6 +167,8 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 		} catch (err) {
 			console.error('SSE error:', err);
 			emit('error', err instanceof Error ? err.message : 'Unknown error');
+		} finally {
+			activeImports.delete(guildId);
 		}
 	});
 };

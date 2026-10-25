@@ -4,7 +4,7 @@ import { createTldr } from '@/modules/tldr-service';
 
 export class TldrCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
-		super(context, { ...options, preconditions: ['GuildTextOnly'] });
+		super(context, { ...options, preconditions: ['GuildTextOnly'], cooldownDelay: 30_000 });
 	}
 
 	public override registerApplicationCommands(registry: Command.Registry) {

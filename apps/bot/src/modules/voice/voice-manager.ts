@@ -128,6 +128,14 @@ function removeSession(guildId: string, session: VoiceSession): void {
 	destroySession(session);
 }
 
+/** Keep session.channel in step with where the bot actually is after being moved. */
+function refreshSessionChannel(session: VoiceSession): void {
+	const channelId = session.connection.joinConfig.channelId;
+	if (!channelId || channelId === session.channel.id) return;
+	const moved = session.channel.guild.channels.cache.get(channelId);
+	if (moved?.type === ChannelType.GuildVoice) session.channel = moved;
+}
+
 function audienceCanViewSource(session: VoiceSession, sourceChannel: GuildTextBasedChannel): boolean {
 	return session.channel.members
 		.filter((member) => !member.user.bot)
@@ -189,8 +197,20 @@ export async function joinGuildVoice(
 	player.on('error', (error) => logger.warn(`Voice player failed (${error.name})`));
 	connection.on('error', () => removeSession(interaction.guildId, session));
 	connection.on('stateChange', (_oldState, newState) => {
-		if (newState.status === VoiceConnectionStatus.Disconnected || newState.status === VoiceConnectionStatus.Destroyed)
+		if (newState.status === VoiceConnectionStatus.Destroyed) {
 			removeSession(interaction.guildId, session);
+			return;
+		}
+		if (newState.status === VoiceConnectionStatus.Disconnected) {
+			// A move to another channel (or a brief network blip) also passes through
+			// Disconnected; only give up if it does not start reconnecting.
+			Promise.race([
+				entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
+				entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
+			]).catch(() => removeSession(interaction.guildId, session));
+			return;
+		}
+		refreshSessionChannel(session);
 	});
 
 	try {

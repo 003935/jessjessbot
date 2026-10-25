@@ -12,7 +12,6 @@ import { Meowdule } from './modules/meowdule';
 import { botRepliesEnabledIn, handleMention } from '@/modules/mention';
 import { handleCustomSignup } from '@/modules/custom-signups';
 import { handleMemeReply } from '@/modules/meme-replies';
-import { startDailyTweets } from '@/modules/daily-tweets';
 import { uploadPoeLootEmojis } from '@/modules/poe-loot-emojis';
 import { handleLootInventoryButton } from '@/modules/poe-loot';
 import { configureVoiceChatHandlers, shutdownVoice } from '@/modules/voice/voice-manager';
@@ -40,7 +39,6 @@ const client = new SapphireClient({
 configureVoiceChatHandlers(handleVoiceUtterance, clearVoiceChatGuild);
 
 let meowdule: undefined | Meowdule;
-let stopDailyTweets: (() => Promise<void>) | undefined;
 
 // Global error handlers to prevent crashes
 process.on('unhandledRejection', (reason, promise) => {
@@ -54,8 +52,9 @@ process.on('uncaughtException', (error) => {
 client.on('clientReady', (client) => {
 	logger.info(`${client.user?.tag} is online!`);
 	meowdule = new Meowdule(client);
-	start_background_event_checker(client);
-	stopDailyTweets ??= startDailyTweets(client);
+	start_background_event_checker(client).catch((error) =>
+		logger.error('Background event checker failed', error)
+	);
 	void uploadPoeLootEmojis().catch((error) =>
 		logger.error('PoE loot emoji startup sync failed', error)
 	);
@@ -68,7 +67,6 @@ async function gracefulShutdown(signal: string) {
 	isShuttingDown = true;
 
 	logger.info(`${signal} received. Shutting down gracefully...`);
-	await stopDailyTweets?.();
 
 	try {
 		shutdownVoice();
@@ -96,7 +94,7 @@ start_background_rank_update();
 
 async function messageparser(message: Message<boolean>) {
 	if (message.inGuild() === false) return;
-	wordle_module(message);
+	wordle_module(message).catch((error) => logger.error('Wordle handling failed', error));
 	Check_Attachments(message);
 	if (!(await botRepliesEnabledIn(message))) return;
 	meowdule?.handleMsg(message);

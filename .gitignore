@@ -4,5 +4,14 @@ node_modules/
 .local/
 AGENTS.md
 .opencode/
-docs/
 /apps/bot/tests/vision-images.test.ts
+
+# Tooling / package-manager leftovers (this repo uses bun)
+.pnpm-store/
+pnpm-lock.yaml
+__pycache__/
+.superpowers/
+.claude/
+
+# Local scrape output, not used at runtime
+skill-output/

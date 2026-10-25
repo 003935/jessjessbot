@@ -24,6 +24,12 @@ type GuildAPIMessage = APIMessage & { member?: { nick?: string | null } };
 
 const rest = new REST().setToken(env.DISCORD_BOT_TOKEN!);
 
+// Minimum time between full imports (rechecks are exempt)
+const COOLDOWN_MS = 10 * 60 * 1000;
+
+// Guilds with an import in progress (single dashboard process)
+const activeImports = new Set<string>();
+
 function humanReactionCount(message: APIMessage): number {
 	return Math.max(
 		0,
@@ -62,20 +68,44 @@ export const POST: RequestHandler = async ({ params, locals, url }) => {
 	const serverId = params.serverId;
 	if (!serverId) error(400, 'Server ID is required');
 	const { discordID } = await throwIfNotAdmin(user, discordApi.getGuild(serverId));
-	const guildChannels = await discordApi.getGuildChannels(serverId);
-	const channelIds = guildChannels
-		.filter(
-			(channel) =>
-				channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement
-		)
-		.map((channel) => channel.id);
-	if (channelIds.length === 0) error(400, 'This server has no text channels to scan');
-	await db.hall.ensureChannels(serverId, channelIds);
-	const allowedIds = new Set(channelIds);
-	const channels = (await db.hall.getChannels(serverId)).filter((channel) =>
-		allowedIds.has(channel.channelId)
-	);
-	const previousImport = await db.hall.getImport(serverId);
+	if (activeImports.has(serverId))
+		error(409, 'A Hall of Fame import is already running for this server');
+	activeImports.add(serverId);
+
+	let channels: Awaited<ReturnType<typeof db.hall.getChannels>>;
+	let previousImport: Awaited<ReturnType<typeof db.hall.getImport>>;
+	try {
+		previousImport = await db.hall.getImport(serverId);
+		if (
+			!recheckSaved &&
+			previousImport &&
+			Date.now() - previousImport.lastImport.getTime() < COOLDOWN_MS
+		) {
+			const minutesRemaining = Math.ceil(
+				(COOLDOWN_MS - (Date.now() - previousImport.lastImport.getTime())) / 60_000
+			);
+			error(
+				429,
+				`Hall of Fame import is on cooldown. Please wait ${minutesRemaining} more minute(s).`
+			);
+		}
+		const guildChannels = await discordApi.getGuildChannels(serverId);
+		const channelIds = guildChannels
+			.filter(
+				(channel) =>
+					channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement
+			)
+			.map((channel) => channel.id);
+		if (channelIds.length === 0) error(400, 'This server has no text channels to scan');
+		await db.hall.ensureChannels(serverId, channelIds);
+		const allowedIds = new Set(channelIds);
+		channels = (await db.hall.getChannels(serverId)).filter((channel) =>
+			allowedIds.has(channel.channelId)
+		);
+	} catch (caught) {
+		activeImports.delete(serverId);
+		throw caught;
+	}
 	const scanStartedSnowflake = ((BigInt(Date.now()) - 1420070400000n) << 22n).toString();
 
 	return produce(async ({ emit }) => {
@@ -261,6 +291,8 @@ export const POST: RequestHandler = async ({ params, locals, url }) => {
 		} catch (caught) {
 			console.error('Hall of Fame import failed:', caught);
 			emit('error', caught instanceof Error ? caught.message : 'Unknown error');
+		} finally {
+			activeImports.delete(serverId);
 		}
 	});
 };

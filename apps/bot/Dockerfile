@@ -1,4 +1,9 @@
-FROM oven/bun:debian AS base
+# Builder and runner share the same Debian (glibc) slim base so native addons
+# installed into node_modules by the builder (e.g. sharp) work in the runner.
+FROM oven/bun:1.3.11-slim AS base
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates openssl \
+    && rm -rf /var/lib/apt/lists/*
 
 FROM base AS builder
 WORKDIR /app
@@ -23,9 +28,11 @@ ENV DIRECT_URL=postgres://dummy:dummy@localhost:5432/dummy
 
 RUN cd packages/database && bunx --bun prisma generate
 
-FROM oven/bun:alpine AS runner
+FROM base AS runner
 WORKDIR /app
-RUN apk add --no-cache ffmpeg
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 RUN chown bun:bun /app
 
 COPY --chown=bun:bun --from=builder /app .

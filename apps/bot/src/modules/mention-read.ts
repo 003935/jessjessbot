@@ -49,7 +49,8 @@ export async function answerReadRequest(
 		/\b(?:league|lol)\b/u.test(text) &&
 		/\b(?:leaderboard|ranking|rank|top|standings)\b/u.test(text)
 	) {
-		const rows = await db.league.leaderboard();
+		const guildMembers = await message.guild.members.fetch();
+		const rows = await db.league.leaderboard(7, [...guildMembers.keys()]);
 		if (!rows.length) return 'There are no League accounts added yet.';
 		return `🐝 **League leaderboard**\n${rows
 			.map((row, index) => {

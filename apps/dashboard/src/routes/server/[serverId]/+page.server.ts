@@ -1,4 +1,5 @@
-import { fail, type Actions, type PageServerLoad } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { getDiscordAcc, throwIfNotLoggedIn } from '$lib/server/permission.utils';
 import { discordApi } from '$lib/server/discord';
@@ -72,12 +73,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		config = await db.config.getConfig(guild.id);
 		hallChannels = await db.hall.getChannels(guild.id, true);
 		hallImport = await db.hall.getImport(guild.id);
-		const [relationships, preferences, lootRows, pets, leagueAccounts, wordleRows, signupRows] =
-			await Promise.all([
-				db._db.botRelationship.findMany({ where: { guildId: guild.id } }),
+		const relationships = await db._db.botRelationship.findMany({ where: { guildId: guild.id } });
+		const ids = new Set<string>([
+			...relationships.filter((row) => row.interactionCount > 0).map((row) => row.userId),
+		]);
+		const idList = [...ids];
+		const [preferences, lootRows, pets, leagueAccounts, wordleRows, signupRows] = await Promise.all(
+			[
 				db._db.botMemberPreference.findMany({ where: { guildId: guild.id } }),
 				db._db.lootInventory.findMany({
-					where: { quantity: { gt: 0 } },
+					where: { quantity: { gt: 0 }, discordId: { in: idList } },
 					orderBy: { itemName: 'asc' },
 				}),
 				db._db.pet.findMany({
@@ -85,6 +90,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 					select: { ownerId: true, name: true },
 				}),
 				db._db.leagueAccount.findMany({
+					where: { discordId: { in: idList } },
 					select: { discordId: true, riotGamename: true, riotTagline: true, region: true },
 				}),
 				db._db.wordleResult.findMany({
@@ -95,10 +101,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 					where: { event: { guildId: guild.id } },
 					select: { userId: true },
 				}),
-			]);
-		const ids = new Set<string>([
-			...relationships.filter((row) => row.interactionCount > 0).map((row) => row.userId),
-		]);
+			]
+		);
 		const preferenceByUser = new Map<string, typeof preferences>();
 		for (const row of preferences) {
 			if (!['like', 'dislike', 'nickname'].includes(row.kind)) continue;

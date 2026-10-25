@@ -1,5 +1,8 @@
 import { Events, SapphireClient } from '@sapphire/framework';
 import { Message, MessagePayload, MessageReplyOptions, Snowflake } from 'discord.js';
+import { Logger } from '@/utils';
+
+const logger = new Logger('Meowdule');
 
 const simple: string[] = [
 	'meow',
@@ -249,6 +252,8 @@ export class Meowdule {
 		if (msg_options.content?.charAt(0) === ' ') {
 			msg_options.content = '‎' + msg_options.content.slice(1);
 		}
-		msg.reply(msg_options);
+		Promise.resolve(msg.reply(msg_options)).catch((error) =>
+			logger.error(`Failed to send a meow reply to ${msg.id}:`, error)
+		);
 	}
 }

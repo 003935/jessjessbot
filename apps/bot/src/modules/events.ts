@@ -122,7 +122,11 @@ export enum EventStatus {
 
 export class EventManager {
 	private static readonly TIME_DISPARITY_MS = 5 * 60 * 1000;
+	// Last DB snapshot of upcoming events, re-read every cycle so dashboard edits and
+	// deletions are honoured.
 	private managed_events = new Map<number, Event>();
+	// Events already alerted, so a failed DB cleanup can't ping everyone twice.
+	private alerted_events = new Set<number>();
 	private client: Client<true>;
 	private is_processing = false;
 
@@ -151,15 +155,18 @@ export class EventManager {
 		await db.events.deleteEvents(ids);
 		for (const id of ids) {
 			this.managed_events.delete(id);
+			this.alerted_events.delete(id);
 		}
 	}
 
-	private async processEvents(new_events: Event[]) {
-		const events = [...this.managed_events.values(), ...new_events];
+	private async processEvents(events: Event[]) {
+		const current_ids = new Set(events.map((event) => event.id));
+		// Forget alerts for events that no longer exist in the DB.
+		for (const id of this.alerted_events) if (!current_ids.has(id)) this.alerted_events.delete(id);
 
 		const past_events: Event[] = [];
 		const within_5_minutes: Event[] = [];
-		const new_future_events: Event[] = [];
+		const future_events: Event[] = [];
 
 		const time_now = Date.now();
 		for (const event of events) {
@@ -172,26 +179,28 @@ export class EventManager {
 					within_5_minutes.push(event);
 					break;
 				case EventStatus.FUTURE:
-					if (!this.managed_events.has(event.id)) new_future_events.push(event);
+					future_events.push(event);
 					break;
 			}
 		}
 
+		const to_alert = within_5_minutes.filter((event) => !this.alerted_events.has(event.id));
+		const added = future_events.filter((event) => !this.managed_events.has(event.id)).length;
+		this.managed_events = new Map(future_events.map((event) => [event.id, event]));
+
 		// Alert and wait for completions
-		if (within_5_minutes.length > 0) {
-			await Promise.allSettled(within_5_minutes.map((event) => send_alert(this.client, event)));
+		if (to_alert.length > 0) {
+			for (const event of to_alert) this.alerted_events.add(event.id);
+			await Promise.allSettled(to_alert.map((event) => send_alert(this.client, event)));
 		}
 
 		// Cleanup DB and memory
 		await this.deleteEvents([...past_events, ...within_5_minutes]);
 
-		// Track new future events
-		new_future_events.forEach((event) => this.managed_events.set(event.id, event));
-
 		const changes = {
 			deleted: past_events.length + within_5_minutes.length,
-			alerted: within_5_minutes.length,
-			added: new_future_events.length,
+			alerted: to_alert.length,
+			added,
 		};
 
 		if (changes.deleted > 0 || changes.alerted > 0 || changes.added > 0) {
@@ -209,7 +218,7 @@ export class EventManager {
 
 		this.is_processing = true;
 		try {
-			const events = await db.events.getEvents(Array.from(this.managed_events.keys()));
+			const events = await db.events.getEvents();
 			await this.processEvents(events);
 		} catch (error) {
 			logger.error('Error during fetch and process cycle', error);
@@ -222,11 +231,15 @@ export class EventManager {
 export async function start_background_event_checker(client: Client<true>) {
 	logger.info('Starting background event checker');
 	const event_manager = new EventManager(client);
+	const run = async () => {
+		try {
+			await event_manager.fetch_and_process_events();
+		} catch (error) {
+			logger.error('Background event check failed', error);
+		}
+	};
 
-	// Initial run
-	await event_manager.fetch_and_process_events();
-
-	setInterval(async () => {
-		await event_manager.fetch_and_process_events();
-	}, 30000);
+	// Schedule first so a failing initial run can't stop future checks.
+	setInterval(() => void run(), 30000);
+	await run();
 }

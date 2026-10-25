@@ -28,5 +28,6 @@ model LeagueAccount {
   /// [RankedData]
   tftdata      Json?
 
+  @@index([discordId])
   @@map("league_accounts")
 }

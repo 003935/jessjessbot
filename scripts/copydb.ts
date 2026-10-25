@@ -41,7 +41,7 @@ async function main() {
 		console.error(error);
 	} finally {
 		rl.close();
-		if (!(await dbdump.exists())) {
+		if (await dbdump.exists()) {
 			await dbdump.delete();
 		}
 	}

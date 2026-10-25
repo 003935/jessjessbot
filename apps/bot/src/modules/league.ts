@@ -73,12 +73,16 @@ async function rank_update() {
 		if (pending_update) {
 			pending_update = false;
 			logger.info('Running pending rank update');
-			setImmediate(() => rank_update());
+			setImmediate(run_rank_update);
 		}
 	}
 }
 
+function run_rank_update() {
+	rank_update().catch((error) => logger.error('Background rank update failed', error));
+}
+
 export function start_background_rank_update() {
-	rank_update();
-	setInterval(rank_update, RANK_UPDATE_INTERVAL_MS);
+	run_rank_update();
+	setInterval(run_rank_update, RANK_UPDATE_INTERVAL_MS);
 }

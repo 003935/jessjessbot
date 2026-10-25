@@ -1,10 +1,15 @@
 import { Command } from '@sapphire/framework';
 import { MessageFlags } from 'discord.js';
 import { enqueueGuildSpeech } from '@/modules/voice/voice-manager';
+import { voiceSessionRefusal } from '@/lib/voice-auth';
 
 const MAX_SPEECH_TEXT_LENGTH = 1900;
 
 export class SayCommand extends Command {
+	public constructor(context: Command.LoaderContext, options: Command.Options) {
+		super(context, { ...options, preconditions: ['GuildOnly'] });
+	}
+
 	public override registerApplicationCommands(registry: Command.Registry) {
 		registry.registerChatInputCommand((builder) =>
 			builder
@@ -23,6 +28,12 @@ export class SayCommand extends Command {
 	public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
 		if (!interaction.inCachedGuild()) {
 			await interaction.reply({ content: 'Use this command in a server.', flags: MessageFlags.Ephemeral });
+			return;
+		}
+
+		const refusal = voiceSessionRefusal(interaction);
+		if (refusal) {
+			await interaction.reply({ content: refusal, flags: MessageFlags.Ephemeral });
 			return;
 		}
 

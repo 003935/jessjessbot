@@ -1,4 +1,4 @@
-FROM oven/bun:debian AS base
+FROM oven/bun:1.3.11-debian AS base
 
 FROM base AS builder
 WORKDIR /app
@@ -29,10 +29,12 @@ ENV NODE_ENV=production
 
 RUN bun --bun run --cwd apps/dashboard build
 
-FROM oven/bun:alpine AS runner
+FROM oven/bun:1.3.11-alpine AS runner
 WORKDIR /app
 RUN chown bun:bun /app
 
+# No node_modules here: adapter-node bundles everything except package.json
+# "dependencies", so the dashboard keeps all packages in devDependencies.
 COPY --chown=bun:bun --from=builder /app/apps/dashboard/build ./build
 
 EXPOSE 3000/tcp
