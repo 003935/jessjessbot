@@ -350,6 +350,13 @@ export function rareCasualLine(
 const CHAT_EXTENDER =
 	/^(?:so\s+)?(?:what about (?:u|you)|wbu|hbu|and (?:u|you)|what (?:are|r) (?:u|you) (?:up to|doing)(?: tonight| today| rn)?|how (?:was|is) (?:ur|your) (?:day|night|weekend)|anything else|what else)\??$/iu;
 
+// Speakers are labelled "nick / profile / @user" in the prompt, and the model sometimes greets
+// with the whole label ("hiii The Director / Wanners / @wanners").
+export function stripSpeakerLabel(reply: string, label: string): string {
+	if (!label.includes(' / ') || !reply.includes(label)) return reply;
+	return reply.split(label).join(label.split(' / ')[0]!);
+}
+
 function withAvoid(avoid: string, system: string): string {
 	return avoid ? `${system}
 
@@ -1318,6 +1325,7 @@ export async function askDeepSeek(
 				source_url?: unknown;
 				results_relevant?: unknown;
 			};
+			if (typeof args.reply !== 'string') logger.warn('Chat fallback: reply_chat had no reply');
 			const reply = characterReply(
 				typeof args.reply === 'string' ? args.reply : server.fallbackReply,
 				prompt,
@@ -1348,10 +1356,12 @@ export async function askDeepSeek(
 					: {}),
 				...memoryResult,
 			};
-		} catch {
+		} catch (error) {
+			logger.warn('Chat fallback: could not parse reply_chat arguments', error);
 			return { reply: server.fallbackReply };
 		}
 	}
+	if (!output?.content?.trim()) logger.warn('Chat fallback: empty reply from the model');
 	return {
 		reply:
 			characterReply(output?.content?.trim() || server.fallbackReply, prompt, playingGame) ||
@@ -1845,7 +1855,10 @@ export async function handleMention(message: Message): Promise<void> {
 				logger.error('Could not choose a server emoji', error);
 				return content;
 			});
-		const outgoingContent = content.slice(0, 1900);
+		const outgoingContent = stripSpeakerLabel(
+			content,
+			speakerIdentity(message.member?.nickname, message.author.globalName, message.author.username)
+		).slice(0, 1900);
 		const filteredContent = filterBotOutput(outgoingContent);
 		if (filteredContent !== outgoingContent) casualReply = false;
 		content = filteredContent;

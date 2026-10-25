@@ -39,3 +39,11 @@ test('call me still sets the nickname', async () => {
 	expect(await handleMemberMemory('g', 'u', 'call me chocbob')).toContain('chocbob');
 	expect(nicknames).toEqual(['chocbob']);
 });
+
+test('a trailing please is not part of the nickname', async () => {
+	nicknames.length = 0;
+	await handleMemberMemory('g', 'u', 'call me the director please');
+	await handleMemberMemory('g', 'u', 'call me big pls');
+	await handleMemberMemory('g', 'u', 'call me please daddy');
+	expect(nicknames).toEqual(['the director', 'big', 'please daddy']);
+});

@@ -59,3 +59,11 @@ test('games, loot rolls and recipes are never retried for repeats', () => {
 	expect(shouldRetryForRepeats('jjb u up', ['phrase:oh ur alive'])).toBe(true);
 	expect(shouldRetryForRepeats('jjb u up', [])).toBe(false);
 });
+
+test('alias list never reaches the reply', async () => {
+	const { stripSpeakerLabel } = await import('../src/modules/mention');
+	expect(
+		stripSpeakerLabel('hiii The Director / Wanners / @wanners. my review is void', 'The Director / Wanners / @wanners')
+	).toBe('hiii The Director. my review is void');
+	expect(stripSpeakerLabel('hi liv', 'liv')).toBe('hi liv');
+});
