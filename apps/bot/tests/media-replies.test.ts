@@ -6,11 +6,25 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 process.env.YUM_CHANNEL_ID = 'yum';
 process.env.PET_CHANNEL_ID = 'pets';
 
+const savedPets = ['cheesy (cat)'];
+mock.module('../src/db', () => ({
+	db: {
+		botMemberPreference: {
+			list: async () => ({ likes: ['x'], dislikes: [], pets: savedPets, birthday: '1 Jan', favourites: [], notes: ['n'] }),
+		},
+	},
+}));
+
 const askDeepSeek = mock(async (..._args: unknown[]) => ({ reply: 'looks delicious 8/10' }));
 mock.module('../src/modules/mention', () => ({
 	askDeepSeek,
 	isPublicChannel: (message: { channel: { public: boolean } }) => message.channel.public,
+	shouldRetryForRepeats: (_prompt: string, stale: string[]) => stale.length > 0,
 }));
+
+const MEDIA_KIND = 19;
+const MEMBER_DETAILS = 5;
+const AVOID = 24;
 
 const { handleMediaReply, mediaReplyKind } = await import('../src/modules/media-replies');
 
@@ -68,7 +82,8 @@ test('food image gets one contextual reply with rating and no user ping', async 
 		globalThis.fetch = fetchBefore;
 	}
 	expect((askDeepSeek.mock.calls.at(-1)?.[12] as unknown[]).length).toBe(1);
-	expect(askDeepSeek.mock.calls.at(-1)?.at(-1)).toBe('food');
+	expect(askDeepSeek.mock.calls.at(-1)?.[MEDIA_KIND]).toBe('food');
+	expect(askDeepSeek.mock.calls.at(-1)?.[MEMBER_DETAILS]).toBeNull();
 	expect(post.reply).toHaveBeenCalledWith({
 		content: 'looks delicious 8/10',
 		allowedMentions: { parse: [], repliedUser: false },
@@ -113,4 +128,33 @@ test('private-channel media is never sent to vision or chat', async () => {
 	globalThis.fetch = fetchBefore;
 	expect(fetchSpy).not.toHaveBeenCalled();
 	expect(askDeepSeek).not.toHaveBeenCalled();
+});
+
+const video = { contentType: 'video/mp4', size: 123, name: 'clip.mp4', url: 'https://example.com/clip.mp4' };
+
+test('a second photo reply is told what she just said there', async () => {
+	askDeepSeek.mockClear();
+	const pet = (id: string) => ({ ...message('pets-avoid', '', [video]), id, channelId: 'pets-avoid' });
+	process.env.PET_CHANNEL_ID = 'pets-avoid';
+	try {
+		await handleMediaReply(pet('one'));
+		await handleMediaReply(pet('two'));
+	} finally {
+		process.env.PET_CHANNEL_ID = 'pets';
+	}
+	expect(askDeepSeek.mock.calls[0]?.[AVOID]).toBe('');
+	expect(String(askDeepSeek.mock.calls[1]?.[AVOID])).toContain('- looks delicious 8/10');
+});
+
+test('pet posts carry only the saved pets of the poster', async () => {
+	askDeepSeek.mockClear();
+	await handleMediaReply(message('pets', '', [video]));
+	expect(askDeepSeek.mock.calls[0]?.[MEMBER_DETAILS]).toEqual({
+		likes: [],
+		dislikes: [],
+		pets: savedPets,
+		birthday: null,
+		favourites: [],
+		notes: [],
+	});
 });

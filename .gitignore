@@ -16,3 +16,6 @@ __pycache__/
 # Local scrape output and agent skills, not used at runtime
 skill-output/
 **/SKILL.md
+
+# Local planning/review docs
+docs/

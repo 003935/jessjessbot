@@ -270,3 +270,12 @@ test('fetches the conversation around a replied-to message that is out of the re
 	await channelBackground({ ...message, reference: { messageId: 'r1' } } as never);
 	expect(calls).toEqual([{ limit: 25, before: 'now' }]);
 });
+
+test('repetition penalties only go out without reasoning', () => {
+	expect(chatRequestFields('quick', { maxTokens: 300, temperature: 1.2, reasoning: false, penalties: true })).toMatchObject({
+		frequency_penalty: 0.4,
+		presence_penalty: 0.3,
+	});
+	expect(chatRequestFields('deep', { maxTokens: 300, penalties: true })).not.toHaveProperty('frequency_penalty');
+	expect(chatRequestFields('quick', { maxTokens: 300, reasoning: false })).not.toHaveProperty('frequency_penalty');
+});

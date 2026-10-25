@@ -29,7 +29,7 @@ export async function handleMemberMemory(
 	prompt: string
 ): Promise<string | null> {
 	const input = prompt.trim().replace(/^please\s+/iu, '');
-	const nicknameRequest = input.match(/^(?:call me|my nickname is)\s+(.+?)(?:\s+now)?\s*[.!?]*$/iu);
+	const nicknameRequest = input.match(/^(?:call me|my nickname is)\s+(.+?)(?:\s+(?:please|pls|plz))?(?:\s+now)?\s*[.!?]*$/iu);
 	if (nicknameRequest) {
 		const nickname = nicknameRequest[1]!.trim().replace(/\s+/gu, ' ').toLocaleLowerCase();
 		if (!/^[\p{L}\p{N}][\p{L}\p{N}_ '-]{1,29}$/u.test(nickname) || nickname.split(' ').length > 3)
