@@ -177,7 +177,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 				};
 			})
 		);
-		savedUsers.sort((a, b) => a.name.localeCompare(b.name));
+		// Most-talked-to first; name breaks ties.
+		savedUsers.sort(
+			(a, b) =>
+				(b.relationship?.interactionCount ?? 0) - (a.relationship?.interactionCount ?? 0) ||
+				a.name.localeCompare(b.name)
+		);
 		const savedNames = new Map(savedUsers.map((saved) => [saved.id, saved.name]));
 		behaviours = await Promise.all(
 			(await db.botMemberBehaviour.list(guild.id)).map(async (row) => ({

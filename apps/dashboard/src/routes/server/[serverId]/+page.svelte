@@ -44,6 +44,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { toast } from 'svelte-sonner';
+	import { Input } from '$lib/components/ui/input';
 
 	let { data }: PageProps = $props();
 
@@ -51,6 +52,13 @@
 	// Writable derived: resets when navigating to another server
 	let selectedSavedUserId = $derived(data.savedUsers[0]?.id ?? '');
 	let savedUserView = $state<'info' | 'loot'>('info');
+	let savedUserSearch = $state('');
+	const filteredSavedUsers = $derived.by(() => {
+		const query = savedUserSearch.trim().toLowerCase();
+		return query
+			? data.savedUsers.filter((user) => user.name.toLowerCase().includes(query))
+			: data.savedUsers;
+	});
 	// "userId:kind" of notes deleted since the page loaded.
 	let forgottenNotes = new SvelteSet<string>();
 
@@ -370,10 +378,21 @@
 			</Card.Header>
 			<Card.Content class="grid gap-5 md:grid-cols-[minmax(14rem,0.8fr)_2fr]">
 				<div class="flex max-h-[30rem] flex-col gap-2 overflow-y-auto">
+					{#if data.savedUsers.length > 0}
+						<Input
+							type="search"
+							placeholder="Search users"
+							aria-label="Search users"
+							bind:value={savedUserSearch}
+							class="sticky top-0 z-10 bg-background"
+						/>
+					{/if}
 					{#if data.savedUsers.length === 0}
 						<p class="text-sm text-muted-foreground">No saved user data found.</p>
+					{:else if filteredSavedUsers.length === 0}
+						<p class="text-sm text-muted-foreground">No users match “{savedUserSearch.trim()}”.</p>
 					{:else}
-						{#each data.savedUsers as savedUser (savedUser.id)}
+						{#each filteredSavedUsers as savedUser (savedUser.id)}
 							<button
 								class={`flex items-center gap-3 rounded-lg border p-2 text-left hover:bg-accent ${selectedSavedUserId === savedUser.id ? 'bg-accent' : ''}`}
 								onclick={() => {
