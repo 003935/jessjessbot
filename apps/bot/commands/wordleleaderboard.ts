@@ -62,24 +62,32 @@ export class KingCommand extends Command {
 
 		const king = firstfive[0];
 
-		const container = new ContainerBuilder()
-			.setAccentColor(0x51c962)
-			.addSectionComponents((section) =>
+		const heading = '## 🏅 Wordle Leaderboard' + '\n';
+		const ranking = firstfive
+			.map(
+				(u, i) =>
+					` ${i + 1}. ${i === 0 ? `<@` + u.id + `>` : `<@` + u.id + `>`} : ${u.wins} ${u.wins === 1 ? 'Win' : 'Wins'} `
+			)
+			.join('\n');
+
+		const container = new ContainerBuilder().setAccentColor(0x51c962);
+		// Sections require an accessory, so fall back to plain text when the king has no avatar.
+		if (king?.avatar) {
+			const avatar = king.avatar;
+			container.addSectionComponents((section) =>
 				section
 					.addTextDisplayComponents(
-						(textDisplay) => textDisplay.setContent('## 🏅 Wordle Leaderboard' + '\n'),
-						(textDisplay) =>
-							textDisplay.setContent(
-								firstfive
-									.map(
-										(u, i) =>
-											` ${i + 1}. ${i === 0 ? `<@` + u.id + `>` : `<@` + u.id + `>`} : ${u.wins} ${u.wins === 1 ? 'Win' : 'Wins'} `
-									)
-									.join('\n')
-							)
+						(textDisplay) => textDisplay.setContent(heading),
+						(textDisplay) => textDisplay.setContent(ranking)
 					)
-					.setThumbnailAccessory((thumbnail) => thumbnail.setURL(king.avatar ?? ''))
+					.setThumbnailAccessory((thumbnail) => thumbnail.setURL(avatar))
 			);
+		} else {
+			container.addTextDisplayComponents(
+				(textDisplay) => textDisplay.setContent(heading),
+				(textDisplay) => textDisplay.setContent(ranking)
+			);
+		}
 
 		await interaction.reply({
 			components: [container],

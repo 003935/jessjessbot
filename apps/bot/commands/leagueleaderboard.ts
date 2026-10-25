@@ -86,7 +86,9 @@ export class LeagueLeaderboardCommand extends Command {
 	public override async chatInputRun(interaction: Command.ChatInputCommandInteraction) {
 		await interaction.deferReply();
 
-		const leaderboard = await db.league.leaderboard();
+		if (!interaction.inCachedGuild()) return;
+		const members = await interaction.guild.members.fetch();
+		const leaderboard = await db.league.leaderboard(7, [...members.keys()]);
 
 		if (leaderboard.length === 0) {
 			await interaction.editReply({

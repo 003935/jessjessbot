@@ -7,8 +7,19 @@ import {
 	MessageFlags,
 } from 'discord.js';
 import { db } from '@/db';
-import { get_movie } from '@/lib/omdb';
+import { get_movie, parse_imdb_rating } from '@/lib/omdb';
 import { tmdb } from '@/lib/tmdb';
+
+const MAX_CHOICE_NAME = 100;
+
+// Discord rejects autocomplete choice names over 100 chars; skip the year when TMDB has no date.
+function movieChoiceName(title: string, releaseDate: string | undefined): string {
+	const year = releaseDate ? new Date(releaseDate).getFullYear() : NaN;
+	const suffix = Number.isNaN(year) ? '' : ` (${year})`;
+	const room = MAX_CHOICE_NAME - suffix.length;
+	const name = title.length > room ? `${title.slice(0, room - 1)}…` : title;
+	return `${name}${suffix}`;
+}
 
 export class RequestCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
@@ -53,7 +64,7 @@ export class RequestCommand extends Command {
 
 				return await interaction.respond(
 					display.map((movie) => ({
-						name: `${movie.title} (${new Date(movie.release_date).getFullYear()})`,
+						name: movieChoiceName(movie.title, movie.release_date),
 						value: movie.id,
 					}))
 				);
@@ -67,7 +78,7 @@ export class RequestCommand extends Command {
 		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
 		if (!interaction.guildId) {
-			await interaction.reply({ content: 'Missing guild context.', ephemeral: true });
+			await interaction.editReply({ content: 'Missing guild context.' });
 			return;
 		}
 
@@ -85,13 +96,18 @@ export class RequestCommand extends Command {
 						const details = await tmdb.movies.details({
 							movie_id: tmdbId,
 						});
-						let omdb: Awaited<ReturnType<typeof get_movie>> | undefined;
-						if (details.imdb_id) omdb = await get_movie(details.imdb_id);
+						// OMDb only adds the rating, so a failed lookup should not block the request.
+						const omdb = details.imdb_id
+							? await get_movie(details.imdb_id).catch((error) => {
+									console.error('OMDb lookup failed', error);
+									return undefined;
+								})
+							: undefined;
 
 						movie = {
 							genres: details.genres.map((g) => g.name).join(', '),
 							imdbId: details.imdb_id ?? null,
-							imdbRating: omdb ? parseFloat(omdb.imdbRating) : null,
+							imdbRating: parse_imdb_rating(omdb?.imdbRating),
 							original_title: details.original_title,
 							title: details.title,
 							poster_path: details.poster_path ?? null,
@@ -152,7 +168,7 @@ export class RequestCommand extends Command {
 										list
 											.map(
 												(movie, idx) =>
-													`${idx + 1}. ${movie.title} (${new Date(movie.release_date).getFullYear()})`
+													`${idx + 1}. ${movieChoiceName(movie.title, movie.release_date)}`
 											)
 											.join('\n')
 								)

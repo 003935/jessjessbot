@@ -71,12 +71,15 @@ export class FailedMentionsTable extends DatabaseConnection {
 		}));
 	}
 
-	async hide(id: FailedMentionId, adminDiscordId: string): Promise<void> {
+	async hide(id: FailedMentionId, guildId: string, adminDiscordId: string): Promise<void> {
 		try {
 			await this._db.failedMention.update({
 				where: {
 					channelId_messageId_startOfMention: id,
 					status: FailedMentionStatus.PENDING,
+					message: {
+						guildId,
+					},
 				},
 				data: {
 					status: FailedMentionStatus.IGNORED,
@@ -177,6 +180,7 @@ export class FailedMentionsTable extends DatabaseConnection {
 
 	async identify(
 		id: FailedMentionId,
+		guildId: string,
 		userId: string,
 		adminDiscordId: string
 	): Promise<{
@@ -188,6 +192,9 @@ export class FailedMentionsTable extends DatabaseConnection {
 				where: {
 					channelId_messageId_startOfMention: id,
 					status: FailedMentionStatus.PENDING,
+					message: {
+						guildId,
+					},
 				},
 			});
 

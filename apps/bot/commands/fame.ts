@@ -61,17 +61,21 @@ export async function showFame(
 		return;
 	}
 	try {
-		const channels = await Promise.all(
-			cursors.map((cursor) => guild.channels.fetch(cursor.channelId).catch(() => null))
-		);
-		const includesPrivateChannel = channels.some(
-			(channel) =>
+		// Decide visibility from the channel cache (the Guilds intent keeps it complete) so we can
+		// defer before any API fetch.
+		const includesPrivateChannel = cursors.some((cursor) => {
+			const channel = guild.channels.cache.get(cursor.channelId);
+			return (
 				channel &&
 				!channel.permissionsFor(guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel)
-		);
+			);
+		});
 		await interaction.deferReply({
 			flags: includesPrivateChannel ? MessageFlags.Ephemeral : undefined,
 		});
+		const channels = await Promise.all(
+			cursors.map((cursor) => guild.channels.fetch(cursor.channelId).catch(() => null))
+		);
 		let inaccessible = 0;
 		const requester = await guild.members.fetch(interaction.user.id);
 		const botMember = guild.members.me ?? (await guild.members.fetchMe());
@@ -103,7 +107,8 @@ export async function showFame(
 		);
 		const refreshed = await Promise.all(
 			winners.map(async (entry) => {
-				const readable = quoteFromHallPreview(entry.preview)!;
+				const readable = quoteFromHallPreview(entry.preview);
+				if (readable === null) return null;
 				const preview = escapeHallMarkdown(readable.slice(0, MAX_PREVIEW));
 				const link = `https://discord.com/channels/${guildId}/${entry.channelId}/${entry.messageId}`;
 				const channel = channels.find((channel) => channel?.id === entry.channelId);

@@ -113,7 +113,7 @@ class DiscordApi {
 		if (cached) return cached;
 
 		const fetched = (await this.api.get(Routes.userGuilds())) as RESTGetAPICurrentUserGuildsResult;
-		await this.cache.user_guilds.set(botId, fetched, 1000 * 60);
+		await this.cache.user_guilds.set(botId, fetched, 60);
 		return fetched;
 	}
 
@@ -136,7 +136,7 @@ class DiscordApi {
 	}
 
 	async getGuildChannels(guildId: string) {
-		const res = (await await this.api.get(
+		const res = (await this.api.get(
 			Routes.guildChannels(guildId)
 		)) as RESTGetAPIGuildChannelsResult;
 
@@ -254,7 +254,7 @@ class DiscordApi {
 			return `https://cdn.discordapp.com/avatars/${member.user.id}/${member.user.avatar}.png`;
 
 		if (!Object.hasOwn(member.user, 'discriminator') || member.user.discriminator === '0') {
-			return `https://cdn.discordapp.com/embed/avatars/${(parseInt(member.user.id) >> 22) % 6}.png`;
+			return `https://cdn.discordapp.com/embed/avatars/${Number((BigInt(member.user.id) >> 22n) % 6n)}.png`;
 		} else {
 			return `https://cdn.discordapp.com/embed/avatars/${parseInt(member.user.discriminator) % 5}.png`;
 		}

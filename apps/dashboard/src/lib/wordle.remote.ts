@@ -4,7 +4,7 @@ import { db } from '$lib/server/db';
 import { auth } from '$lib/server/auth';
 import { error } from '@sveltejs/kit';
 import { discordApi } from '$lib/server/discord';
-import { throwIfNotLoggedIn } from './server/permission.utils';
+import { getDiscordAcc, throwIfNotLoggedIn } from './server/permission.utils';
 
 export const getWordleStats = query(v.string(), async (guildId) => {
 	const user = throwIfNotLoggedIn();
@@ -18,6 +18,9 @@ export const getWordleStats = query(v.string(), async (guildId) => {
 	});
 
 	if (!can_list.success) return error(403, 'Not authorized');
+
+	// Throws 403 if the caller is not a member of the guild
+	await getDiscordAcc(user, guildId);
 
 	const scoreDistribution = await db.wordle.getScoreDistributionByGuild(guildId);
 
@@ -57,6 +60,9 @@ export const getGuildLeaderboard = query(v.string(), async (guildId) => {
 	});
 
 	if (!can_list.success) return error(403, 'Not authorized');
+
+	// Throws 403 if the caller is not a member of the guild
+	await getDiscordAcc(user, guildId);
 
 	const { byWins, byWinRate, byAvgScore } = await db.wordle.getGuildLeaderboard(guildId);
 
@@ -111,6 +117,9 @@ export const getGuildSummary = query(v.string(), async (guildId) => {
 	});
 
 	if (!can_list.success) return error(403, 'Not authorized');
+
+	// Throws 403 if the caller is not a member of the guild
+	await getDiscordAcc(user, guildId);
 
 	const summary = await db.wordle.getGuildSummary(guildId);
 

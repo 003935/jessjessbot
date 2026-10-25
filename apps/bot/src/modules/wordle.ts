@@ -8,6 +8,12 @@ import { Score_To_String } from '@repo/database/utils';
 const logger = new Logger('Wordle');
 
 async function sync_wordle_role(winners: Array<GuildMember>, role: Role) {
+	// role.members only sees cached members; load them all so old kings are not missed.
+	try {
+		await role.guild.members.fetch();
+	} catch (error) {
+		logger.error('Could not fetch guild members; syncing the Wordle role from cache', error);
+	}
 	const consecutive_winners = new Map<string, GuildMember>(
 		winners.filter((winner) => role.members.has(winner.id)).map((member) => [member.id, member])
 	);

@@ -1,14 +1,19 @@
 **/node_modules
-**/.git
+.git
 **/.git
 **/.gitignore
-**/.env
-**/.env.example
+.env*
+**/.env*
+!**/.env.example
 **/.local/
 **/scripts
 **/Dockerfile*
 **/docker-compose*
 **/.dockerignore
+**/__pycache__
+.pnpm-store
+skill-output
+screenshots
 packages/database/src/generated/prisma
 
 AGENTS.md

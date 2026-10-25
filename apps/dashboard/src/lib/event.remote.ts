@@ -4,6 +4,7 @@ import { Custom_Schema } from './event.utils';
 import { discordApi } from './server/discord';
 import { db } from './server/db';
 import { error } from '@sveltejs/kit';
+import { ChannelType } from 'discord-api-types/v10';
 
 export const createEvent = command(Custom_Schema, async (custom) => {
 	const user = throwIfNotLoggedIn();
@@ -13,6 +14,15 @@ export const createEvent = command(Custom_Schema, async (custom) => {
 	const { custom_channel } = await db.config.getConfig(guild.id);
 
 	if (custom_channel === null) return error(400, 'Custom channel is not configured');
+
+	const guildChannels = await discordApi.getGuildChannels(guild.id);
+	const channelInGuild = guildChannels.some(
+		(channel) =>
+			channel.id === custom_channel &&
+			(channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement)
+	);
+	if (!channelInGuild)
+		return error(400, 'Configured custom channel is not a text channel in this server');
 
 	const game_info = await db.games.get(custom.gameName);
 

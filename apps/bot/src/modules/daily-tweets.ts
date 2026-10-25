@@ -3,6 +3,19 @@ import { db } from '@/db';
 import { fetchTweets, TWEET_USERNAME } from './tweet-fetch';
 import { londonClock, randomMinute } from './tweet-clock';
 
+const REFRESH_TIMEOUT_MS = 60_000;
+const TICK_TIMEOUT_MS = 120_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	return Promise.race([
+		promise,
+		new Promise<never>((_, reject) => {
+			timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+		}),
+	]).finally(() => clearTimeout(timer));
+}
+
 export function startDailyTweets(client: Client) {
 	if (process.env.DAILY_TWEETS_ENABLED !== 'true') return async () => {};
 	let running: Promise<void> | undefined;
@@ -14,9 +27,13 @@ export function startDailyTweets(client: Client) {
 			refreshDay = clock.day;
 			if (process.env.X_AUTH_TOKEN) {
 				try {
-					console.info(`[Tweets] Saved/refreshed ${await fetchTweets(1)} tweets`);
-				} catch {
-					console.error('[Tweets] X refresh failed; check credentials/access. Using saved tweets.');
+					const saved = await withTimeout(fetchTweets(1), REFRESH_TIMEOUT_MS, 'X refresh');
+					console.info(`[Tweets] Saved/refreshed ${saved} tweets`);
+				} catch (error) {
+					console.error(
+						'[Tweets] X refresh failed; check credentials/access. Using saved tweets.',
+						error
+					);
 				}
 			}
 		}
@@ -69,10 +86,12 @@ export function startDailyTweets(client: Client) {
 	}
 	const run = () => {
 		if (running) return;
-		running = tick()
-			.catch(() =>
+		// The timeout only frees the worker slot; a claimed send is still never replayed.
+		running = withTimeout(tick(), TICK_TIMEOUT_MS, 'Daily tweet tick')
+			.catch((error) =>
 				console.error(
-					'[Tweets] Daily worker failed; check database, channel, and Discord permissions. A claimed send will not be retried.'
+					'[Tweets] Daily worker failed; check database, channel, and Discord permissions. A claimed send will not be retried.',
+					error
 				)
 			)
 			.finally(() => {

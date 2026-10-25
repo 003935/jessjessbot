@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
+import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { discordApi } from '$lib/server/discord';
-import { auth } from '$lib/server/auth';
 
 export const load: PageServerLoad = async ({ locals, request }) => {
 	const bot_guilds_promise = discordApi.getBotGuilds();

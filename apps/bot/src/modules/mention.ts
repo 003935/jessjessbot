@@ -539,17 +539,17 @@ export function historyForPrompt(
 		return turns.slice(-12).map(({ role, content }) => ({ role, content }));
 	const latestBotTurn = turns.at(-1)?.role === 'assistant' ? turns.at(-1)!.content : '';
 	if (prompt.trim().split(/\s+/u).length <= 2 && latestBotTurn.includes('?'))
-		return turns.slice(-2);
+		return turns.slice(-2).map(({ role, content }) => ({ role, content }));
 	const continuation =
 		/^(?:and|also|but|so|wait|yeah|yes|no|nah|okay|ok|what about|how about|why|how come)\b/iu.test(
 			prompt.trim()
 		) || /\b(?:that|this|those|them|they|he|she|it|again|same)\b/iu.test(prompt);
-	if (continuation) return turns.slice(-2);
+	if (continuation) return turns.slice(-2).map(({ role, content }) => ({ role, content }));
 	const lastUser = [...turns].reverse().find((turn) => turn.role === 'user');
 	if (!lastUser) return [];
 	const previousTopic = topicWords(lastUser.content);
 	const sameTopic = [...topicWords(prompt)].some((word) => previousTopic.has(word));
-	return sameTopic ? turns.slice(-4) : [];
+	return sameTopic ? turns.slice(-4).map(({ role, content }) => ({ role, content })) : [];
 }
 
 function customTimeIn(prompt: string): string | undefined {
@@ -630,8 +630,9 @@ function isHelpRequest(input: string): boolean {
 }
 
 function isCustomConfirmation(input: string): boolean {
-	return /\b(?:yes|yeah|yep|yup|yea|sure|confirm|confirmed|correct|right|okay|ok|looks? good|go ahead|do it|post it)\b/iu.test(
-		input
+	if (isCustomCancellation(input)) return false;
+	return /^(?:yes|yeah|yep|yup|yea|sure|confirm|confirmed|correct|okay|ok|looks? good|go ahead|do it|post it)(?:[!. ]*)$/iu.test(
+		input.trim()
 	);
 }
 
@@ -897,8 +898,8 @@ export async function askDeepSeek(
 				: `${buildVoicePrompt(voice)}${SPEAKER_CONTEXT_PROMPT}${serverInfo ? `\n\n${serverInfo}` : ''}${personalityPrompt(personality, prompt)}${isFoodTalk(prompt) ? `\n\n${voice.foodTastes}` : ''}\n\n${PERSONAL_MEMORY_PROMPT}${server.memeEnabled ? `\n\n${server.memePrompt}` : ''}${relevantBotPreferences(prompt, personality?.preferences ?? { likes: voice.likes, dislikes: voice.dislikes }, !!personality?.preferences)}\n\n${RELIABILITY_PROMPT}\n\n${ACTION_PROMPT}${searchAllowed ? `\n\n${WEB_SEARCH_PROMPT}` : ''}\n\n${relationshipTone(relationship, cute, reunion)}${isFeelingsTalk(prompt) ? `\n\n${feelingsPrompt(relationship, relationshipDetails.interactionCount, Math.random, relationshipDetails.niceStreak)}` : ''}${absenceLine ? `\n\n${absenceLine}` : ''}${playingGame ? `\n\n${GAME_PROMPT}` : ''}${visionImages.length ? `\n\n${IMAGE_PROMPT}` : ''}${linkPreviews ? `\n\n${LINK_PROMPT}` : ''}\n\n${addressPrompt(speakerName, nickname, prompt, speakerBehaviour)}`,
 		},
 		...(channelContext ? [{ role: 'user', content: channelContext }] : []),
-		...history,
-		...(repliedTo ? [repliedTo] : []),
+		...history.map(({ role, content }) => ({ role, content })),
+		...(repliedTo ? [{ role: repliedTo.role, content: repliedTo.content }] : []),
 		...(memberPreferences &&
 		(memberPreferences.likes.length ||
 			memberPreferences.dislikes.length ||
@@ -1337,7 +1338,7 @@ function getMessagePolicyTarget(message: Message) {
 async function getBotReplyPolicy(guildId: string) {
 	let policy = botReplyPolicyCache.get(guildId);
 	if (!policy || policy.expiresAt <= Date.now()) {
-		const config = await db.config.getConfig(guildId);
+		const config = await db.config.getConfig(guildId).catch((error) => { logger.error('Could not load ignored channels; replying anyway', error); return { bot_ignored_channels: [...(policy?.ignored ?? [])] }; });
 		policy = {
 			expiresAt: Date.now() + 30_000,
 			ignored: new Set(config.bot_ignored_channels),
@@ -1396,9 +1397,19 @@ export async function handleMention(message: Message): Promise<void> {
 	const { channelId } = getMessagePolicyTarget(message);
 	const policy = await getBotReplyPolicy(message.guild.id);
 	if (policy.ignored.has(channelId)) return;
+	const lootAnswer = async (
+		build: () => Promise<Parameters<typeof message.reply>[0]>,
+		typing = false
+	): Promise<void> => {
+		try {
+			if (typing) await message.channel.sendTyping().catch(() => undefined);
+			await message.reply(await build());
+		} catch (error) {
+			logger.error('Loot reply failed', error);
+		}
+	};
 	if (message.content.trim() === '.p') {
-		await message.channel.sendTyping();
-		await message.reply(await lootReply(message.author.id));
+		await lootAnswer(() => lootReply(message.author.id), true);
 		return;
 	}
 	if (message.content.trim() === '.inv') {
@@ -1416,20 +1427,20 @@ export async function handleMention(message: Message): Promise<void> {
 		message.content,
 		message.client.user.id,
 		message.mentions.users.has(message.client.user.id),
-		referencedMessage?.author.id === message.client.user.id
+		referencedMessage?.author.id === message.client.user.id,
+		message.attachments.size > 0
 	);
 	if (prompt === null) return;
 	if (isLootLeaderboardRequest(prompt)) {
-		await message.reply(await lootLeaderboardReply(message.guild));
+		await lootAnswer(() => lootLeaderboardReply(message.guild));
 		return;
 	}
 	if (isLootInventoryRequest(prompt)) {
-		await message.reply(await lootInventoryReply(message.author.id));
+		await lootAnswer(() => lootInventoryReply(message.author.id));
 		return;
 	}
 	if (isLootRequest(prompt)) {
-		await message.channel.sendTyping();
-		await message.reply(await lootReply(message.author.id));
+		await lootAnswer(() => lootReply(message.author.id), true);
 		return;
 	}
 	const request = parseRequest(prompt);
@@ -1444,8 +1455,9 @@ export async function handleMention(message: Message): Promise<void> {
 	const awaitingCustomDetails = (pendingCustom?.expiresAt ?? 0) > Date.now();
 	if (!awaitingCustomDetails) pendingCustoms.delete(pendingKey);
 	const pendingConfirmation = pendingConfirmations.get(pendingKey);
-	if (pendingConfirmation && pendingConfirmation.expiresAt <= Date.now())
-		pendingConfirmations.delete(pendingKey);
+	const confirmationExpired =
+		!!pendingConfirmation && pendingConfirmation.expiresAt <= Date.now();
+	if (confirmationExpired) pendingConfirmations.delete(pendingKey);
 	let savedImageDescription: string | undefined;
 	let savedImageSourceIds: string[] = [];
 	try {
@@ -1487,24 +1499,24 @@ export async function handleMention(message: Message): Promise<void> {
 			content = memoryAnswer;
 		} else if (giftAnswer) {
 			content = giftAnswer;
+		} else if (isCustomCancellation(prompt) && pendingConfirmations.has(pendingKey)) {
+			pendingConfirmations.delete(pendingKey);
+			pendingCustoms.delete(pendingKey);
+			content = 'Okay, cancelled! I didn’t ping anyone.';
 		} else if (
 			isCustomConfirmation(prompt) &&
-			(pendingConfirmations.has(pendingKey) || /^(?:confirm|yes|yep)$/iu.test(prompt))
+			(pendingConfirmations.has(pendingKey) || confirmationExpired)
 		) {
 			const confirmation = pendingConfirmations.get(pendingKey);
+			pendingConfirmations.delete(pendingKey);
+			pendingCustoms.delete(pendingKey);
 			if (!confirmation || confirmation.expiresAt <= Date.now()) {
-				pendingConfirmations.delete(pendingKey);
-				pendingCustoms.delete(pendingKey);
 				content = 'That customs confirmation has expired. Ask me to set it up again.';
 			} else {
 				pendingConfirmations.delete(pendingKey);
 				pendingCustoms.delete(pendingKey);
 				content = await scheduleCustom(message, confirmation.request);
 			}
-		} else if (isCustomCancellation(prompt) && pendingConfirmations.has(pendingKey)) {
-			pendingConfirmations.delete(pendingKey);
-			pendingCustoms.delete(pendingKey);
-			content = 'Okay, cancelled! I didn’t ping anyone.';
 		} else if (isHelpRequest(prompt)) {
 			content =
 				'I can chat, show upcoming customs and signups, make teams, run VADER for up to 2h here, show leaderboards and Wordle wins, check the public Hall of Fame, manage game roles, and set up customs. Ask me for specifics! (ᵔ◡ᵔ)';
@@ -1829,15 +1841,17 @@ export async function handleMention(message: Message): Promise<void> {
 			);
 	} catch (error) {
 		logger.error('Mention action failed', error);
-		await message.reply({
-			content: mentionFailureReply(
-				error,
-				message.channelId,
-				undefined,
-				undefined,
-				(await getBotSettings(message.guildId).catch(() => null))?.server?.downScenarios
-			),
-			allowedMentions: { parse: [] },
-		});
+		await message
+			.reply({
+				content: mentionFailureReply(
+					error,
+					message.channelId,
+					undefined,
+					undefined,
+					(await getBotSettings(message.guildId).catch(() => null))?.server?.downScenarios
+				),
+				allowedMentions: { parse: [] },
+			})
+			.catch((replyError) => logger.error('Could not send the mention failure reply', replyError));
 	}
 }

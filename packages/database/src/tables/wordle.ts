@@ -1,6 +1,10 @@
 import { DatabaseConnection } from '../connection';
-import type { WordleResult } from '../generated/prisma/client';
+import { Prisma, type WordleResult } from '../generated/prisma/client';
 import { FailedMentionStatus, Tries_To_Score, type WordleResultMessage } from '../utils';
+
+function isUniqueViolation(e: unknown): boolean {
+	return e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002';
+}
 
 type User = {
 	id: string;
@@ -384,48 +388,54 @@ export class WordleTable extends DatabaseConnection {
 	}
 
 	async addWordleResultMessage(result: WordleResultMessage) {
-		return await this._db.$transaction(async (tx) => {
-			const entry = await tx.wordleResultMessage.findUnique({
-				where: {
-					channelId_messageId: {
-						channelId: result.channelId,
+		try {
+			return await this._db.$transaction(async (tx) => {
+				const entry = await tx.wordleResultMessage.findUnique({
+					where: {
+						channelId_messageId: {
+							channelId: result.channelId,
+							messageId: result.messageId,
+						},
+					},
+				});
+
+				if (entry !== null) {
+					return false;
+				}
+
+				await tx.wordleResultMessage.create({
+					data: {
+						guildId: result.guildId,
 						messageId: result.messageId,
-					},
-				},
-			});
-
-			if (entry !== null) {
-				return false;
-			}
-
-			await tx.wordleResultMessage.create({
-				data: {
-					guildId: result.guildId,
-					messageId: result.messageId,
-					channelId: result.channelId,
-					messageTimestamp: result.messageTimestamp,
-					winningScore: result.winningScore,
-					players: {
-						createMany: {
-							data: Array.from(result.players.values()).map((p) => ({
-								discordId: p.discordId,
-								score: p.score,
-							})),
+						channelId: result.channelId,
+						messageTimestamp: result.messageTimestamp,
+						winningScore: result.winningScore,
+						players: {
+							createMany: {
+								data: Array.from(result.players.values()).map((p) => ({
+									discordId: p.discordId,
+									score: p.score,
+								})),
+							},
+						},
+						failedMentions: {
+							createMany: {
+								data: Array.from(result.failedMentions.values()).map((fm) => ({
+									displayName: fm.displayName,
+									score: fm.score,
+									startOfMention: fm.startOfMention,
+								})),
+							},
 						},
 					},
-					failedMentions: {
-						createMany: {
-							data: Array.from(result.failedMentions.values()).map((fm) => ({
-								displayName: fm.displayName,
-								score: fm.score,
-								startOfMention: fm.startOfMention,
-							})),
-						},
-					},
-				},
+				});
+				return true;
 			});
-			return true;
-		});
+		} catch (e) {
+			// Concurrent insert of the same message: treat as already-exists
+			if (isUniqueViolation(e)) return false;
+			throw e;
+		}
 	}
 
 	async addWordleResultMessages(results: WordleResultMessage[]) {
@@ -482,6 +492,10 @@ export class WordleTable extends DatabaseConnection {
 				if (added) succeeded++;
 				else alreadyExists++;
 			} catch (e) {
+				if (isUniqueViolation(e)) {
+					alreadyExists++;
+					continue;
+				}
 				console.error(`Failed to add wordle result message ${result.messageId}:`, e);
 				failed++;
 			}

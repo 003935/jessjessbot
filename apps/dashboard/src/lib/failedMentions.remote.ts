@@ -66,7 +66,7 @@ export const hideFailedMention = command(
 
 		const { discordID } = await throwIfNotAdmin(user, guildId);
 
-		await db.failedMentions.hide(mentionId, discordID);
+		await db.failedMentions.hide(mentionId, guildId, discordID);
 
 		return { success: true };
 	}
@@ -91,7 +91,7 @@ export const identifyFailedMention = command(
 			error(400, `Discord user ${userId} not found`);
 		}
 
-		return await db.failedMentions.identify(mentionId, userId, discordID);
+		return await db.failedMentions.identify(mentionId, guildId, userId, discordID);
 	}
 );
 

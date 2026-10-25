@@ -2,6 +2,21 @@ import { Command } from '@sapphire/framework';
 import { AutocompleteInteraction, MessageFlags } from 'discord.js';
 import { db } from '@/db';
 
+const MAX_CHOICE_NAME = 100;
+
+// Discord rejects autocomplete choice names over 100 chars; skip the date when it is empty.
+function movieChoiceName(title: string, releaseDate: string | null | undefined): string {
+	const suffix = releaseDate ? ` (${releaseDate})` : '';
+	const room = MAX_CHOICE_NAME - suffix.length;
+	const name = title.length > room ? `${title.slice(0, room - 1)}…` : title;
+	return `${name}${suffix}`;
+}
+
+function pollQuestion(title: string, releaseDate: string): string {
+	const year = releaseDate ? new Date(releaseDate).getFullYear() : NaN;
+	return Number.isNaN(year) ? title : `${title} (${year})`;
+}
+
 export class RequestCommand extends Command {
 	public constructor(context: Command.LoaderContext, options: Command.Options) {
 		super(context, {
@@ -38,7 +53,7 @@ export class RequestCommand extends Command {
 
 				return await interaction.respond(
 					movie_list.map((movie) => ({
-						name: `${movie.title} (${movie.release_date})`,
+						name: movieChoiceName(movie.title, movie.release_date),
 						value: movie.tmdbId,
 					}))
 				);
@@ -52,7 +67,7 @@ export class RequestCommand extends Command {
 		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
 		if (!interaction.guildId) {
-			await interaction.reply({ content: 'Missing guild context.', ephemeral: true });
+			await interaction.editReply({ content: 'Missing guild context.' });
 			return;
 		}
 
@@ -67,7 +82,7 @@ export class RequestCommand extends Command {
 		if (interaction.channel && interaction.channel.isSendable()) {
 			await interaction.channel.send({
 				poll: {
-					question: { text: `${movie.title} (${new Date(movie.release_date).getFullYear()})` },
+					question: { text: pollQuestion(movie.title, movie.release_date) },
 					allowMultiselect: false,
 					answers: [
 						{ emoji: '🔥', text: 'good ass movie' },

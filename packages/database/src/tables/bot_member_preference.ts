@@ -195,13 +195,17 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 	}
 
 	async setValue(guildId: string, userId: string, kind: string, value: string): Promise<void> {
-		await this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind } });
-		await this._db.botMemberPreference.create({ data: { guildId, userId, kind, value } });
+		await this._db.$transaction([
+			this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind } }),
+			this._db.botMemberPreference.create({ data: { guildId, userId, kind, value } }),
+		]);
 	}
 
 	async setNickname(guildId: string, userId: string, nickname: string): Promise<void> {
-		await this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind: 'nickname' } });
-		await this._db.botMemberPreference.create({ data: { guildId, userId, kind: 'nickname', value: nickname } });
+		await this._db.$transaction([
+			this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind: 'nickname' } }),
+			this._db.botMemberPreference.create({ data: { guildId, userId, kind: 'nickname', value: nickname } }),
+		]);
 	}
 
 	async getNickname(guildId: string, userId: string): Promise<string | null> {
