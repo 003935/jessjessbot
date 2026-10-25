@@ -350,6 +350,27 @@ export function rareCasualLine(
 const CHAT_EXTENDER =
 	/^(?:so\s+)?(?:what about (?:u|you)|wbu|hbu|and (?:u|you)|what (?:are|r) (?:u|you) (?:up to|doing)(?: tonight| today| rn)?|how (?:was|is) (?:ur|your) (?:day|night|weekend)|anything else|what else)\??$/iu;
 
+// A reply that saved a memory, ran a tool or searched is worth more than fresher wording;
+// "noted" is both a crutch and how she confirms a save.
+export function keepsResultOnRepeat(result: {
+	reply?: string;
+	memoryChanges?: unknown[];
+	roleAction?: unknown;
+	customAction?: unknown;
+	customHelp?: boolean;
+	recapHours?: unknown;
+	webSearched?: boolean;
+}): boolean {
+	return Boolean(
+		result.memoryChanges?.length ||
+			result.roleAction ||
+			result.customAction ||
+			result.customHelp ||
+			result.recapHours !== undefined ||
+			result.webSearched
+	);
+}
+
 // Speakers are labelled "nick / profile / @user" in the prompt, and the model sometimes greets
 // with the whole label ("hiii The Director / Wanners / @wanners").
 export function stripSpeakerLabel(reply: string, label: string): string {
@@ -1751,7 +1772,9 @@ export async function handleMention(message: Message): Promise<void> {
 					result = await ask([], null, false, false, avoidPrompt(recent));
 				// Stock openers and props ("oh ur alive", "noted", "that cat is") stick once she has used
 				// them a few times. Ask once more, and keep whichever repeats less.
-				const stale = result.reply ? staleParts(result.reply, recent) : [];
+				const cannedImageError = visionAttachments.length > 0 && imageCollection.images.length === 0;
+				const stale =
+					result.reply && !cannedImageError && !keepsResultOnRepeat(result) ? staleParts(result.reply, recent) : [];
 				if (shouldRetryForRepeats(prompt, stale)) {
 					const retry = await ask(
 						chatHistory,

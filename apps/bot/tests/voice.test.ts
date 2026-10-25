@@ -50,6 +50,8 @@ test('default voice teaches mix, modes, bits and photo corrections', () => {
 	expect(prompt).toContain('About a third are a word or a fragment');
 	expect(prompt).toContain('a bit is something you add to an answer, never a reason not to answer');
 	expect(prompt).toContain('misread their photo');
+	expect(prompt).toContain('no assistant phrasing');
+	expect(prompt).toContain('accurate when you present it as real information');
 	expect(prompt).not.toMatch(/great question|i hope this helps|ok first of all/u);
 	for (const field of ['style', 'rules', 'examples'] as const)
 		expect(resolveVoice(null)[field].length).toBeLessThanOrEqual(PERSONALITY_LIMITS[field]);

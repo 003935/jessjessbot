@@ -5,7 +5,7 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 	process.env[key] ||= 'test';
 mock.module('../src/db', () => ({ db: {} }));
 
-const { dropFollowUpQuestion, rareCasualLine, shouldRetryForRepeats } = await import('../src/modules/mention');
+const { dropFollowUpQuestion, keepsResultOnRepeat, rareCasualLine, shouldRetryForRepeats } = await import('../src/modules/mention');
 const { DEFAULT_SERVER_SETTINGS } = await import('../src/personality/server-settings');
 
 test('generic chat-extender questions are cut', () => {
@@ -66,4 +66,15 @@ test('alias list never reaches the reply', async () => {
 		stripSpeakerLabel('hiii The Director / Wanners / @wanners. my review is void', 'The Director / Wanners / @wanners')
 	).toBe('hiii The Director. my review is void');
 	expect(stripSpeakerLabel('hi liv', 'liv')).toBe('hi liv');
+});
+
+test('a reply that saved, changed, searched or scheduled something is never retried', () => {
+	expect(keepsResultOnRepeat({ reply: 'noted', memoryChanges: [{} as never] })).toBe(true);
+	expect(keepsResultOnRepeat({ roleAction: {} as never })).toBe(true);
+	expect(keepsResultOnRepeat({ customAction: {} as never })).toBe(true);
+	expect(keepsResultOnRepeat({ customHelp: true })).toBe(true);
+	expect(keepsResultOnRepeat({ recapHours: 1 })).toBe(true);
+	expect(keepsResultOnRepeat({ reply: 'x', webSearched: true })).toBe(true);
+	expect(keepsResultOnRepeat({ reply: 'noted', memoryChanges: [] })).toBe(false);
+	expect(keepsResultOnRepeat({ reply: 'just chat' })).toBe(false);
 });
