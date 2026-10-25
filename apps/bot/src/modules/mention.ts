@@ -1145,6 +1145,7 @@ export async function askDeepSeek(
 				temperature: 1.2,
 				maxTokens: requestMaxTokens,
 				reasoning,
+				penalties: true,
 			}),
 			messages: requestMessages,
 			tools: requestTools,
