@@ -339,11 +339,15 @@ export function rareCasualLine(prompt: string, settings: ServerSettings = DEFAUL
 	return line;
 }
 
-// Models love tacking "so what are u doing tonight?" onto the end. Cut a trailing
-// question when there is already a real reply before it (games keep theirs).
-function dropFollowUpQuestion(reply: string): string {
+const CHAT_EXTENDER =
+	/^(?:so\s+)?(?:what about (?:u|you)|wbu|hbu|and (?:u|you)|what (?:are|r) (?:u|you) (?:up to|doing)(?: tonight| today| rn)?|how (?:was|is) (?:ur|your) (?:day|night|weekend)|anything else|what else)\??$/iu;
+
+// Models love tacking "so what are u doing tonight?" onto the end. Cut that kind of
+// generic follow-up when there is already a real reply before it; questions that are
+// part of the joke ("who paid u?") stay.
+export function dropFollowUpQuestion(reply: string): string {
 	const parts = reply.trim().split(/(?<=[.!?…])\s+/u);
-	if (parts.length < 2 || !parts.at(-1)!.trim().endsWith('?')) return reply;
+	if (parts.length < 2 || !CHAT_EXTENDER.test(parts.at(-1)!.trim())) return reply;
 	const rest = parts.slice(0, -1).join(' ').trim();
 	return rest.length >= 15 ? rest : reply;
 }
