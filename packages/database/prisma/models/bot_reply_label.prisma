@@ -1,0 +1,16 @@
+// Good/bad labels on jjb's replies, set with /i, for reviewing how she talks.
+model BotReplyLabel {
+  messageId   String   @id
+  guildId     String
+  channelId   String
+  rating      String
+  reason      String?
+  reply       String
+  prompt      String?
+  labeledById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([guildId, createdAt])
+  @@map("bot_reply_labels")
+}
