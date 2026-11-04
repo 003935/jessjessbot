@@ -6,7 +6,7 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 mock.module('../src/db', () => ({ db: {} }));
 
 const { dropFollowUpQuestion, keepsResultOnRepeat, rareCasualLine, shouldRetryForRepeats } = await import('../src/modules/mention');
-const { DEFAULT_SERVER_SETTINGS } = await import('../src/personality/server-settings');
+const { LAZY_LINES } = await import('@repo/database/defaults');
 
 test('generic chat-extender questions are cut', () => {
 	expect(dropFollowUpQuestion('sushi obviously. pizza is for quitters. what about u?')).toBe(
@@ -39,16 +39,16 @@ function withRandom<T>(value: number, run: () => T): T {
 test('no canned line mid-conversation', () => {
 	setSystemTime(new Date(50_000_000));
 	const line = withRandom(0.005, () =>
-		rareCasualLine('theres a 7 car pileup on your block', DEFAULT_SERVER_SETTINGS, Date.now() - 60_000)
+		rareCasualLine('theres a 7 car pileup on your block', Date.now() - 60_000)
 	);
 	expect(line).toBeNull();
 });
 
 test('lazy lines only on a bare ping', () => {
 	setSystemTime(new Date(60_000_000));
-	expect(withRandom(0.005, () => rareCasualLine('jjb what do u think of the new champ', DEFAULT_SERVER_SETTINGS, null))).toBeNull();
+	expect(withRandom(0.005, () => rareCasualLine('jjb what do u think of the new champ', null))).toBeNull();
 	setSystemTime(new Date(70_000_000));
-	expect(withRandom(0.005, () => rareCasualLine('yo', { ...DEFAULT_SERVER_SETTINGS, lazyLines: ['on break'] }, null))).toBe('on break');
+	expect(LAZY_LINES).toContain(withRandom(0.005, () => rareCasualLine('yo', null)) ?? 'no line');
 	setSystemTime();
 });
 

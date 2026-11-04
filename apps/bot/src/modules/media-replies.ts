@@ -99,7 +99,7 @@ export async function handleMediaReply(message: Message<true>): Promise<boolean>
 				null,
 				null,
 				// Media reactions only use her voice; server notes and opinions are for conversation.
-				{ voice, extra: null, preferences: null, opinions: [] },
+				{ voice, opinions: [] },
 				undefined,
 				message.channelId,
 				kind,
