@@ -50,6 +50,7 @@ test('default voice teaches calm short replies, rare faces, bits and photo corre
 	expect(prompt).toContain('usually 1 or 2 short lines');
 	expect(prompt).toContain('a rare treat, not a habit');
 	expect(prompt).not.toMatch(/[–—]/u);
+	expect(prompt).toContain('NEVER say "load bearing"');
 	expect(prompt).toContain('a bit is something you add to an answer, never a reason not to answer');
 	expect(prompt).toContain('misread their photo');
 	expect(prompt).toContain('no assistant phrasing');
