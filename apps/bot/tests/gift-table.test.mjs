@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { giftMeterTenths, giftPoints, giftReaction, giftTaste, parseGift } from '../src/modules/gift-table.ts';
+import * as gifts from '../src/modules/gift-table.ts';
+const { giftReaction, giftTaste, parseGift } = gifts;
 
 test('gift phrasings are recognised', () => {
 	assert.equal(parseGift('*gives u a mango*'), 'mango');
@@ -23,14 +24,9 @@ test('tastes follow her likes and dislikes', () => {
 	assert.equal(giftTaste('celery'), 'disliked');
 	assert.equal(giftTaste('a lamp'), 'neutral');
 	assert.equal(giftTaste('red bull'), 'liked');
-	assert.equal(giftPoints('red bull', 'liked'), 2);
-	assert.equal(giftPoints('cake', 'liked'), 4);
-	assert.match(giftReaction('wasabi', 'hated', false, 0), /ick/u);
+	assert.match(giftReaction('wasabi', 'hated', 0), /ick/u);
 });
 
-test('a loved gift is worth about a good day of nice messages', () => {
-	assert.equal(giftMeterTenths(giftPoints('mango', 'loved')), 60);
-	assert.equal(giftMeterTenths(giftPoints('cake', 'liked')), 30);
-	assert.equal(giftMeterTenths(giftPoints('red bull', 'liked')), 15);
-	assert.equal(giftMeterTenths(giftPoints('wasabi', 'hated')), -45);
+test('gifts no longer score anything', () => {
+	for (const name of ['giftMeterTenths', 'giftPoints', 'GIFT_POINTS']) assert.equal(name in gifts, false, name);
 });

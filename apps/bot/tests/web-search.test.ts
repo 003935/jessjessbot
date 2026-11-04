@@ -209,7 +209,7 @@ test('sourceLink makes a Discord link with no preview, even for URLs with bracke
 const replyChatParams = (call: Call) =>
 	call.body.tools.find((tool: any) => tool.function.name === 'reply_chat').function.parameters.properties;
 const mediaArgs = (mediaKind: 'pet' | 'food') =>
-	['cute cat', [], false, ...Array(16).fill(undefined), mediaKind] as unknown as Parameters<typeof askDeepSeek>;
+	['cute cat', [], false, ...Array(12).fill(undefined), mediaKind] as unknown as Parameters<typeof askDeepSeek>;
 
 test('askDeepSeek returns memory changes from reply_chat', async () => {
 	mockFetch(() =>
@@ -243,7 +243,7 @@ test('prompt tells her to only claim saves she sent', async () => {
 });
 
 const withLookup = (prompt: string, lookup: unknown, mediaKind?: 'pet') =>
-	[prompt, [], false, ...Array(16).fill(undefined), mediaKind, lookup] as unknown as Parameters<typeof askDeepSeek>;
+	[prompt, [], false, ...Array(12).fill(undefined), mediaKind, lookup] as unknown as Parameters<typeof askDeepSeek>;
 const toolNames = (call: Call) => call.body.tools.map((tool: any) => tool.function.name);
 
 test('recall_member looks up the member and answers from it', async () => {
@@ -314,7 +314,7 @@ test('null memory fields leave a plain reply alone', async () => {
 test('server info goes into her system prompt', async () => {
 	mockFetch(() => toolCall('reply_chat', { reply: 'fat club obviously' }));
 	await askDeepSeek(
-		...(['whats this server called', [], false, ...Array(17).fill(undefined), null, 'You are in the Discord server "fat club"'] as unknown as Parameters<
+		...(['whats this server called', [], false, ...Array(13).fill(undefined), null, 'You are in the Discord server "fat club"'] as unknown as Parameters<
 			typeof askDeepSeek
 		>)
 	);
