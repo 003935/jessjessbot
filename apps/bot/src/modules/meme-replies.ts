@@ -1,6 +1,8 @@
 import type { Message } from 'discord.js';
+import { botPrompt } from '@/modules/mention-trigger';
 
 const GG_FKIN_EZ = /\bgg\s+fkin\s+ez\b/iu;
+const MEOWMEOW = /^meow\s*meow[!~.\s]*$/iu;
 const HEY_DONT_SAY_THAT = /^\s*hey\s+don'?t\s+say\s+that[!?.\s]*$/iu;
 const REPLY_COOLDOWN_MS = 60_000;
 const CHAIN_TTL_MS = 2 * 60_000;
@@ -27,6 +29,16 @@ export async function handleMemeReply(message: Message<true>): Promise<boolean> 
 		return false;
 	}
 	if (message.author.bot) return false;
+
+	const prompt = botPrompt(
+		message.content,
+		message.client.user.id,
+		message.mentions.users.has(message.client.user.id)
+	);
+	if (prompt !== null && MEOWMEOW.test(prompt)) {
+		await message.reply({ content: 'meowmeow', allowedMentions: { repliedUser: false } });
+		return true;
+	}
 
 	const botGg = botGgByChannel.get(message.channelId);
 	if (botGg && HEY_DONT_SAY_THAT.test(message.content)) {
