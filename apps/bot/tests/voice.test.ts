@@ -45,9 +45,11 @@ test('blank fields and empty lists fall back to the defaults', () => {
 	expect(voice.likes).toEqual(DEFAULT_LIKES);
 });
 
-test('default voice teaches mix, modes, bits and photo corrections', () => {
+test('default voice teaches calm short replies, rare faces, bits and photo corrections', () => {
 	const prompt = buildVoicePrompt(resolveVoice(null));
-	expect(prompt).toContain('About a third are a word or a fragment');
+	expect(prompt).toContain('usually 1 or 2 short lines');
+	expect(prompt).toContain('a rare treat, not a habit');
+	expect(prompt).not.toMatch(/[–—]/u);
 	expect(prompt).toContain('a bit is something you add to an answer, never a reason not to answer');
 	expect(prompt).toContain('misread their photo');
 	expect(prompt).toContain('no assistant phrasing');
