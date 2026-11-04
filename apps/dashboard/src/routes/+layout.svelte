@@ -55,7 +55,7 @@
 						{#if data.user.role === 'admin'}
 							<DropdownMenu.Item onclick={() => goto(resolve('/voice'))}>
 								<MessageCircleHeartIcon />
-								jjb voice
+								jjb personality
 							</DropdownMenu.Item>
 						{/if}
 						<DropdownMenu.Separator />
