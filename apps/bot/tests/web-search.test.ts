@@ -5,7 +5,7 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 	process.env[key] ||= 'test';
 mock.module('../src/db', () => ({ db: {} }));
 
-const { formatSearchResults, sourceLink, webSearch, webSearchEnabled } = await import(
+const { formatSearchResults, sourceLink, speakableText, webSearch, webSearchEnabled } = await import(
 	'../src/modules/web-search'
 );
 const { askDeepSeek, isSearchWorthy } = await import('../src/modules/mention');
@@ -110,10 +110,16 @@ test('askDeepSeek searches, then answers with a verified source link', async () 
 	const toolMessage = followUp.messages.find((message: any) => message.role === 'tool');
 	expect(toolMessage.tool_call_id).toBe('call_search');
 	expect(toolMessage.content).toContain('https://example.com/patch');
-	// The source link comes back separately so voice never reads it out.
-	expect(result.reply).toBe('patch 25.20 dropped oct 8');
 	// A made-up URL falls back to the top real result.
 	expect(result.reply).toBe('patch 25.20 dropped oct 8 [link](<https://example.com/patch>)');
+	// Voice never reads the link out.
+	expect(speakableText(result.reply ?? '')).toBe('patch 25.20 dropped oct 8');
+});
+
+test('voice text drops source links and bare urls', () => {
+	expect(speakableText('see https://example.com/a for more')).toBe('see for more');
+	expect(speakableText('ok <https://example.com/a>')).toBe('ok');
+	expect(speakableText('no links here :3')).toBe('no links here :3');
 });
 
 test('askDeepSeek still replies when the search fails', async () => {

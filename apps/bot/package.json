@@ -3,6 +3,7 @@
 	"private": true,
 	"scripts": {
 		"start": "bun src/index.ts",
+		"test": "bun test --isolate",
 		"check": "tsc --noEmit"
 	},
 	"dependencies": {

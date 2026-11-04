@@ -38,7 +38,7 @@ import { withServerEmoji } from '@/modules/server-emojis';
 import { collapseOwnReplies } from '@/modules/mention-history';
 import { detailsForPrompt, isGreeting } from '@/modules/mention-details';
 import { avoidPrompt, lastReplyAt, logReply, recentReplies, staleParts } from '@/modules/reply-log';
-import { formatSearchResults, sourceLink, webSearch, webSearchEnabled } from '@/modules/web-search';
+import { formatSearchResults, sourceLink, speakableText, webSearch, webSearchEnabled } from '@/modules/web-search';
 import { formatTweetSearch, linkedTweetContext, mentionsTwitter, searchTweets, twitterEnabled } from '@/modules/twitter';
 import { serverContext } from '@/modules/mention-server';
 import {
@@ -1891,7 +1891,7 @@ export async function handleMention(message: Message): Promise<void> {
 		});
 		resetDeepSeekDownStreak(message.channelId);
 		logReply(message.channelId, sentReply.content);
-		enqueueGuildSpeech(message.guildId, sentReply.content, message.channel);
+		enqueueGuildSpeech(message.guildId, speakableText(sentReply.content), message.channel);
 		if (casualReply) {
 			learnInBackground(message.guildId, message.author.id, prompt, learnedNotes);
 			learnAboutReferencedMembers(message as Message<true>, prompt);
