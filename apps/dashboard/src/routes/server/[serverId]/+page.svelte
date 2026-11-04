@@ -146,7 +146,8 @@
 		</ToggleGroup.Root>
 	{/if}
 
-	{#if tab === 'overview'}
+	<!-- Tabs are hidden, not unmounted, so the jjb and settings cards keep what was saved or typed. -->
+	<div class={tab === 'overview' ? 'contents' : 'hidden'}>
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Upcoming customs</Card.Title>
@@ -264,79 +265,84 @@
 			</Card.Root>
 			<WordleLeaderboard serverId={data.guild.id} />
 		</div>
-	{:else if tab === 'settings'}
-		<div class="grid grid-cols-2 gap-4">
-			<ServerConfig
-				channels={data.channels ?? []}
-				config={{
-					custom_channel: data.config?.custom_channel ?? undefined,
-					bot_ignored_channels: data.config?.bot_ignored_channels ?? [],
-				}}
-				guildId={data.guild.id}
-			/>
+	</div>
 
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Game Roles</Card.Title>
-					<Card.Description>
-						{#if grQuery.loading}
-							Loading...
-						{:else if grQuery.ready}
-							{grQuery.current.length} configured
-						{/if}
-					</Card.Description>
-					<Card.Action>
-						<Button onclick={() => dialog?.open()} disabled={!grQuery.ready}>
-							<Plus />
-							Add Role
-						</Button>
-					</Card.Action>
-				</Card.Header>
-				<Card.Content class="flex h-64 flex-col gap-2 overflow-y-auto">
-					{#if grQuery.error}
-						<Empty.Root>
-							<Empty.Header>
-								<Empty.Title>Error</Empty.Title>
-								<Empty.Description>Failed to load game roles</Empty.Description>
-							</Empty.Header>
-						</Empty.Root>
-					{:else if grQuery.loading}
-						{#each Array(6) as _, i (i)}
-							{@render gr({ gameName: '', roleId: '' }, true)}
-						{/each}
-					{:else if grQuery.ready}
-						{#if grQuery.current.length > 0}
-							{#each grQuery.current as game_role (game_role.roleId + game_role.gameName)}
-								{@render gr(game_role)}
-							{/each}
-						{:else}
+	{#if data.isAdmin}
+		<div class={tab === 'settings' ? 'contents' : 'hidden'}>
+			<div class="grid grid-cols-2 gap-4">
+				<ServerConfig
+					channels={data.channels ?? []}
+					config={{
+						custom_channel: data.config?.custom_channel ?? undefined,
+						bot_ignored_channels: data.config?.bot_ignored_channels ?? [],
+					}}
+					guildId={data.guild.id}
+				/>
+
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>Game Roles</Card.Title>
+						<Card.Description>
+							{#if grQuery.loading}
+								Loading...
+							{:else if grQuery.ready}
+								{grQuery.current.length} configured
+							{/if}
+						</Card.Description>
+						<Card.Action>
+							<Button onclick={() => dialog?.open()} disabled={!grQuery.ready}>
+								<Plus />
+								Add Role
+							</Button>
+						</Card.Action>
+					</Card.Header>
+					<Card.Content class="flex h-64 flex-col gap-2 overflow-y-auto">
+						{#if grQuery.error}
 							<Empty.Root>
 								<Empty.Header>
-									<Empty.Title>No data</Empty.Title>
-									<Empty.Description>No game roles configured yet</Empty.Description>
+									<Empty.Title>Error</Empty.Title>
+									<Empty.Description>Failed to load game roles</Empty.Description>
 								</Empty.Header>
 							</Empty.Root>
+						{:else if grQuery.loading}
+							{#each Array(6) as _, i (i)}
+								{@render gr({ gameName: '', roleId: '' }, true)}
+							{/each}
+						{:else if grQuery.ready}
+							{#if grQuery.current.length > 0}
+								{#each grQuery.current as game_role (game_role.roleId + game_role.gameName)}
+									{@render gr(game_role)}
+								{/each}
+							{:else}
+								<Empty.Root>
+									<Empty.Header>
+										<Empty.Title>No data</Empty.Title>
+										<Empty.Description>No game roles configured yet</Empty.Description>
+									</Empty.Header>
+								</Empty.Root>
+							{/if}
 						{/if}
-					{/if}
-				</Card.Content>
-			</Card.Root>
+					</Card.Content>
+				</Card.Root>
 
-			<WordleImport serverId={data.guild.id} wordleImport={data.wordleImport} />
-			<HallOfFameAdmin
-				serverId={data.guild.id}
-				channels={data.channels ?? []}
-				selectedChannelIds={data.hallChannelIds}
-				hallImport={data.hallImport}
+				<WordleImport serverId={data.guild.id} wordleImport={data.wordleImport} />
+				<HallOfFameAdmin
+					serverId={data.guild.id}
+					channels={data.channels ?? []}
+					selectedChannelIds={data.hallChannelIds}
+					hallImport={data.hallImport}
+				/>
+			</div>
+		</div>
+		<div class={tab === 'jjb' ? 'contents' : 'hidden'}>
+			<JjbServer
+				guildId={data.guild.id}
+				lore={data.lore}
+				savedUsers={data.savedUsers}
+				opinions={data.opinions}
+				canResetLoot={data.canResetLoot}
 			/>
 		</div>
-	{:else}
-		<JjbServer
-			guildId={data.guild.id}
-			lore={data.lore}
-			savedUsers={data.savedUsers}
-			opinions={data.opinions}
-			canResetLoot={data.canResetLoot}
-		/>
 	{/if}
 </div>
 
