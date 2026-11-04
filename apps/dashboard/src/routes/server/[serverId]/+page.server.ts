@@ -54,7 +54,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	let hallChannels: Awaited<ReturnType<typeof db.hall.getChannels>> = [];
 	let hallImport: Awaited<ReturnType<typeof db.hall.getImport>> = null;
 	let opinions: Array<{ topic: string; opinion: string; updatedAt: string }> = [];
-	let behaviours: Array<{ userId: string; name: string; behaviour: string; whenUpset: string }> = [];
 	let savedUsers: Array<{
 		id: string;
 		name: string;
@@ -62,7 +61,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		loot: Array<{ itemName: string; quantity: number }>;
 		nickname: string | null;
 		notes: Array<{ kind: string; value: string }>;
-		relationship: { score: number; interactionCount: number; updatedAt: Date } | null;
 		pets: string[];
 		leagueAccounts: Array<{ gameName: string | null; tagline: string | null; region: string }>;
 		wordleGames: number;
@@ -78,44 +76,41 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			...entry,
 			updatedAt: entry.updatedAt.toISOString(),
 		}));
-		const [relationships, preferences] = await Promise.all([
-			db._db.botRelationship.findMany({ where: { guildId: guild.id } }),
-			db._db.botMemberPreference.findMany({ where: { guildId: guild.id } }),
-		]);
-		const ids = new Set<string>([
-			...relationships.filter((row) => row.interactionCount > 0).map((row) => row.userId),
-			...preferences.filter((row) => row.kind.startsWith('memory_')).map((row) => row.userId),
-		]);
+		const preferences = await db._db.botMemberPreference.findMany({ where: { guildId: guild.id } });
+		// Everyone jjb remembers something about, or who asked her for a nickname.
+		const ids = new Set<string>(
+			preferences
+				.filter((row) => row.kind === 'nickname' || row.kind.startsWith('memory_'))
+				.map((row) => row.userId)
+		);
 		const idList = [...ids];
-		const [lootRows, pets, leagueAccounts, wordleRows, signupRows] =
-			await Promise.all([
-				db._db.lootInventory.findMany({
-					where: { quantity: { gt: 0 }, discordId: { in: idList } },
-					orderBy: { itemName: 'asc' },
-				}),
-				db._db.pet.findMany({
-					where: { guildId: guild.id },
-					select: { ownerId: true, name: true },
-				}),
-				db._db.leagueAccount.findMany({
-					where: { discordId: { in: idList } },
-					select: { discordId: true, riotGamename: true, riotTagline: true, region: true },
-				}),
-				db._db.wordleResult.findMany({
-					where: { message: { guildId: guild.id } },
-					select: { discordId: true },
-				}),
-				db._db.customSignup.findMany({
-					where: { event: { guildId: guild.id } },
-					select: { userId: true },
-				}),
-			]);
+		const [lootRows, pets, leagueAccounts, wordleRows, signupRows] = await Promise.all([
+			db._db.lootInventory.findMany({
+				where: { quantity: { gt: 0 }, discordId: { in: idList } },
+				orderBy: { itemName: 'asc' },
+			}),
+			db._db.pet.findMany({
+				where: { guildId: guild.id },
+				select: { ownerId: true, name: true },
+			}),
+			db._db.leagueAccount.findMany({
+				where: { discordId: { in: idList } },
+				select: { discordId: true, riotGamename: true, riotTagline: true, region: true },
+			}),
+			db._db.wordleResult.findMany({
+				where: { message: { guildId: guild.id } },
+				select: { discordId: true },
+			}),
+			db._db.customSignup.findMany({
+				where: { event: { guildId: guild.id } },
+				select: { userId: true },
+			}),
+		]);
 		const preferenceByUser = new Map<string, typeof preferences>();
 		for (const row of preferences) {
 			if (row.kind !== 'nickname' && !row.kind.startsWith('memory_')) continue;
 			preferenceByUser.set(row.userId, [...(preferenceByUser.get(row.userId) ?? []), row]);
 		}
-		const relationshipByUser = new Map(relationships.map((row) => [row.userId, row]));
 		const groupByUser = <T>(rows: T[], key: (row: T) => string) => {
 			const map = new Map<string, T[]>();
 			for (const row of rows) map.set(key(row), [...(map.get(key(row)) ?? []), row]);
@@ -144,7 +139,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 					/* Keep the ID visible when Discord cannot resolve this account. */
 				}
 				const userPreferences = preferenceByUser.get(id) ?? [];
-				const relationship = relationshipByUser.get(id);
 				return {
 					id,
 					name,
@@ -159,13 +153,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 						.filter((row) => row.kind.startsWith('memory_'))
 						.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
 						.map(({ kind, value }) => ({ kind, value })),
-					relationship: relationship
-						? {
-								score: relationship.score / 10,
-								interactionCount: relationship.interactionCount,
-								updatedAt: relationship.updatedAt,
-							}
-						: null,
 					pets: (petsByUser.get(id) ?? []).map((row) => row.name),
 					leagueAccounts: (leagueByUser.get(id) ?? []).map((row) => ({
 						gameName: row.riotGamename,
@@ -177,26 +164,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 				};
 			})
 		);
-		// Most-talked-to first; name breaks ties.
-		savedUsers.sort(
-			(a, b) =>
-				(b.relationship?.interactionCount ?? 0) - (a.relationship?.interactionCount ?? 0) ||
-				a.name.localeCompare(b.name)
-		);
-		const savedNames = new Map(savedUsers.map((saved) => [saved.id, saved.name]));
-		behaviours = await Promise.all(
-			(await db.botMemberBehaviour.list(guild.id)).map(async (row) => ({
-				userId: row.userId,
-				name:
-					savedNames.get(row.userId) ??
-					(await discordApi
-						.getUser(row.userId)
-						.then((found) => found.global_name || found.username)
-						.catch(() => row.userId)),
-				behaviour: row.behaviour,
-				whenUpset: row.when_upset ?? '',
-			}))
-		);
+		savedUsers.sort((a, b) => a.name.localeCompare(b.name));
 	}
 
 	return {
@@ -231,27 +199,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 				}
 			: null,
 		savedUsers,
-		personality: config
-			? {
-					personality: config.bot_personality ?? '',
-					likes: config.bot_likes,
-					dislikes: config.bot_dislikes,
-					lore: config.bot_lore ?? '',
-				}
-			: null,
+		lore: config?.bot_lore ?? '',
 		opinions,
-		cannedLines: config
-			? {
-					greeting: config.bot_greeting_lines,
-					annoyed: config.bot_annoyed_lines,
-					lazy: config.bot_lazy_lines,
-					fallback: config.bot_fallback_reply ?? '',
-					downLines: (config.bot_down_lines as Record<string, string[][]> | null) ?? null,
-					memeEnabled: config.bot_meme_enabled,
-					memePrompt: config.bot_meme_prompt ?? '',
-				}
-			: null,
-		behaviours,
 	};
 };
 
