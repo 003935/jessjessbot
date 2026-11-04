@@ -5,7 +5,7 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 	process.env[key] ||= 'test';
 mock.module('../src/db', () => ({ db: {} }));
 
-const { addressPrompt, dropFollowUpQuestion, keepsResultOnRepeat, rareCasualLine, shouldRetryForRepeats } = await import('../src/modules/mention');
+const { addressPrompt, datePrompt, dropFollowUpQuestion, keepsResultOnRepeat, rareCasualLine, shouldRetryForRepeats } = await import('../src/modules/mention');
 const { ANNOYED_LINES, LAZY_LINES } = await import('@repo/database/defaults');
 
 test('generic chat-extender questions are cut', () => {
@@ -90,4 +90,10 @@ test('a rude bare message can still get an annoyed line', () => {
 test('she greets people by display name or their saved nickname', () => {
 	expect(addressPrompt('hannah', null)).toContain('Greet them by that display name');
 	expect(addressPrompt('hannah', 'hannie')).toContain('asked to be called "hannie"');
+});
+
+test('she knows today\'s date in UK time', () => {
+	expect(datePrompt(new Date('2026-11-04T12:00:00Z'))).toMatch(/^Today is Wednesday,? 4 November 2026 \(UK time\)/u);
+	// 23:30 UTC in summer is already the next day in London
+	expect(datePrompt(new Date('2026-07-01T23:30:00Z'))).toMatch(/Thursday,? 2 July 2026/u);
 });
