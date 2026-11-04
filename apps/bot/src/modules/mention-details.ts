@@ -1,6 +1,7 @@
-// Which of the speaker's saved details she gets to see. Given a pet's name on every turn, she
-// brings it up on every turn ("hola choco. hows bobby"), so pets and birthdays only come along
-// when the message is about them, in the pet channel, or on the odd greeting.
+// Which of the speaker's saved details she gets to see. Given a detail on every turn, she
+// brings it up on every turn ("hola choco. hows bobby", the same note in every reply), so each
+// detail only comes along when the message is about it. Pets also come along in the pet
+// channel or on the odd greeting; everything comes along when they ask what she knows.
 
 export type MemberDetails = {
 	likes: string[];
@@ -14,6 +15,26 @@ export type MemberDetails = {
 const PET_WORDS = /\b(?:pets?|cats?|kittens?|dogs?|pupp(?:y|ies)|bunn(?:y|ies)|rabbits?|fish)\b/iu;
 const BIRTHDAY_WORDS = /\b(?:birthday|bday|born|age|old)\b/iu;
 const GREETING_PET_CHANCE = 0.2;
+const ABOUT_ME =
+	/\b(?:about me|know me|remember (?:me|what|about)|what do (?:i|u think i) (?:like|hate)|my (?:fav(?:ou?rite)?s?|likes|dislikes)|what(?:'?s| is) my)\b/iu;
+const COMMON_WORDS = new Set(
+	'the and but for with that this then than they them their she her his him has have had was were are not you your from about into just like likes love loves hate hates plays play really very some what when who how its also any all can cant dont does did got get one two'.split(' ')
+);
+
+function topicWords(text: string): Set<string> {
+	return new Set(
+		(text.toLocaleLowerCase().match(/\p{L}{3,}/gu) ?? [])
+			.filter((word) => !COMMON_WORDS.has(word))
+			.map((word) => word.replace(/(?:ing|es|s)$/u, ''))
+			.filter((word) => word.length >= 3)
+	);
+}
+
+function relevant(items: string[], prompt: string, all: boolean): string[] {
+	if (all) return items;
+	const asked = topicWords(prompt);
+	return items.filter((item) => [...topicWords(item)].some((word) => asked.has(word)));
+}
 
 export function isGreeting(input: string): boolean {
 	return /^(?:hi+|he+y+|hello+|hola|yo+|wass?up|what'?s up)[!? .]*$/iu.test(input.trim());
@@ -42,10 +63,14 @@ export function detailsForPrompt(
 		PET_WORDS.test(prompt) ||
 		details.pets.some((pet) => mentionsWord(prompt, petName(pet))) ||
 		(isGreeting(prompt) && random() < GREETING_PET_CHANCE);
+	const aboutMe = ABOUT_ME.test(prompt);
 	const gated: MemberDetails = {
-		...details,
-		pets: showPets ? details.pets : [],
-		birthday: BIRTHDAY_WORDS.test(prompt) ? details.birthday : null,
+		likes: relevant(details.likes, prompt, aboutMe),
+		dislikes: relevant(details.dislikes, prompt, aboutMe),
+		pets: showPets || aboutMe ? details.pets : [],
+		birthday: BIRTHDAY_WORDS.test(prompt) || aboutMe ? details.birthday : null,
+		favourites: relevant(details.favourites, prompt, aboutMe),
+		notes: relevant(details.notes, prompt, aboutMe),
 	};
 	const empty =
 		!gated.likes.length &&
