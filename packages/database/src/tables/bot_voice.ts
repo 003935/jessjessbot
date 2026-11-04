@@ -6,7 +6,7 @@ type VoiceFields = Partial<Omit<BotVoice, 'id' | 'updatedAt'>>;
 
 const GLOBAL_ID = 'global';
 
-// One jjb everywhere: the voice is a single row edited by the site admin.
+// One jjb everywhere: her personality is a single row edited by the site admin.
 export class BotVoiceTable extends DatabaseConnection {
 	async get(): Promise<BotVoice | null> {
 		return this._db.botVoice.findUnique({ where: { id: GLOBAL_ID } });
