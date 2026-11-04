@@ -30,7 +30,27 @@ export function isRandomMemberRequest(prompt: string): boolean {
 }
 
 export function allowsLongChatReply(prompt: string): boolean {
-	return /\b(?:recipe|ingredients|instructions|step(?:s)?[ -]by[ -]step|in[ -]depth|detailed|detail|thorough|explain fully|walk me through|write (?:a |an )?(?:poem|story|essay))\b/iu.test(prompt);
+	return /\b(?:recipe|ingredients|instructions|step(?:s)?[ -]by[ -]step|in[ -]depth|detailed|detail|thorough|explain fully|walk me through|write (?:a |an )?(?:poem|story|essay|song|haiku|limerick)|multi-?line|multiple lines|separate lines|(?:new|different) lines?|line breaks?|line by line|one per line|each on (?:its|their) own line)\b/iu.test(prompt);
+}
+
+// "draw a card" is a blackjack move, not an art request.
+export function isAsciiArtRequest(prompt: string): boolean {
+	return /\b(?:ascii|ansi|text art|keyboard art|character art)\b|\bdraw\s+(?:me|us|him|her|them)\b|\bdraw\s+(?:a|an|the|some|my|ur|your)\s+(?!cards?\b)\w+/iu.test(prompt);
+}
+
+// Art only survives inside a code block with its spacing intact, and Discord caps a message at 2000.
+export function formatArtReply(reply: string): string {
+	let art = reply
+		.replace(/^\s*(?:jessjessbot|jjb)\s*:[ \t]*/iu, '')
+		.replace(/[ \t]+$/gmu, '')
+		.replace(/^\n+/u, '')
+		.trimEnd();
+	if (!art.includes('\n')) return limitChatReply(art, '');
+	if (!art.includes('```')) art = `\`\`\`\n${art}\n\`\`\``;
+	if (art.length <= 1800) return art;
+	const cut = art.lastIndexOf('\n', 1790);
+	art = art.slice(0, cut > 0 ? cut : 1790);
+	return (art.match(/```/gu)?.length ?? 0) % 2 ? `${art}\n\`\`\`` : art;
 }
 
 export function limitChatReply(reply: string, prompt: string): string {
