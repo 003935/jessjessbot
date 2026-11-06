@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+	formatArtReply,
+	isAsciiArtRequest,
 	isEventSetupRequest,
 	isRandomMemberRequest,
 	isRecapRequest,
@@ -49,4 +51,25 @@ test('ordinary chat uses a character limit while requested steps keep their layo
 	assert.ok(limitChatReply(longReply, 'give me a recipe').length > 500);
 	assert.equal(limitChatReply('step 1: try it\nstep 2: profit', 'give me step by step instructions'), 'step 1: try it\nstep 2: profit');
 	assert.equal(limitChatReply('first line\nsecond line', 'hello'), 'first line second line');
+	assert.equal(limitChatReply('roses\nare red', 'say it on separate lines'), 'roses\nare red');
+	assert.equal(limitChatReply('roses\nare red', 'write a multiline poem'), 'roses\nare red');
+});
+
+test('ascii art requests are spotted without catching card draws', () => {
+	for (const prompt of ['make me ascii art of a cat', 'draw me a frog', 'draw a dragon', 'can u do some text art']) {
+		assert.equal(isAsciiArtRequest(prompt), true, prompt);
+	}
+	for (const prompt of ['draw', 'draw a card', 'its a draw', 'what do u think of drawing']) {
+		assert.equal(isAsciiArtRequest(prompt), false, prompt);
+	}
+});
+
+test('ascii art keeps its spacing and lands in a code block', () => {
+	const cat = ' /\\_/\\\n( o.o )\n > ^ <';
+	assert.equal(formatArtReply(cat), `\`\`\`\n${cat}\n\`\`\``);
+	assert.equal(formatArtReply(`jjb: here u go\n\`\`\`\n${cat}   \n\`\`\``), `here u go\n\`\`\`\n${cat}\n\`\`\``);
+	assert.equal(formatArtReply('nah   not drawing that'), 'nah not drawing that');
+	const huge = formatArtReply(`\`\`\`\n${`${'#'.repeat(40)}\n`.repeat(80)}\`\`\``);
+	assert.ok(huge.length <= 1900);
+	assert.equal(huge.match(/```/gu).length, 2);
 });
