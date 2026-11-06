@@ -34,6 +34,12 @@ import { replyToGroupBlameBait } from '@/modules/mention-bait';
 import { answerWordleSuspicion } from '@/modules/mention-wordle';
 import { answerFavoriteUser, isFavoriteUserRequest } from '@/modules/mention-favorite';
 import { botPrompt } from '@/modules/mention-trigger';
+import {
+	closeConversationWindow,
+	extendConversationWindow,
+	inConversationWindow,
+	isDismissal,
+} from '@/modules/conversation-window';
 import { answerCreatorQuestion, isCreatorQuestion } from '@/modules/mention-creator';
 import { handleGift } from '@/modules/mention-gifts';
 import {
@@ -1550,14 +1556,27 @@ export async function handleMention(message: Message): Promise<void> {
 	const referencedMessage = message.reference?.messageId
 		? await message.fetchReference().catch(() => null)
 		: null;
-	const prompt = botPrompt(
+	let prompt = botPrompt(
 		message.content,
 		message.client.user.id,
 		message.mentions.users.has(message.client.user.id),
 		referencedMessage?.author.id === message.client.user.id,
 		message.attachments.size > 0
 	);
+	const inConversation = inConversationWindow(message.channelId);
+	// While she's in a conversation she answers everyone, except replies aimed at someone else.
+	if (prompt === null && inConversation && !referencedMessage)
+		prompt = message.content.trim() || null;
 	if (prompt === null) return;
+	if (isDismissal(prompt)) {
+		if (inConversation) {
+			closeConversationWindow(message.channelId);
+			await message
+				.reply({ content: 'ok bye (╥﹏╥)', allowedMentions: { repliedUser: false } })
+				.catch((error) => logger.error('Goodbye reply failed', error));
+			return;
+		}
+	} else extendConversationWindow(message.channelId);
 	if (isLootLeaderboardRequest(prompt)) {
 		await lootAnswer(() => lootLeaderboardReply(message.guild));
 		return;
