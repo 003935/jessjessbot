@@ -1,6 +1,6 @@
 // After someone calls jjb she keeps answering everyone in that channel for a while,
 // and every reply pushes the end back, until it goes quiet or someone sends her away.
-export const CONVERSATION_WINDOW_MS = 3 * 60_000;
+export const CONVERSATION_WINDOW_MS = 60_000;
 
 const DISMISSAL =
 	/^(?:(?:ok(?:ay)?|pls|please|jjb|jessjessbot)[,\s]+)*(?:shut\s*up|stfu|go\s*away|leave)(?:[,\s]+(?:jjb|jessjessbot|pls|please|now|already))*[\s!.?~]*$/iu;

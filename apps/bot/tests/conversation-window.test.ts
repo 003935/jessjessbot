@@ -8,7 +8,7 @@ import {
 	isDismissal,
 } from '../src/modules/conversation-window';
 
-test('the window lasts three minutes after she is called', () => {
+test('the window lasts one minute after she is called', () => {
 	extendConversationWindow('a', 0);
 	expect(inConversationWindow('a', CONVERSATION_WINDOW_MS - 1)).toBe(true);
 	expect(inConversationWindow('a', CONVERSATION_WINDOW_MS)).toBe(false);
@@ -16,9 +16,9 @@ test('the window lasts three minutes after she is called', () => {
 
 test('each reply pushes the end back', () => {
 	extendConversationWindow('b', 0);
-	extendConversationWindow('b', 2 * 60_000);
-	expect(inConversationWindow('b', 4 * 60_000)).toBe(true);
-	expect(inConversationWindow('b', 5 * 60_000)).toBe(false);
+	extendConversationWindow('b', 40_000);
+	expect(inConversationWindow('b', 90_000)).toBe(true);
+	expect(inConversationWindow('b', 100_000)).toBe(false);
 });
 
 test('windows are per channel and can be closed', () => {
