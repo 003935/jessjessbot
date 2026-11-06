@@ -2,8 +2,12 @@
 // and every reply pushes the end back, until it goes quiet or someone sends her away.
 export const CONVERSATION_WINDOW_MS = 60_000;
 
-const DISMISSAL =
-	/^(?:(?:ok(?:ay)?|pls|please|jjb|jessjessbot)[,\s]+)*(?:shut\s*up|stfu|go\s*away|leave)(?:[,\s]+(?:jjb|jessjessbot|pls|please|now|already))*[\s!.?~]*$/iu;
+const DISMISS = String.raw`(?:shut\s*up|stfu|go\s*away|leave)`;
+// "shut up", "jjb shut up go away" and "stfu and leave" all count, but only when that's the whole message.
+const DISMISSAL = new RegExp(
+	String.raw`^(?:(?:ok(?:ay)?|pls|please|jjb|jessjessbot)[,\s]+)*${DISMISS}(?:[,\s]+(?:and\s+)?${DISMISS})*(?:[,\s]+(?:jjb|jessjessbot|pls|please|now|already))*[\s!.?~]*$`,
+	'iu'
+);
 
 const windows = new Map<string, number>();
 

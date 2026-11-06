@@ -33,7 +33,21 @@ test('shut up, go away and leave send her away', () => {
 		expect(isDismissal(text)).toBe(true);
 });
 
+test('several dismissals in a row send her away too', () => {
+	for (const text of ['jjb shut up go away', 'shut up go away', 'shut up and go away', 'stfu leave', 'shut up, go away jjb!', 'go away shut up jjb'])
+		expect(isDismissal(text)).toBe(true);
+});
+
 test('ordinary messages that mention leaving do not', () => {
-	for (const text of ['i have to leave soon', 'leave him alone', 'dont go away', 'shut up and take my money', 'hi'])
+	for (const text of [
+		'i have to leave soon',
+		'leave him alone',
+		'dont go away',
+		'shut up and take my money',
+		'hi',
+		'shut up go away im busy',
+		'shut up and leave him alone',
+		'he means SHUTUP',
+	])
 		expect(isDismissal(text)).toBe(false);
 });
