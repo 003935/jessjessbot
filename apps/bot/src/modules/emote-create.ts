@@ -1,10 +1,13 @@
 import { PermissionsBitField, type Guild, type GuildMember } from 'discord.js';
+import sharp from 'sharp';
 
 // jjb adds server emotes through the add_emote tool; code decides who may and what gets uploaded.
 
 export const EMOTE_NAME_TTL_MS = 5 * 60 * 1000;
 // Discord's upload limit for emojis.
 const MAX_EMOTE_BYTES = 256 * 1024;
+// Discord shows emotes at 128px at most, so bigger images get shrunk to fit.
+const EMOTE_EDGES = [128, 96, 64];
 const IMAGE_TYPES = /^image\/(?:png|jpe?g|gif|webp)$/iu;
 const IMAGE_EXTENSIONS = /\.(?:png|jpe?g|gif|webp)(?:\?|$)/iu;
 
@@ -75,6 +78,27 @@ export function emotePermissionProblem(
 	return null;
 }
 
+/** Shrinks an image that's over Discord's emote limit, keeping animation. Null when it still won't fit; throws when it isn't an image. */
+export async function fitEmote(image: Buffer): Promise<Buffer | null> {
+	if (image.byteLength <= MAX_EMOTE_BYTES) return image;
+	const metadata = await sharp(image, { animated: true }).metadata();
+	const animated = (metadata.pages ?? 1) > 1;
+	for (const edge of EMOTE_EDGES) {
+		const resized = () =>
+			sharp(image, { animated })
+				.rotate()
+				.resize({ width: edge, height: edge, fit: 'inside', withoutEnlargement: true });
+		const outputs = animated
+			? [() => resized().gif().toBuffer(), () => resized().webp({ quality: 80 }).toBuffer()]
+			: [() => resized().png().toBuffer(), () => resized().webp({ quality: 80 }).toBuffer()];
+		for (const output of outputs) {
+			const shrunk = await output();
+			if (shrunk.byteLength <= MAX_EMOTE_BYTES) return shrunk;
+		}
+	}
+	return null;
+}
+
 export type EmoteResult = { reply: string; askAgain?: boolean };
 
 export async function createEmote(
@@ -95,7 +119,14 @@ export async function createEmote(
 	} catch {
 		return { reply: "i couldn't download that image (・_・;)" };
 	}
-	if (image.byteLength > MAX_EMOTE_BYTES) return { reply: 'that image is too big for an emote, it has to be under 256kb' };
+	let fitted: Buffer | null;
+	try {
+		fitted = await fitEmote(image);
+	} catch {
+		return { reply: "i couldn't read that image (・_・;)" };
+	}
+	if (!fitted) return { reply: "that image is too big for an emote even after shrinking it (・_・;)" };
+	image = fitted;
 	try {
 		const emoji = await guild.emojis.create({ attachment: image, name, reason });
 		return { reply: `added ${emoji.toString()} :${name}:` };

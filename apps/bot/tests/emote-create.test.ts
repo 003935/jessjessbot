@@ -1,11 +1,13 @@
 /// <reference types="bun" />
 import { expect, test } from 'bun:test';
 import { PermissionsBitField } from 'discord.js';
+import sharp from 'sharp';
 import {
 	cleanEmoteName,
 	createEmote,
 	emotePermissionProblem,
 	emoteSourceFrom,
+	fitEmote,
 	isEmoteCancellation,
 	isEmoteRequest,
 	nameFromReply,
@@ -96,8 +98,41 @@ test('asks for another name when it is taken', async () => {
 	expect(guild.created).toHaveLength(0);
 });
 
-test('refuses images over 256kb and reports a full server', async () => {
-	expect((await createEmote(guildWith([]), { url: 'x' }, 'big', 'test', image(300 * 1024))).reply).toContain('too big');
+// Random pixels don't compress, so these come out well over 256kb.
+const noise = (width: number, height: number, frames = 1) =>
+	sharp(Buffer.from(Array.from({ length: width * height * frames * 3 }, () => Math.floor(Math.random() * 256))), {
+		raw: { width, height: height * frames, channels: 3, pageHeight: height },
+	} as any);
+const serve = (bytes: Buffer) => (async () => new Response(new Uint8Array(bytes))) as any;
+
+test('shrinks big images to fit an emote', async () => {
+	const big = await noise(600, 600).png().toBuffer();
+	expect(big.byteLength).toBeGreaterThan(256 * 1024);
+	const guild = guildWith([]);
+	const result = await createEmote(guild, { url: 'x' }, 'big', 'test', serve(big));
+	expect(result.reply).toContain('<:big:1>');
+	const uploaded: Buffer = guild.created[0].attachment;
+	expect(uploaded.byteLength).toBeLessThanOrEqual(256 * 1024);
+	const { width, height } = await sharp(uploaded).metadata();
+	expect(Math.max(width!, height!)).toBeLessThanOrEqual(128);
+});
+
+test('keeps big gifs animated when shrinking them', async () => {
+	const gif = await noise(400, 400, 4).gif().toBuffer();
+	expect(gif.byteLength).toBeGreaterThan(256 * 1024);
+	const fitted = await fitEmote(gif);
+	expect(fitted!.byteLength).toBeLessThanOrEqual(256 * 1024);
+	expect((await sharp(fitted!, { animated: true }).metadata()).pages).toBe(4);
+});
+
+test('leaves small images alone and rejects non-images', async () => {
+	const small = await noise(32, 32).png().toBuffer();
+	expect(await fitEmote(small)).toBe(small);
+	const junk = Buffer.alloc(300 * 1024, 7);
+	expect((await createEmote(guildWith([]), { url: 'x' }, 'junk', 'test', serve(junk))).reply).toContain("couldn't read");
+});
+
+test('reports a full server', async () => {
 	const full = guildWith([], async () => {
 		throw Object.assign(new Error('Maximum emojis reached'), { code: 30008 });
 	});
