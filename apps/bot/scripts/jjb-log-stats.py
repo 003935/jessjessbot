@@ -20,6 +20,7 @@ CRUTCH_PHRASES = [
     "oh ur alive", "load bearing", "noted", "what do u want", "dont get used to it",
     "thin ice", "im stealing", "that cat is", "has seen things", "judging", "war crime",
     "crime", "professionally lazy", "snack", "mango", "dumpling", "hand it over", "legally",
+    "new here",
 ]
 
 
