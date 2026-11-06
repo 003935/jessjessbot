@@ -5,14 +5,24 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 	process.env[key] ||= 'test';
 
 mock.module('../src/db', () => ({
-	db: { config: { getConfig: async () => ({ bot_ignored_channels: ['quiet'] }) } },
+	db: {
+		config: {
+			getConfig: async () => ({ bot_ignored_channels: ['quiet'], bot_ignored_users: ['ignored-user'] }),
+		},
+	},
 }));
 
 const { botRepliesEnabledIn, isPublicChannel } = await import('../src/modules/mention');
 
-function message(channel: object, channelId: string) {
-	return { inGuild: () => true, guild: { id: 'guild' }, channelId, channel } as any;
+function message(channel: object, channelId: string, authorId = 'someone') {
+	return { inGuild: () => true, guild: { id: 'guild' }, channelId, channel, author: { id: authorId } } as any;
 }
+
+test('ignored users get no replies, but others in the same channel do', async () => {
+	const channel = { id: 'general', parentId: null, isThread: () => false };
+	expect(await botRepliesEnabledIn(message(channel, 'general', 'ignored-user'))).toBe(false);
+	expect(await botRepliesEnabledIn(message(channel, 'general', 'someone'))).toBe(true);
+});
 
 test('an ignored channel inside a category stays ignored', async () => {
 	const channel = {

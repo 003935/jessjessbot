@@ -11,6 +11,7 @@ const ConfigSchema = v.object({
 	// undefined = leave unchanged, null/'' = clear
 	custom_channel: v.nullish(v.string()),
 	bot_ignored_channels: v.array(v.string()),
+	bot_ignored_users: v.array(v.pipe(v.string(), v.regex(/^\d{17,20}$/, 'Not a Discord user ID'))),
 });
 
 export const editConfig = command(ConfigSchema, async (config) => {
@@ -43,5 +44,6 @@ export const editConfig = command(ConfigSchema, async (config) => {
 	await db.config.setConfig(config.guildId, {
 		custom_channel,
 		bot_ignored_channels: [...new Set(config.bot_ignored_channels)],
+		bot_ignored_users: [...new Set(config.bot_ignored_users)],
 	});
 });
