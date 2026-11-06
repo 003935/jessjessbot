@@ -1658,6 +1658,8 @@ export async function handleMention(message: Message): Promise<void> {
 		referencedMessage?.author.id === message.client.user.id,
 		message.attachments.size > 0
 	);
+	// Only being called again keeps the window open, or a busy channel never lets it close.
+	const summoned = prompt !== null;
 	const inConversation = inConversationWindow(message.channelId);
 	// While she's in a conversation she answers everyone, except replies aimed at someone else.
 	if (prompt === null && inConversation && !referencedMessage)
@@ -1671,7 +1673,7 @@ export async function handleMention(message: Message): Promise<void> {
 				.catch((error) => logger.error('Goodbye reply failed', error));
 			return;
 		}
-	} else extendConversationWindow(message.channelId);
+	} else if (summoned) extendConversationWindow(message.channelId);
 	if (isLootLeaderboardRequest(prompt)) {
 		await lootAnswer(() => lootLeaderboardReply(message.guild));
 		return;
