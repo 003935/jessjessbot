@@ -24,6 +24,12 @@ import {
 import { replyToGroupBlameBait } from '@/modules/mention-bait';
 import { answerWordleSuspicion } from '@/modules/mention-wordle';
 import { botPrompt } from '@/modules/mention-trigger';
+import {
+	closeConversationWindow,
+	extendConversationWindow,
+	inConversationWindow,
+	isDismissal,
+} from '@/modules/conversation-window';
 import { answerCreatorQuestion, isCreatorQuestion } from '@/modules/mention-creator';
 import { handleGift } from '@/modules/mention-gifts';
 import {
@@ -35,6 +41,17 @@ import {
 	lootReply,
 } from '@/modules/poe-loot';
 import { withServerEmoji } from '@/modules/server-emojis';
+import {
+	EMOTE_NAME_TTL_MS,
+	cleanEmoteName,
+	createEmote,
+	emotePermissionProblem,
+	emoteSourceFrom,
+	isEmoteCancellation,
+	isEmoteRequest,
+	nameFromReply,
+	type PendingEmote,
+} from '@/modules/emote-create';
 import { collapseOwnReplies } from '@/modules/mention-history';
 import { detailsForPrompt, isGreeting } from '@/modules/mention-details';
 import { avoidPrompt, lastReplyAt, logReply, recentReplies, staleParts } from '@/modules/reply-log';
@@ -149,6 +166,8 @@ const conversations = new Map<string, ConversationMemory>();
 const RECENT_CHAT_MS = 20 * 60 * 1000;
 const pendingCustoms = new Map<string, { request: CustomRequest; expiresAt: number }>();
 const pendingConfirmations = new Map<string, { request: CustomRequest; expiresAt: number }>();
+// Emotes waiting on a name, keyed like pendingCustoms.
+const pendingEmotes = new Map<string, PendingEmote>();
 const botReplyPolicyCache = new Map<
 	string,
 	{ expiresAt: number; ignored: Set<string> }
@@ -354,6 +373,7 @@ export function keepsResultOnRepeat(result: {
 	reply?: string;
 	memoryChanges?: unknown[];
 	roleAction?: unknown;
+	emoteAction?: unknown;
 	customAction?: unknown;
 	customHelp?: boolean;
 	recapHours?: unknown;
@@ -362,6 +382,7 @@ export function keepsResultOnRepeat(result: {
 	return Boolean(
 		result.memoryChanges?.length ||
 			result.roleAction ||
+			result.emoteAction ||
 			result.customAction ||
 			result.customHelp ||
 			result.recapHours !== undefined ||
@@ -734,6 +755,58 @@ function resolveRoles(
 	return [...new Map(chosen.map((role) => [role.id, role])).values()];
 }
 
+async function emoteProblem(message: Message<true>): Promise<string | null> {
+	const [actor, bot] = await Promise.all([
+		message.guild.members.fetch(message.author.id),
+		message.guild.members.fetchMe(),
+	]);
+	return emotePermissionProblem(actor, bot);
+}
+
+async function startEmote(
+	message: Message<true>,
+	prompt: string,
+	referenced: Message[],
+	requestedName: unknown,
+	pendingKey: string
+): Promise<string> {
+	const problem = await emoteProblem(message);
+	if (problem) return problem;
+	const source = emoteSourceFrom(prompt, message, referenced);
+	if (!source) return 'send the image with ur message or reply to it, then ask again';
+	// Only a name the user actually typed; the model must not make one up.
+	const said = wasSaid(prompt, requestedName);
+	const name = said ? cleanEmoteName(requestedName) : null;
+	if (!name) {
+		pendingEmotes.set(pendingKey, { source, expiresAt: Date.now() + EMOTE_NAME_TTL_MS });
+		return said
+			? 'emote names can only use letters, numbers and _ (2-32 long). what should i name it?'
+			: 'okie, what should i name it?';
+	}
+	const result = await createEmote(message.guild, source, name, `Requested by ${message.author.tag}`);
+	if (result.askAgain) pendingEmotes.set(pendingKey, { source, expiresAt: Date.now() + EMOTE_NAME_TTL_MS });
+	return result.reply;
+}
+
+async function nameEmote(message: Message<true>, prompt: string, pendingKey: string): Promise<string> {
+	const pending = pendingEmotes.get(pendingKey)!;
+	if (isEmoteCancellation(prompt)) {
+		pendingEmotes.delete(pendingKey);
+		return 'okay, no emote';
+	}
+	const problem = await emoteProblem(message);
+	if (problem) {
+		pendingEmotes.delete(pendingKey);
+		return problem;
+	}
+	const name = nameFromReply(prompt);
+	if (!name) return 'emote names can only use letters, numbers and _ (2-32 long). what should i name it? or say cancel';
+	pendingEmotes.delete(pendingKey);
+	const result = await createEmote(message.guild, pending.source, name, `Requested by ${message.author.tag}`);
+	if (result.askAgain) pendingEmotes.set(pendingKey, { ...pending, expiresAt: Date.now() + EMOTE_NAME_TTL_MS });
+	return result.reply;
+}
+
 async function changeRoles(
 	message: Message<true>,
 	action: 'add' | 'remove',
@@ -911,6 +984,7 @@ export async function askDeepSeek(
 	imageDescription?: string;
 	webSearched?: boolean;
 	roleAction?: RoleAction;
+	emoteAction?: { name?: unknown };
 	customAction?: CustomRequest;
 	customHelp?: boolean;
 	recapHours?: unknown;
@@ -1051,6 +1125,24 @@ export async function askDeepSeek(
 		{
 			type: 'function',
 			function: {
+				name: 'add_emote',
+				description:
+					'Add a new custom emote to this server from the image or emote in the message (or the message it replies to). Only call when the user asks to add or make an emote or emoji. Code checks permissions and asks for a name if none was given.',
+				parameters: {
+					type: 'object',
+					properties: {
+						name: {
+							type: 'string',
+							description:
+								'The emote name exactly as the user wrote it in the current message. Omit if they did not name it; never invent one.',
+						},
+					},
+				},
+			},
+		},
+		{
+			type: 'function',
+			function: {
 				name: 'ask_custom_details',
 				description:
 					'The user wants to create a custom game, game night, or event, but has not provided both the game and a usable time in this message. Ask for the missing details.',
@@ -1137,6 +1229,7 @@ export async function askDeepSeek(
 	].filter(
 		(tool) =>
 			(isExplicitRoleAction(prompt) || tool.function.name !== 'change_roles') &&
+			(isEmoteRequest(prompt) || tool.function.name !== 'add_emote') &&
 			(isRecapRequest(prompt) || tool.function.name !== 'summarize_channel') &&
 			(awaitingCustomDetails ||
 				isEventSetupRequest(prompt) ||
@@ -1361,6 +1454,14 @@ export async function askDeepSeek(
 			};
 		}
 	}
+	const emoteTool = output?.tool_calls?.find((call) => call.function?.name === 'add_emote');
+	if (emoteTool && isEmoteRequest(prompt)) {
+		try {
+			return { emoteAction: JSON.parse(emoteTool.function?.arguments || '{}') as { name?: unknown } };
+		} catch {
+			return { emoteAction: {} };
+		}
+	}
 	const tool = output?.tool_calls?.find((call) => call.function?.name === 'change_roles');
 	if (tool) {
 		try {
@@ -1524,14 +1625,29 @@ export async function handleMention(message: Message): Promise<void> {
 	const referencedMessage = message.reference?.messageId
 		? await message.fetchReference().catch(() => null)
 		: null;
-	const prompt = botPrompt(
+	let prompt = botPrompt(
 		message.content,
 		message.client.user.id,
 		message.mentions.users.has(message.client.user.id),
 		referencedMessage?.author.id === message.client.user.id,
 		message.attachments.size > 0
 	);
+	// Only being called again keeps the window open, or a busy channel never lets it close.
+	const summoned = prompt !== null;
+	const inConversation = inConversationWindow(message.channelId);
+	// While she's in a conversation she answers everyone, except replies aimed at someone else.
+	if (prompt === null && inConversation && !referencedMessage)
+		prompt = message.content.trim() || null;
 	if (prompt === null) return;
+	if (isDismissal(prompt)) {
+		if (inConversation) {
+			closeConversationWindow(message.channelId);
+			await message
+				.reply({ content: 'ok bye (╥﹏╥)', allowedMentions: { repliedUser: false } })
+				.catch((error) => logger.error('Goodbye reply failed', error));
+			return;
+		}
+	} else if (summoned) extendConversationWindow(message.channelId);
 	if (isLootLeaderboardRequest(prompt)) {
 		await lootAnswer(() => lootLeaderboardReply(message.guild));
 		return;
@@ -1549,6 +1665,7 @@ export async function handleMention(message: Message): Promise<void> {
 	const pendingCustom = pendingCustoms.get(pendingKey);
 	const awaitingCustomDetails = (pendingCustom?.expiresAt ?? 0) > Date.now();
 	if (!awaitingCustomDetails) pendingCustoms.delete(pendingKey);
+	if ((pendingEmotes.get(pendingKey)?.expiresAt ?? Infinity) <= Date.now()) pendingEmotes.delete(pendingKey);
 	const pendingConfirmation = pendingConfirmations.get(pendingKey);
 	const confirmationExpired =
 		!!pendingConfirmation && pendingConfirmation.expiresAt <= Date.now();
@@ -1572,7 +1689,9 @@ export async function handleMention(message: Message): Promise<void> {
 			: await handleMemberMemory(message.guildId, message.author.id, prompt);
 		const giftAnswer =
 			baitReply || memoryAnswer ? null : await handleGift(message.guildId, message.author.id, prompt);
-		if (isCreatorQuestion(prompt)) {
+		if (pendingEmotes.has(pendingKey)) {
+			content = await nameEmote(message as Message<true>, prompt, pendingKey);
+		} else if (isCreatorQuestion(prompt)) {
 			content = answerCreatorQuestion();
 		} else if (baitReply) {
 			content = baitReply;
@@ -1806,7 +1925,15 @@ export async function handleMention(message: Message): Promise<void> {
 
 				const action = result.roleAction;
 				const custom = result.customAction;
-				if (result.recapHours !== undefined) {
+				if (result.emoteAction) {
+					content = await startEmote(
+						message as Message<true>,
+						prompt,
+						referencedMessages,
+						result.emoteAction.name,
+						pendingKey
+					);
+				} else if (result.recapHours !== undefined) {
 					const hours = result.recapHours;
 					content =
 						typeof hours === 'number' && Number.isFinite(hours)
