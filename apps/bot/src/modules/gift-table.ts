@@ -3,14 +3,6 @@
 
 export type GiftTaste = 'loved' | 'liked' | 'neutral' | 'disliked' | 'hated';
 
-export const GIFT_POINTS: Record<GiftTaste, number> = {
-	loved: 8,
-	liked: 4,
-	neutral: 1,
-	disliked: -3,
-	hated: -6,
-};
-
 // Checked in order, so hated and loved win over the broader lists.
 const TASTES: Array<[GiftTaste, RegExp]> = [
 	[
@@ -30,25 +22,6 @@ const TASTES: Array<[GiftTaste, RegExp]> = [
 		/\b(?:cats?|strawberr(?:y|ies)|peach(?:es)?|lychees?|pocky|cookies?|cake|ice ?cream|chocolates?|flowers?|roses?|plush(?:ie|ies)?|stuffed animals?|dumplings?|bao|hot ?pot|noodles|ramen|matcha|divines?|divine orbs?|rp|riot points|skins?|snacks?|candy|sweets|red ?bulls?|monsters?|energy drinks?|coffee|espresso|caffeine)\b/iu,
 	],
 ];
-
-// Items whose points differ from their taste's default.
-const POINT_OVERRIDES: Array<[RegExp, number]> = [
-	// She likes caffeine, but it's no mango.
-	[/\b(?:red ?bulls?|monsters?|energy drinks?|coffee|espresso|caffeine)\b/iu, 2],
-];
-
-export function giftPoints(item: string, taste: GiftTaste): number {
-	if (taste === 'hated' || taste === 'loved') return GIFT_POINTS[taste];
-	for (const [pattern, points] of POINT_OVERRIDES) if (pattern.test(item)) return points;
-	return GIFT_POINTS[taste];
-}
-
-// Gift points are on the taste scale above (+8 = loved). The meter moves in tenths. One gift a
-// day is allowed, so a loved gift is worth about a good day of nice messages (+6), and a
-// hated one stings like a couple of mean ones (-4.5): tenths = round(points x 7.5).
-export function giftMeterTenths(points: number): number {
-	return Math.round(points * 7.5);
-}
 
 export function giftTaste(item: string): GiftTaste {
 	for (const [taste, pattern] of TASTES) if (pattern.test(item)) return taste;
@@ -109,17 +82,8 @@ const REACTIONS: Record<GiftTaste, Array<(item: string) => string>> = {
 	],
 };
 
-// For people with a behaviour set on the dashboard: she is too scared to be rude, so bad gifts get nervous politeness.
-const POLITE_REACTIONS: Record<GiftTaste, Array<(item: string) => string>> = {
-	loved: [(item) => `${item}!! thank u thank u, ill treasure it forever`],
-	liked: [(item) => `thank u for ${item}, i like it a lot`],
-	neutral: [(item) => `thank u for ${item}!`],
-	disliked: [(item) => `oh! ${item}. thank u. ill... finish it later`],
-	hated: [(item) => `...thank u for ${item}. its ok. its really ok. (it is not ok)`],
-};
-
-export function giftReaction(item: string, taste: GiftTaste, polite = false, roll = Math.random()): string {
-	const lines = (polite ? POLITE_REACTIONS : REACTIONS)[taste];
+export function giftReaction(item: string, taste: GiftTaste, roll = Math.random()): string {
+	const lines = REACTIONS[taste];
 	return lines[Math.floor(roll * lines.length) % lines.length]!(item);
 }
 

@@ -68,3 +68,12 @@ export function formatSearchResults(query: string, search: WebSearchResponse): s
 	);
 	return lines.join('\n\n');
 }
+
+/** Reply text for voice: drops source links and bare URLs so they are never read out. */
+export function speakableText(text: string): string {
+	return text
+		.replace(/\[link\]\(<[^>]*>\)/gu, '')
+		.replace(/<?https?:\/\/\S+?>?(?=\s|$)/gu, '')
+		.replace(/[ \t]{2,}/gu, ' ')
+		.trim();
+}

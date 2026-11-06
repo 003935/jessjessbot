@@ -14,7 +14,6 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import Hash from '@lucide/svelte/icons/hash';
 	import BarChart3 from '@lucide/svelte/icons/bar-chart-3';
-	import Wrench from '@lucide/svelte/icons/wrench';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { getGuildSummary, getWordleStats } from '$lib/wordle.remote';
@@ -37,41 +36,25 @@
 	import Spinner from '$lib/components/ui/spinner/spinner.svelte';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import ServerConfig from '$lib/components/ServerConfig.svelte';
-	import JjbPersonality from '$lib/components/JjbPersonality.svelte';
-	import JjbCannedLines from '$lib/components/JjbCannedLines.svelte';
-	import JjbMemberBehaviour from '$lib/components/JjbMemberBehaviour.svelte';
-	import { forgetUserNote } from '$lib/personality.remote';
-	import XIcon from '@lucide/svelte/icons/x';
-	import { SvelteSet } from 'svelte/reactivity';
-	import { toast } from 'svelte-sonner';
-	import { Input } from '$lib/components/ui/input';
+	import JjbServer from '$lib/components/JjbServer.svelte';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
+	import { page } from '$app/state';
+	import { pickTab, type ServerTab } from '$lib/server-tabs';
 
 	let { data }: PageProps = $props();
 
 	let dialog: GameRoleDialog | undefined = $state();
-	// Writable derived: resets when navigating to another server
-	let selectedSavedUserId = $derived(data.savedUsers[0]?.id ?? '');
-	let savedUserView = $state<'info' | 'loot'>('info');
-	let savedUserSearch = $state('');
-	const filteredSavedUsers = $derived.by(() => {
-		const query = savedUserSearch.trim().toLowerCase();
-		return query
-			? data.savedUsers.filter((user) => user.name.toLowerCase().includes(query))
-			: data.savedUsers;
-	});
-	// "userId:kind" of notes deleted since the page loaded.
-	let forgottenNotes = new SvelteSet<string>();
+	const tab = $derived(pickTab(page.url.searchParams.get('tab'), data.isAdmin));
 
-	const visibleNotes = (user: (typeof data.savedUsers)[number]) =>
-		user.notes.filter((note) => !forgottenNotes.has(`${user.id}:${note.kind}`));
-
-	async function forgetNote(userId: string, kind: string) {
-		try {
-			await forgetUserNote({ guildId: data.guild.id, userId, kind });
-			forgottenNotes.add(`${userId}:${kind}`);
-		} catch {
-			toast.error('Could not delete that note');
-		}
+	function openTab(next: string) {
+		// Clicking the active tab again deselects it; keep showing it instead of nothing.
+		if (!next || next === tab) return;
+		const query = next === 'overview' ? '' : `?tab=${next as ServerTab}`;
+		goto(resolve(`/server/${data.guild.id}${query}`), {
+			replaceState: true,
+			noScroll: true,
+			keepFocus: true,
+		});
 	}
 
 	const grQuery = $derived(getGameRoles(data.guild.id));
@@ -148,366 +131,218 @@
 		</div>
 	</div>
 
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>Upcoming customs</Card.Title>
-			<Card.Description>Open an event to see its signups.</Card.Description>
-		</Card.Header>
-		<Card.Content class="flex flex-col gap-3">
-			{#if data.upcomingCustoms.length === 0}
-				<p class="text-muted-foreground">No customs scheduled yet.</p>
-			{:else}
-				{#each data.upcomingCustoms as custom (custom.id)}
-					<a
-						href={resolve(`/server/${data.guild.id}/customs/${custom.id}`)}
-						class="flex items-center justify-between gap-4 rounded-lg border p-3 hover:bg-accent"
-					>
-						<span class="font-medium">
-							{custom.name || custom.gameName} · {custom.joinedCount} joined · {custom.maybeCount} maybe
-						</span>
-						<time datetime={custom.scheduledTime} class="text-sm text-muted-foreground">
-							{new Date(custom.scheduledTime).toLocaleString()}
-						</time>
-					</a>
-				{/each}
-			{/if}
-		</Card.Content>
-	</Card.Root>
+	{#if data.isAdmin}
+		<ToggleGroup.Root
+			type="single"
+			variant="outline"
+			value={tab}
+			onValueChange={openTab}
+			class="self-start"
+			aria-label="Server page section"
+		>
+			<ToggleGroup.Item value="overview">Overview</ToggleGroup.Item>
+			<ToggleGroup.Item value="settings">Settings</ToggleGroup.Item>
+			<ToggleGroup.Item value="jjb">jjb</ToggleGroup.Item>
+		</ToggleGroup.Root>
+	{/if}
 
-	<div class="grid grid-cols-2 gap-4">
-		<div class="col-span-2 flex items-center gap-3">
-			<div>
-				<BarChart3 size={22} />
-			</div>
-			<h2 class="text-2xl font-bold">Wordle Statistics</h2>
-		</div>
-
-		<div class="col-span-2">
-			<div class="grid grid-cols-2 gap-4 md:grid-cols-5">
-				<StatCard icon={{ component: UsersIcon }} title="Players" query={gsquery}>
-					{#snippet value({ totalPlayers })}
-						{totalPlayers}
-					{/snippet}
-				</StatCard>
-
-				<StatCard icon={{ component: Gamepad2 }} title="Games" query={gsquery}>
-					{#snippet value({ totalGames })}
-						{totalGames}
-					{/snippet}
-				</StatCard>
-
-				<StatCard icon={{ component: Trophy }} title="Wins" query={gsquery}>
-					{#snippet value({ totalWins })}
-						{totalWins}
-					{/snippet}
-				</StatCard>
-
-				<StatCard icon={{ component: Target }} title="Avg Score" query={gsquery}>
-					{#snippet value({ avgScore })}
-						{avgScore !== null ? avgScore.toFixed(1) : 'N/A'}
-					{/snippet}
-				</StatCard>
-
-				<StatCard icon={{ component: Trophy }} title="Avg Win" query={gsquery}>
-					{#snippet value({ avgWinningScore })}
-						{avgWinningScore !== null ? avgWinningScore.toFixed(1) : 'N/A'}
-					{/snippet}
-				</StatCard>
-			</div>
-		</div>
-
+	<!-- Tabs are hidden, not unmounted, so the jjb and settings cards keep what was saved or typed. -->
+	<div class={tab === 'overview' ? 'contents' : 'hidden'}>
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Score Distribution</Card.Title>
-				<Card.Description>
-					{#if wsQuery.loading}
-						Loading...
-					{:else if wsQuery.ready}
-						{#if wsQuery.current.total > 0}
-							{wsQuery.current.total} total scores
-						{:else}
-							No data
-						{/if}
-					{/if}
-				</Card.Description>
+				<Card.Title>Upcoming customs</Card.Title>
+				<Card.Description>Open an event to see its signups.</Card.Description>
 			</Card.Header>
-			<Card.Content class="flex h-64">
-				{#if wsQuery.error}
-					<Empty.Root>
-						<Empty.Header>
-							<Empty.Title>Error</Empty.Title>
-							<Empty.Description>Failed to load wordle statistics</Empty.Description>
-						</Empty.Header>
-					</Empty.Root>
-				{:else if wsQuery.loading}
-					<div class="flex animate-pulse items-center justify-center py-10">
-						<div class="bg-base-300 h-64 w-full rounded"></div>
-					</div>
-				{:else if wsQuery.ready}
-					{#if wsQuery.current.total > 0}
-						<WordleScoreDist
-							class="h-full w-full"
-							data={wsQuery.current.dist.map((d) => ({
-								score: d.score,
-								value: d.count,
-							}))}
-						/>
-					{:else}
-						<Empty.Root>
-							<Empty.Header>
-								<Empty.Title>No data</Empty.Title>
-								<Empty.Description>No wordle results recorded yet</Empty.Description>
-							</Empty.Header>
-						</Empty.Root>
-					{/if}
+			<Card.Content class="flex flex-col gap-3">
+				{#if data.upcomingCustoms.length === 0}
+					<p class="text-muted-foreground">No customs scheduled yet.</p>
+				{:else}
+					{#each data.upcomingCustoms as custom (custom.id)}
+						<a
+							href={resolve(`/server/${data.guild.id}/customs/${custom.id}`)}
+							class="flex items-center justify-between gap-4 rounded-lg border p-3 hover:bg-accent"
+						>
+							<span class="font-medium">
+								{custom.name || custom.gameName} · {custom.joinedCount} joined · {custom.maybeCount} maybe
+							</span>
+							<time datetime={custom.scheduledTime} class="text-sm text-muted-foreground">
+								{new Date(custom.scheduledTime).toLocaleString()}
+							</time>
+						</a>
+					{/each}
 				{/if}
 			</Card.Content>
 		</Card.Root>
-		<WordleLeaderboard serverId={data.guild.id} />
-	</div>
 
-	{#if data.isAdmin}
 		<div class="grid grid-cols-2 gap-4">
 			<div class="col-span-2 flex items-center gap-3">
 				<div>
-					<Wrench size={22} />
+					<BarChart3 size={22} />
 				</div>
-				<h2 class="text-2xl font-bold">Management</h2>
+				<h2 class="text-2xl font-bold">Wordle Statistics</h2>
 			</div>
 
-			<ServerConfig
-				channels={data.channels ?? []}
-				config={{
-					custom_channel: data.config?.custom_channel ?? undefined,
-					bot_ignored_channels: data.config?.bot_ignored_channels ?? [],
-				}}
-				guildId={data.guild.id}
-			/>
+			<div class="col-span-2">
+				<div class="grid grid-cols-2 gap-4 md:grid-cols-5">
+					<StatCard icon={{ component: UsersIcon }} title="Players" query={gsquery}>
+						{#snippet value({ totalPlayers })}
+							{totalPlayers}
+						{/snippet}
+					</StatCard>
+
+					<StatCard icon={{ component: Gamepad2 }} title="Games" query={gsquery}>
+						{#snippet value({ totalGames })}
+							{totalGames}
+						{/snippet}
+					</StatCard>
+
+					<StatCard icon={{ component: Trophy }} title="Wins" query={gsquery}>
+						{#snippet value({ totalWins })}
+							{totalWins}
+						{/snippet}
+					</StatCard>
+
+					<StatCard icon={{ component: Target }} title="Avg Score" query={gsquery}>
+						{#snippet value({ avgScore })}
+							{avgScore !== null ? avgScore.toFixed(1) : 'N/A'}
+						{/snippet}
+					</StatCard>
+
+					<StatCard icon={{ component: Trophy }} title="Avg Win" query={gsquery}>
+						{#snippet value({ avgWinningScore })}
+							{avgWinningScore !== null ? avgWinningScore.toFixed(1) : 'N/A'}
+						{/snippet}
+					</StatCard>
+				</div>
+			</div>
 
 			<Card.Root>
 				<Card.Header>
-					<Card.Title>Game Roles</Card.Title>
+					<Card.Title>Score Distribution</Card.Title>
 					<Card.Description>
-						{#if grQuery.loading}
+						{#if wsQuery.loading}
 							Loading...
-						{:else if grQuery.ready}
-							{grQuery.current.length} configured
+						{:else if wsQuery.ready}
+							{#if wsQuery.current.total > 0}
+								{wsQuery.current.total} total scores
+							{:else}
+								No data
+							{/if}
 						{/if}
 					</Card.Description>
-					<Card.Action>
-						<Button onclick={() => dialog?.open()} disabled={!grQuery.ready}>
-							<Plus />
-							Add Role
-						</Button>
-					</Card.Action>
 				</Card.Header>
-				<Card.Content class="flex h-64 flex-col gap-2 overflow-y-auto">
-					{#if grQuery.error}
+				<Card.Content class="flex h-64">
+					{#if wsQuery.error}
 						<Empty.Root>
 							<Empty.Header>
 								<Empty.Title>Error</Empty.Title>
-								<Empty.Description>Failed to load game roles</Empty.Description>
+								<Empty.Description>Failed to load wordle statistics</Empty.Description>
 							</Empty.Header>
 						</Empty.Root>
-					{:else if grQuery.loading}
-						{#each Array(6) as _, i (i)}
-							{@render gr({ gameName: '', roleId: '' }, true)}
-						{/each}
-					{:else if grQuery.ready}
-						{#if grQuery.current.length > 0}
-							{#each grQuery.current as game_role (game_role.roleId + game_role.gameName)}
-								{@render gr(game_role)}
-							{/each}
+					{:else if wsQuery.loading}
+						<div class="flex animate-pulse items-center justify-center py-10">
+							<div class="bg-base-300 h-64 w-full rounded"></div>
+						</div>
+					{:else if wsQuery.ready}
+						{#if wsQuery.current.total > 0}
+							<WordleScoreDist
+								class="h-full w-full"
+								data={wsQuery.current.dist.map((d) => ({
+									score: d.score,
+									value: d.count,
+								}))}
+							/>
 						{:else}
 							<Empty.Root>
 								<Empty.Header>
 									<Empty.Title>No data</Empty.Title>
-									<Empty.Description>No game roles configured yet</Empty.Description>
+									<Empty.Description>No wordle results recorded yet</Empty.Description>
 								</Empty.Header>
 							</Empty.Root>
 						{/if}
 					{/if}
 				</Card.Content>
 			</Card.Root>
+			<WordleLeaderboard serverId={data.guild.id} />
+		</div>
+	</div>
 
-			<WordleImport serverId={data.guild.id} wordleImport={data.wordleImport} />
-			<HallOfFameAdmin
-				serverId={data.guild.id}
-				channels={data.channels ?? []}
-				selectedChannelIds={data.hallChannelIds}
-				hallImport={data.hallImport}
-			/>
-
-			{#if data.personality}
-				<JjbPersonality
+	{#if data.isAdmin}
+		<div class={tab === 'settings' ? 'contents' : 'hidden'}>
+			<div class="grid grid-cols-2 gap-4">
+				<ServerConfig
+					channels={data.channels ?? []}
+					config={{
+						custom_channel: data.config?.custom_channel ?? undefined,
+						bot_ignored_channels: data.config?.bot_ignored_channels ?? [],
+					}}
 					guildId={data.guild.id}
-					personality={data.personality}
-					opinions={data.opinions}
 				/>
-			{/if}
-			{#if data.cannedLines}
-				<JjbCannedLines guildId={data.guild.id} saved={data.cannedLines} />
-			{/if}
-			<JjbMemberBehaviour
+
+				<Card.Root>
+					<Card.Header>
+						<Card.Title>Game Roles</Card.Title>
+						<Card.Description>
+							{#if grQuery.loading}
+								Loading...
+							{:else if grQuery.ready}
+								{grQuery.current.length} configured
+							{/if}
+						</Card.Description>
+						<Card.Action>
+							<Button onclick={() => dialog?.open()} disabled={!grQuery.ready}>
+								<Plus />
+								Add Role
+							</Button>
+						</Card.Action>
+					</Card.Header>
+					<Card.Content class="flex h-64 flex-col gap-2 overflow-y-auto">
+						{#if grQuery.error}
+							<Empty.Root>
+								<Empty.Header>
+									<Empty.Title>Error</Empty.Title>
+									<Empty.Description>Failed to load game roles</Empty.Description>
+								</Empty.Header>
+							</Empty.Root>
+						{:else if grQuery.loading}
+							{#each Array(6) as _, i (i)}
+								{@render gr({ gameName: '', roleId: '' }, true)}
+							{/each}
+						{:else if grQuery.ready}
+							{#if grQuery.current.length > 0}
+								{#each grQuery.current as game_role (game_role.roleId + game_role.gameName)}
+									{@render gr(game_role)}
+								{/each}
+							{:else}
+								<Empty.Root>
+									<Empty.Header>
+										<Empty.Title>No data</Empty.Title>
+										<Empty.Description>No game roles configured yet</Empty.Description>
+									</Empty.Header>
+								</Empty.Root>
+							{/if}
+						{/if}
+					</Card.Content>
+				</Card.Root>
+
+				<WordleImport serverId={data.guild.id} wordleImport={data.wordleImport} />
+				<HallOfFameAdmin
+					serverId={data.guild.id}
+					channels={data.channels ?? []}
+					selectedChannelIds={data.hallChannelIds}
+					hallImport={data.hallImport}
+				/>
+			</div>
+		</div>
+		<div class={tab === 'jjb' ? 'contents' : 'hidden'}>
+			<JjbServer
 				guildId={data.guild.id}
-				members={data.savedUsers.map((saved) => ({ id: saved.id, name: saved.name }))}
-				behaviours={data.behaviours}
+				lore={data.lore}
+				savedUsers={data.savedUsers}
+				opinions={data.opinions}
+				canResetLoot={data.canResetLoot}
 			/>
 		</div>
-
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>Saved user data</Card.Title>
-				<Card.Description>
-					Browse information jjb has saved for users in this server.
-				</Card.Description>
-				{#if data.canResetLoot}
-					<Card.Action>
-						<form
-							method="POST"
-							action="?/resetLoot"
-							onsubmit={(event) => {
-								if (!confirm('Reset every player’s loot inventory to zero?'))
-									event.preventDefault();
-							}}
-						>
-							<Button type="submit" variant="destructive">Reset all loot</Button>
-						</form>
-					</Card.Action>
-				{/if}
-			</Card.Header>
-			<Card.Content class="grid gap-5 md:grid-cols-[minmax(14rem,0.8fr)_2fr]">
-				<div class="flex max-h-[30rem] flex-col gap-2 overflow-y-auto">
-					{#if data.savedUsers.length > 0}
-						<Input
-							type="search"
-							placeholder="Search users"
-							aria-label="Search users"
-							bind:value={savedUserSearch}
-							class="sticky top-0 z-10 bg-background"
-						/>
-					{/if}
-					{#if data.savedUsers.length === 0}
-						<p class="text-sm text-muted-foreground">No saved user data found.</p>
-					{:else if filteredSavedUsers.length === 0}
-						<p class="text-sm text-muted-foreground">No users match “{savedUserSearch.trim()}”.</p>
-					{:else}
-						{#each filteredSavedUsers as savedUser (savedUser.id)}
-							<button
-								class={`flex items-center gap-3 rounded-lg border p-2 text-left hover:bg-accent ${selectedSavedUserId === savedUser.id ? 'bg-accent' : ''}`}
-								onclick={() => {
-									selectedSavedUserId = savedUser.id;
-									savedUserView = 'info';
-								}}
-							>
-								{#if savedUser.avatar}
-									<img src={savedUser.avatar} alt="" class="size-9 rounded-full" />
-								{:else}
-									<span class="flex size-9 items-center justify-center rounded-full bg-muted">
-										<UsersIcon size={16} />
-									</span>
-								{/if}
-								<span class="min-w-0 truncate font-medium">{savedUser.name}</span>
-							</button>
-						{/each}
-					{/if}
-				</div>
-				{@const selectedSavedUser =
-					data.savedUsers.find((user) => user.id === selectedSavedUserId) ?? data.savedUsers[0]}
-				{#if selectedSavedUser}
-					<div class="min-w-0">
-						<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-							<h3 class="text-lg font-semibold">{selectedSavedUser.name}</h3>
-							<div class="flex gap-2">
-								<Button
-									variant={savedUserView === 'info' ? 'default' : 'outline'}
-									onclick={() => (savedUserView = 'info')}
-								>
-									User info
-								</Button>
-								<Button
-									variant={savedUserView === 'loot' ? 'default' : 'outline'}
-									onclick={() => (savedUserView = 'loot')}
-								>
-									Loot
-								</Button>
-							</div>
-						</div>
-						{#if savedUserView === 'loot'}
-							<div class="rounded-lg border p-4">
-								<h4 class="mb-3 font-medium">PoE 2 loot inventory</h4>
-								{#if selectedSavedUser.loot.length}
-									<ul class="flex flex-col gap-2">
-										{#each selectedSavedUser.loot as item (item.itemName)}
-											<li class="flex justify-between gap-3">
-												<span>{item.itemName}</span>
-												<span class="font-mono">× {item.quantity}</span>
-											</li>
-										{/each}
-									</ul>
-								{:else}
-									<p class="text-sm text-muted-foreground">No loot saved.</p>
-								{/if}
-							</div>
-						{:else}
-							<div class="grid gap-3 sm:grid-cols-2">
-								<div class="rounded-lg border p-4 sm:col-span-2">
-									<h4 class="mb-2 font-medium">JJB profile</h4>
-									<p class="text-sm">Nickname: {selectedSavedUser.nickname ?? 'None saved'}</p>
-									<p class="text-sm">
-										Relationship: {selectedSavedUser.relationship
-											? `${selectedSavedUser.relationship.score.toFixed(1)} / 100 · ${selectedSavedUser.relationship.interactionCount} interactions`
-											: 'No relationship data'}
-									</p>
-								</div>
-								<div class="rounded-lg border p-4">
-									<h4 class="mb-2 font-medium">Notes</h4>
-									{#if visibleNotes(selectedSavedUser).length === 0}
-										<p class="text-sm text-muted-foreground">Nothing saved about them yet.</p>
-									{:else}
-										<div class="flex max-h-80 flex-col gap-2 overflow-y-auto">
-											{#each visibleNotes(selectedSavedUser) as note (note.kind)}
-												<div class="flex items-start justify-between gap-3 rounded-lg border p-2">
-													<p class="min-w-0 text-sm">{note.value}</p>
-													<Button
-														variant="ghost"
-														size="icon"
-														aria-label={`Delete note: ${note.value}`}
-														onclick={() => forgetNote(selectedSavedUser.id, note.kind)}
-													>
-														<XIcon />
-													</Button>
-												</div>
-											{/each}
-										</div>
-									{/if}
-								</div>
-								<div class="rounded-lg border p-4">
-									<h4 class="mb-2 font-medium">Other saved data</h4>
-									<p class="text-sm">Wordle games: {selectedSavedUser.wordleGames}</p>
-									<p class="text-sm">Custom signups: {selectedSavedUser.customSignups}</p>
-									{#if selectedSavedUser.pets.length}
-										<p class="text-sm">Pets: {selectedSavedUser.pets.join(', ')}</p>
-									{/if}
-									{#if selectedSavedUser.leagueAccounts.length}
-										<p class="text-sm">
-											League accounts: {selectedSavedUser.leagueAccounts
-												.map(
-													(account) =>
-														`${account.gameName ?? 'Unnamed'}#${account.tagline ?? '—'} (${account.region})`
-												)
-												.join(', ')}
-										</p>
-									{/if}
-								</div>
-							</div>
-						{/if}
-					</div>
-				{:else}
-					<p class="text-sm text-muted-foreground">Select a user to view their saved data.</p>
-				{/if}
-			</Card.Content>
-		</Card.Root>
 	{/if}
 </div>
 
