@@ -4,10 +4,12 @@ import { botPrompt } from '@/modules/mention-trigger';
 const GG_FKIN_EZ = /\bgg\s+fkin\s+ez\b/iu;
 const MEOWMEOW = /^meow\s*meow[!~.\s]*$/iu;
 const HEY_DONT_SAY_THAT = /^\s*hey\s+don'?t\s+say\s+that[!?.\s]*$/iu;
+const ELEPHANT = /^\s*(?:🐘️?\s*)+$/u;
 const REPLY_COOLDOWN_MS = 60_000;
 const CHAIN_TTL_MS = 2 * 60_000;
 const EZ_REPLIES = ['fuken ez', 'friggin ez', 'fuggen ez'];
 const lastReplyByChannel = new Map<string, number>();
+const lastElephantByChannel = new Map<string, number>();
 const botGgByChannel = new Map<string, { expiresAt: number }>();
 let lastEzReply = '';
 
@@ -15,6 +17,9 @@ export async function handleMemeReply(message: Message<true>): Promise<boolean> 
 	const now = Date.now();
 	for (const [channelId, lastReply] of lastReplyByChannel) {
 		if (now - lastReply >= REPLY_COOLDOWN_MS) lastReplyByChannel.delete(channelId);
+	}
+	for (const [channelId, lastReply] of lastElephantByChannel) {
+		if (now - lastReply >= REPLY_COOLDOWN_MS) lastElephantByChannel.delete(channelId);
 	}
 	for (const [channelId, chain] of botGgByChannel) {
 		if (chain.expiresAt <= now) botGgByChannel.delete(channelId);
@@ -55,6 +60,24 @@ export async function handleMemeReply(message: Message<true>): Promise<boolean> 
 		return true;
 	}
 	botGgByChannel.delete(message.channelId);
+
+	if (prompt !== null && ELEPHANT.test(prompt)) {
+		await message.reply({ content: 'address me', allowedMentions: { repliedUser: false } });
+		return true;
+	}
+	if (ELEPHANT.test(message.content)) {
+		if (now - (lastElephantByChannel.get(message.channelId) ?? 0) < REPLY_COOLDOWN_MS)
+			return true;
+		lastElephantByChannel.set(message.channelId, now);
+		try {
+			await message.reply({ content: 'address me', allowedMentions: { repliedUser: false } });
+		} catch (error) {
+			lastElephantByChannel.delete(message.channelId);
+			throw error;
+		}
+		return true;
+	}
+
 	if (!GG_FKIN_EZ.test(message.content)) return false;
 
 	if (now - (lastReplyByChannel.get(message.channelId) ?? 0) < REPLY_COOLDOWN_MS)
