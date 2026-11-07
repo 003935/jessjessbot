@@ -480,6 +480,13 @@ function soundsUpset(prompt: string): boolean {
 
 export type SpeakerBehaviour = { behaviour: string; when_upset: string | null };
 
+/** Whether the speaker opened with a hello, so a hello back fits. "gn" or a question does not count. */
+export function opensWithGreeting(prompt: string): boolean {
+	return /^(?:hi+|he+y+|hello+|hola|yo+|sup|wass?up|what'?s up|gm|good (?:morning|afternoon|evening)|i'?m back)\b/iu.test(
+		prompt.trim().replace(/^(?:jjb|jessjessbot)\b[,!. ]*/iu, '')
+	);
+}
+
 /** How to address the speaker: their dashboard behaviour if admins set one, otherwise by name or nickname. */
 export function addressPrompt(
 	displayName: string,
@@ -492,10 +499,32 @@ export function addressPrompt(
 			behaviour.when_upset && soundsUpset(prompt) ? ` ${behaviour.when_upset}` : ''
 		}`;
 	const name = displayName.replace(/\s+/gu, ' ').slice(0, 80);
-	const address = nickname
-		? `The current speaker's display name is "${name}" and they asked to be called "${nickname}". Greet them as "${nickname}" (e.g. "hiii ${nickname}").`
-		: `The current speaker's display name is "${name}". Greet them by that display name exactly as written; do not shorten it or invent a nickname.`;
-	return `${address} Outside greetings, use their name only now and then.`;
+	const callThem = nickname ? `"${nickname}"` : 'that display name exactly as written';
+	const identity = nickname
+		? `The current speaker's display name is "${name}" and they asked to be called "${nickname}".`
+		: `The current speaker's display name is "${name}". Do not shorten it or invent a nickname.`;
+	return opensWithGreeting(prompt)
+		? `${identity} They said hi, so greet them back as ${callThem}${nickname ? ` (e.g. "hiii ${nickname}")` : ''}.`
+		: `${identity} They did not greet you, so do not open with a hello or their name; just reply. When you do use their name (only now and then), call them ${callThem}.`;
+}
+
+function escapeRegExp(text: string): string {
+	return text.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+// The model still opens with "hiii <name>," out of habit; cut that when nobody said hi.
+export function dropUnaskedGreeting(reply: string, prompt: string, names: (string | null | undefined)[]): string {
+	if (opensWithGreeting(prompt)) return reply;
+	const nameAlternatives = names
+		.map((name) => name?.trim().replace(/^@/u, ''))
+		.filter((name): name is string => !!name)
+		.map(escapeRegExp)
+		.join('|');
+	const greeting = new RegExp(
+		`^\\s*(?:hi+|he+y+|hello+|hewwo+)(?:\\s+(?:${nameAlternatives || '(?!)'})[,!.~]*|[,!.~]+)\\s+(?=\\S)`,
+		'iu'
+	);
+	return reply.replace(greeting, '');
 }
 
 function speakerLine(name: string, text: string): string {
@@ -1511,10 +1540,10 @@ export async function askDeepSeek(
 				results_relevant?: unknown;
 			};
 			if (typeof args.reply !== 'string') logger.warn('Chat fallback: reply_chat had no reply');
-			const reply = characterReply(
-				typeof args.reply === 'string' ? args.reply : server.fallbackReply,
+			const reply = dropUnaskedGreeting(
+				characterReply(typeof args.reply === 'string' ? args.reply : server.fallbackReply, prompt, playingGame),
 				prompt,
-				playingGame
+				[speakerName, nickname, speakerUsername]
 			);
 			const ratedReply =
 				rateFood && typeof args.rating === 'number' && Number.isFinite(args.rating)
@@ -1549,7 +1578,11 @@ export async function askDeepSeek(
 	if (!output?.content?.trim()) logger.warn('Chat fallback: empty reply from the model');
 	return {
 		reply:
-			characterReply(output?.content?.trim() || server.fallbackReply, prompt, playingGame) ||
+			dropUnaskedGreeting(
+				characterReply(output?.content?.trim() || server.fallbackReply, prompt, playingGame),
+				prompt,
+				[speakerName, nickname, speakerUsername]
+			) ||
 			server.fallbackReply,
 	};
 }
