@@ -18,6 +18,13 @@ test('names summon jjb anywhere in a message', () => {
 	assert.equal(botPrompt('what does jjb think about this?', '123', false), 'what does jjb think about this?');
 });
 
+test('a typed @name (not a real ping) is stripped like the bare name', () => {
+	// Her customs preview says "Reply @jessjessbot confirm"; people copy that as plain text.
+	assert.equal(botPrompt('@jessjessbot confirm', '123', false), 'confirm');
+	assert.equal(botPrompt('@jjb cancel', '123', false), 'cancel');
+	assert.equal(botPrompt('@JJB', '123', false), 'hey');
+});
+
 test('real mentions still work and partial names stay quiet', () => {
 	assert.equal(botPrompt('<@123> hello', '123', true), 'hello');
 	assert.equal(botPrompt('what does <@123> think?', '123', true), 'what does jjb think?');
