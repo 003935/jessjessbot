@@ -33,7 +33,7 @@ import {
 import { replyToGroupBlameBait } from '@/modules/mention-bait';
 import { answerWordleSuspicion } from '@/modules/mention-wordle';
 import { answerFavoriteUser, isFavoriteUserRequest } from '@/modules/mention-favorite';
-import { botPrompt } from '@/modules/mention-trigger';
+import { botPrompt, botRoleAsMention } from '@/modules/mention-trigger';
 import {
 	closeConversationWindow,
 	extendConversationWindow,
@@ -746,15 +746,21 @@ function isHelpRequest(input: string): boolean {
 	return /^(?:help|what can (?:you|u) do\??|how do i use (?:this|you)\??)$/iu.test(input.trim());
 }
 
+// Stray pings around a "confirm" (a role, someone else) must not send it to the chat model,
+// which then pretends to post the custom instead of posting it.
+function withoutMentions(input: string): string {
+	return input.replace(/<@[!&]?\d+>/gu, ' ').trim();
+}
+
 function isCustomConfirmation(input: string): boolean {
 	if (isCustomCancellation(input)) return false;
 	return /^(?:yes|yeah|yep|yup|yea|sure|confirm|confirmed|correct|okay|ok|looks? good|go ahead|do it|post it)(?:[!. ]*)$/iu.test(
-		input.trim()
+		withoutMentions(input)
 	);
 }
 
 function isCustomCancellation(input: string): boolean {
-	return /^(?:cancel|no|nope|never mind|nevermind)(?:[!. ]*)$/iu.test(input.trim());
+	return /^(?:cancel|no|nope|never mind|nevermind)(?:[!. ]*)$/iu.test(withoutMentions(input));
 }
 
 function wasSaid(input: string, value: unknown): boolean {
@@ -1691,10 +1697,15 @@ export async function handleMention(message: Message): Promise<void> {
 	const referencedMessage = message.reference?.messageId
 		? await message.fetchReference().catch(() => null)
 		: null;
-	let prompt = botPrompt(
+	const messageContent = botRoleAsMention(
 		message.content,
 		message.client.user.id,
-		message.mentions.users.has(message.client.user.id),
+		message.guild.members.me?.roles.botRole?.id
+	);
+	let prompt = botPrompt(
+		messageContent,
+		message.client.user.id,
+		message.mentions.users.has(message.client.user.id) || messageContent !== message.content,
 		referencedMessage?.author.id === message.client.user.id,
 		message.attachments.size > 0
 	);

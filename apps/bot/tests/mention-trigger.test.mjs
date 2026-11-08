@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { botPrompt } from '../src/modules/mention-trigger.ts';
+import { botPrompt, botRoleAsMention } from '../src/modules/mention-trigger.ts';
+
+test('pinging her managed role summons her like pinging her', () => {
+	const content = botRoleAsMention('<@&456> confirm', '123', '456');
+	assert.equal(content, '<@123> confirm');
+	assert.equal(botPrompt(content, '123', true), 'confirm');
+	assert.equal(botRoleAsMention('<@&789> confirm', '123', '456'), '<@&789> confirm');
+	assert.equal(botRoleAsMention('<@&456> confirm', '123', undefined), '<@&456> confirm');
+});
 
 test('names summon jjb anywhere in a message', () => {
 	assert.equal(botPrompt('jjb how are u', '123', false), 'how are u');
