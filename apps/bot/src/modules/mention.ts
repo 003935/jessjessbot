@@ -34,7 +34,13 @@ import { replyToGroupBlameBait } from '@/modules/mention-bait';
 import { answerWordleSuspicion } from '@/modules/mention-wordle';
 import { answerFavoriteUser, isFavoriteUserRequest } from '@/modules/mention-favorite';
 import { botPrompt, botRoleAsMention } from '@/modules/mention-trigger';
-import { COMMAND_TOOLS, routeMessage, type CommandName, type Route } from '@/modules/mention-router';
+import {
+	claimsAction,
+	COMMAND_TOOLS,
+	routeMessage,
+	type CommandName,
+	type Route,
+} from '@/modules/mention-router';
 import {
 	closeConversationWindow,
 	extendConversationWindow,
@@ -1982,6 +1988,20 @@ export async function handleMention(message: Message): Promise<void> {
 						`${avoidPrompt(recent)}\nYour draft repeated: ${stale.join(', ')}. Say it differently.`
 					);
 					if (retry.reply && staleParts(retry.reply, recent).length < stale.length) result = retry;
+				}
+				// The router said chat, so nothing was done; a reply saying otherwise is made up.
+				if (
+					route?.kind === 'chat' &&
+					(pending || offered.length) &&
+					result.reply &&
+					claimsAction(result.reply)
+				) {
+					logger.warn(`Dropped a reply that claimed an action: ${JSON.stringify(result.reply)}`);
+					result = {
+						reply: pending
+							? 'not posted yet. say “confirm” to post it or “cancel” to drop it'
+							: 'didnt catch that as a request, say it plainly?',
+					};
 				}
 				// Saves what she said she'd remember; if any of it failed, she says so instead.
 				if (result.reply) {

@@ -147,6 +147,14 @@ function pendingTools(preview: string) {
 	];
 }
 
+// Prompting alone doesn't stop a model claiming actions it never took, so code checks the reply.
+const ACTION_CLAIM =
+	/\b(?:confirm(?:ing|ed)|post(?:ing|ed)|schedul(?:ing|ed)|(?:it'?s|all) (?:up|set|done)|done!|(?:added|removed|gave|made) (?:it|that|the|ur|your|you|u)\b)/iu;
+
+export function claimsAction(reply: string): boolean {
+	return ACTION_CLAIM.test(reply);
+}
+
 /** The route for a message, or null when routing failed and the caller should fall back. */
 export async function routeMessage(
 	prompt: string,

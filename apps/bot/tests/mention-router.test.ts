@@ -5,7 +5,18 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 	process.env[key] ||= 'test';
 mock.module('../src/db', () => ({ db: {} }));
 
-const { routeMessage } = await import('../src/modules/mention-router');
+const { claimsAction, routeMessage } = await import('../src/modules/mention-router');
+
+test('replies that claim an action are caught, banter is not', () => {
+	// The lines from the convo where she "confirmed" without posting anything.
+	expect(claimsAction('confirming it')).toBe(true);
+	expect(claimsAction("Done! it's up for saturday")).toBe(true);
+	expect(claimsAction('posted it, go sign up')).toBe(true);
+	expect(claimsAction('added the role, enjoy')).toBe(true);
+	expect(claimsAction('lol no')).toBe(false);
+	expect(claimsAction('ur so annoying today')).toBe(false);
+	expect(claimsAction('deadlock is mid tbh')).toBe(false);
+});
 const { askDeepSeek, offeredCommands } = await import('../src/modules/mention');
 
 const realFetch = globalThis.fetch;
