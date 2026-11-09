@@ -41,12 +41,6 @@ import {
 	type CommandName,
 	type Route,
 } from '@/modules/mention-router';
-import {
-	closeConversationWindow,
-	extendConversationWindow,
-	inConversationWindow,
-	isDismissal,
-} from '@/modules/conversation-window';
 import { answerCreatorQuestion, isCreatorQuestion } from '@/modules/mention-creator';
 import { handleGift } from '@/modules/mention-gifts';
 import {
@@ -1663,29 +1657,14 @@ export async function handleMention(message: Message): Promise<void> {
 		message.client.user.id,
 		message.guild.members.me?.roles.botRole?.id
 	);
-	let prompt = botPrompt(
+	const prompt = botPrompt(
 		messageContent,
 		message.client.user.id,
 		message.mentions.users.has(message.client.user.id) || messageContent !== message.content,
 		referencedMessage?.author.id === message.client.user.id,
 		message.attachments.size > 0
 	);
-	// Only being called again keeps the window open, or a busy channel never lets it close.
-	const summoned = prompt !== null;
-	const inConversation = inConversationWindow(message.channelId);
-	// While she's in a conversation she answers everyone, except replies aimed at someone else.
-	if (prompt === null && inConversation && !referencedMessage)
-		prompt = message.content.trim() || null;
 	if (prompt === null) return;
-	if (isDismissal(prompt)) {
-		if (inConversation) {
-			closeConversationWindow(message.channelId);
-			await message
-				.reply({ content: 'ok bye (╥﹏╥)', allowedMentions: { repliedUser: false } })
-				.catch((error) => logger.error('Goodbye reply failed', error));
-			return;
-		}
-	} else if (summoned) extendConversationWindow(message.channelId);
 	if (isLootLeaderboardRequest(prompt)) {
 		await lootAnswer(() => lootLeaderboardReply(message.guild));
 		return;
