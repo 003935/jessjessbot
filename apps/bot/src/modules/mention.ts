@@ -73,7 +73,7 @@ import { collapseOwnReplies } from '@/modules/mention-history';
 import { detailsForPrompt, isGreeting } from '@/modules/mention-details';
 import { avoidPrompt, lastReplyAt, logReply, recentReplies, staleParts } from '@/modules/reply-log';
 import { formatSearchResults, sourceLink, webSearch, webSearchEnabled } from '@/modules/web-search';
-import { formatTweetSearch, linkedTweetContext, mentionsTwitter, searchTweets, twitterEnabled } from '@/modules/twitter';
+import { formatTweetSearch, linkedTweetContext, mentionsTwitter, searchTweets, tweetUrl, twitterEnabled } from '@/modules/twitter';
 import { serverContext } from '@/modules/mention-server';
 import {
 	formatMemberContext,
@@ -227,9 +227,9 @@ export function relevantBotPreferences(
 const RELIABILITY_PROMPT =
 	'Do not turn a new question into an answer to an older one. Make-believe requests for random loot, cards, or outcomes are invitations to invent a result immediately, without an inability disclaimer. If someone describes possible immediate physical danger, give brief practical help first, without treating it as a hypothetical.';
 
-const WEB_SEARCH_PROMPT = `You can look things up with web_search, but default to answering from the chat. Only search when someone asks for current real-world info you can't know (news, scores, weather, patches, releases, prices, schedules) or asks you to look something up. Never search reactions, banter, follow-ups to your own last message, server tags or role names, members' pets, inside jokes, or slang. Stay in character in the reply after a search.`;
+const WEB_SEARCH_PROMPT = `You can look things up with web_search, but default to answering from the chat. Only search when someone asks for current real-world info you can't know (news, scores, weather, patches, releases, prices, schedules) or asks you to look something up or find or link something (a clip, video, article). Never search reactions, banter, follow-ups to your own last message, server tags or role names, members' pets, inside jokes, or slang. Stay in character in the reply after a search.`;
 
-const TWITTER_SEARCH_PROMPT = `You can read X/Twitter with search_twitter. Use it only when someone asks what people are tweeting or saying on twitter/X about something, or asks you to check twitter. Linked tweets are already in your context, so never search for those.`;
+const TWITTER_SEARCH_PROMPT = `You can read X/Twitter with search_twitter. Use it only when someone asks what people are tweeting or saying on twitter/X about something, asks you to check twitter, or asks you to find a tweet or clip on twitter. Linked tweets are already in your context, so never search for those.`;
 
 // Searching is only offered when the message looks like it wants outside facts, so
 // reactions like "wtf adoptable cats" never reach Tavily however the model feels.
@@ -244,18 +244,28 @@ const QUESTION_START =
 const FACTUAL_QUESTION =
 	/^(?:who|what|what's|whats|when|where|which|how\s+(?:much|many|old|tall|long|far|big))\b/iu;
 const PERSONAL_WORDS = /\b(?:you|u|ur|your|yours|you're|youre|ya|jjb|i|i'm|im|me|my|we|our|us)\b/iu;
+// "link the seraphine ult", "find it for me", "link ittt". Bare "link" or "find a way" is chat.
+const LINK_REQUEST =
+	/\b(?:link\s+(?:it+|that|this|them|em|me|us|the|a|an)|find\s+(?:it+|that|this|them|em)|pull\s+(?:(?:it+|that|this|them|em)\s+)?up)\b/iu;
+const CLIP_WORDS = /\b(?:clips?|vods?|highlights?|videos?|footage|replays?)\b/iu;
+
+/** Someone asking jjb to go get a link or clip, not just talk. */
+export function isLinkRequest(prompt: string): boolean {
+	return LINK_REQUEST.test(prompt);
+}
 
 export function isSearchWorthy(prompt: string): boolean {
 	const text = prompt
 		.trim()
 		.replace(/^(?:(?:hey|yo|ok|okay)\s+)?jjb\b[,:\s]*/iu, '')
 		.trim();
-	if (EXPLICIT_SEARCH.test(text)) return true;
+	if (EXPLICIT_SEARCH.test(text) || isLinkRequest(text)) return true;
 	const question = text.includes('?') || QUESTION_START.test(text);
 	const topic = CURRENT_TOPIC.test(text);
 	const time = CURRENT_TIME.test(text);
 	if (topic && time) return true;
 	if (question && (topic || time)) return true;
+	if (question && CLIP_WORDS.test(text) && !PERSONAL_WORDS.test(text)) return true;
 	return question && FACTUAL_QUESTION.test(text) && !PERSONAL_WORDS.test(text);
 }
 
@@ -1219,7 +1229,7 @@ export async function askDeepSeek(
 			function: {
 				name: 'search_twitter',
 				description:
-					'Search X/Twitter for top recent tweets. Use only when the person asks what people are saying or tweeting about something on twitter/X, or asks you to check twitter. Never use it for linked tweets (they are already in context), banter, or anything about this server or its members.',
+					'Search X/Twitter for top recent tweets. Use only when the person asks what people are saying or tweeting about something on twitter/X, asks you to check twitter, or asks you to find a tweet or clip on twitter. Never use it for linked tweets (they are already in context), banter, or anything about this server or its members.',
 				parameters: {
 					type: 'object',
 					properties: {
@@ -1331,8 +1341,31 @@ export async function askDeepSeek(
 			maxTokens
 		);
 	}
+	// reply_chat plus a source the code checks against what the search really returned.
+	const replyWithSourceTools = tools
+		.filter((tool) => tool.function.name === 'reply_chat')
+		.map((tool) => ({
+			...tool,
+			function: {
+				...tool.function,
+				parameters: {
+					...tool.function.parameters,
+					properties: {
+						...tool.function.parameters.properties,
+						source_url: { type: 'string', description: 'URL of the search result used' },
+						results_relevant: {
+							type: 'boolean',
+							description: 'true only if the search results are actually about what the user asked',
+						},
+					},
+					required: [...(tool.function.parameters.required ?? []), 'results_relevant'],
+				},
+			},
+		}));
+	let sourceUrls: string[] = [];
 	const twitterTool = output?.tool_calls?.find((call) => call.function?.name === 'search_twitter');
 	if (twitterTool && twitterSearchAllowed) {
+		const wantsLink = isLinkRequest(prompt);
 		let query = '';
 		try {
 			const args = JSON.parse(twitterTool.function?.arguments ?? '{}') as { query?: unknown };
@@ -1344,7 +1377,9 @@ export async function askDeepSeek(
 		logger.info(`Twitter search: ${JSON.stringify(query)}`);
 		let twitterContent: string;
 		try {
-			twitterContent = formatTweetSearch(query, await searchTweets(query));
+			const tweets = await searchTweets(query);
+			if (wantsLink) sourceUrls = tweets.map(tweetUrl);
+			twitterContent = formatTweetSearch(query, tweets);
 		} catch (error) {
 			logger.error('Twitter search failed', error);
 			twitterContent = 'The twitter search failed. Say you could not check twitter right now; do not guess what people are saying.';
@@ -1361,16 +1396,16 @@ export async function askDeepSeek(
 				{ role: 'tool', tool_call_id: twitterTool.id, content: twitterContent },
 				{
 					role: 'system',
-					content:
-						"Answer the user's message with reply_chat using the tweets, in jjb's voice and briefly. Give the gist or the vibe, not a list of tweets. If they are about something else, say twitter had nothing useful instead of guessing. Do not paste URLs.",
+					content: wantsLink
+						? "Answer the user's message with reply_chat using the tweets, in jjb's voice and briefly. They want a link: if a tweet is what they asked for, set results_relevant to true and put that tweet's URL in source_url. If none is, set results_relevant to false and say you couldn't find it instead of guessing. Do not paste URLs into the reply."
+						: "Answer the user's message with reply_chat using the tweets, in jjb's voice and briefly. Give the gist or the vibe, not a list of tweets. If they are about something else, say twitter had nothing useful instead of guessing. Do not paste URLs.",
 				},
 			],
-			tools.filter((tool) => tool.function.name === 'reply_chat'),
+			wantsLink ? replyWithSourceTools : tools.filter((tool) => tool.function.name === 'reply_chat'),
 			Math.max(maxTokens, 400),
 			'deep'
 		);
 	}
-	let sourceUrls: string[] = [];
 	const searchTool =output?.tool_calls?.find((call) => call.function?.name === 'web_search');
 	if (searchTool) {
 		let query = '';
@@ -1413,27 +1448,7 @@ export async function askDeepSeek(
 						"Answer the user's message with reply_chat using the search results, in jjb's voice and briefly. Prefer the most recent, reliable sources. If the results are about something else (for example a different thing with the same name), set results_relevant to false and answer from the chat without mentioning the search. If they are on topic but do not answer it, say so instead of guessing. Do not paste URLs into the reply; put the single most useful result URL in source_url.",
 				},
 			],
-			tools
-				.filter((tool) => tool.function.name === 'reply_chat')
-				.map((tool) => ({
-					...tool,
-					function: {
-						...tool.function,
-						parameters: {
-							...tool.function.parameters,
-							properties: {
-								...tool.function.parameters.properties,
-								source_url: { type: 'string', description: 'URL of the search result used' },
-								results_relevant: {
-									type: 'boolean',
-									description:
-										'true only if the search results are actually about what the user asked',
-								},
-							},
-							required: [...(tool.function.parameters.required ?? []), 'results_relevant'],
-						},
-					},
-				})),
+			replyWithSourceTools,
 			Math.max(maxTokens, 400),
 			'deep'
 		);
@@ -1515,7 +1530,8 @@ export async function askDeepSeek(
 						: sourceUrls[0];
 			return {
 				reply: source ? `${ratedReply} ${sourceLink(source)}` : ratedReply,
-				...(searchTool ? { webSearched: true } : {}),
+				// A searched reply must not be swapped for a canned line, or the link is lost.
+				...(searchTool || source ? { webSearched: true } : {}),
 				...(typeof args.image_description === 'string'
 					? { imageDescription: args.image_description.trim().slice(0, 1200) }
 					: {}),
