@@ -72,6 +72,17 @@ function messageText(other: Message): string {
 	);
 }
 
+/** The channel as she'd read it scrolling up, oldest first, her own messages marked. */
+export function formatRecentChat(messages: Message[], botId: string): string[] {
+	return [...messages]
+		.sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+		.map((other) => {
+			const text = messageText(other);
+			return text ? `${speaker(other, botId)}: ${text}` : null;
+		})
+		.filter((line): line is string => !!line);
+}
+
 /** The conversation around an older message someone replied to, with that message marked. */
 export function formatConversationAround(
 	messages: Message[],
