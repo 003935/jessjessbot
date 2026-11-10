@@ -122,7 +122,7 @@ export const FlagsSchema = v.object({
 			v.variant('target', [
 				v.object({
 					target: v.literal('note'),
-					userId: v.pipe(v.string(), v.regex(/^\d{5,25}$/u)),
+					userId: v.union([v.pipe(v.string(), v.regex(/^\d{5,25}$/u)), v.literal('')]),
 					key: v.pipe(v.string(), v.startsWith('memory_'), v.maxLength(100)),
 					reason: text(300),
 				}),

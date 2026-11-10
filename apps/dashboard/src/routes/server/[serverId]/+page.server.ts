@@ -4,6 +4,8 @@ import { db } from '$lib/server/db';
 import { getDiscordAcc, throwIfNotLoggedIn } from '$lib/server/permission.utils';
 import { discordApi } from '$lib/server/discord';
 import { ChannelType } from 'discord-api-types/v10';
+import { isCurrent } from '@repo/database';
+import { factLabel } from '$lib/memory-label';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const user = throwIfNotLoggedIn(locals);
@@ -75,12 +77,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		avatar: string | null;
 		loot: Array<{ itemName: string; quantity: number }>;
 		nickname: string | null;
-		notes: Array<{ kind: string; value: string }>;
+		notes: Array<{ kind: string; value: string; label?: string }>;
 		pets: string[];
 		leagueAccounts: Array<{ gameName: string | null; tagline: string | null; region: string }>;
 		wordleGames: number;
 		customSignups: number;
 	}> = [];
+	let serverFacts: Array<{ id: string; text: string; label: string }> = [];
 	if (isAdmin) {
 		channels = await discordApi.getGuildChannels(guild.id);
 		wordleImport = await db.wordleImport.getGuildImport(params.serverId);
@@ -105,12 +108,22 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			({ id, target, userId, key, text, reason }) => ({ id, target, userId, key, text, reason })
 		);
 		const preferences = await db._db.botMemberPreference.findMany({ where: { guildId: guild.id } });
+		const facts = (await db.botMemory.listGuild(guild.id)).filter((fact) => isCurrent(fact));
+		serverFacts = facts
+			.filter((fact) => fact.subjectId === '')
+			.map((fact) => ({ id: fact.id, text: fact.text, label: factLabel(fact) }));
+		const factsByUser = new Map<string, typeof facts>();
+		for (const fact of facts) {
+			if (!fact.subjectId) continue;
+			factsByUser.set(fact.subjectId, [...(factsByUser.get(fact.subjectId) ?? []), fact]);
+		}
 		// Everyone jjb remembers something about, or who asked her for a nickname.
-		const ids = new Set<string>(
-			preferences
+		const ids = new Set<string>([
+			...preferences
 				.filter((row) => row.kind === 'nickname' || row.kind.startsWith('memory_'))
-				.map((row) => row.userId)
-		);
+				.map((row) => row.userId),
+			...factsByUser.keys(),
+		]);
 		const idList = [...ids];
 		const [lootRows, pets, leagueAccounts, wordleRows, signupRows] = await Promise.all([
 			db._db.lootInventory.findMany({
@@ -177,10 +190,17 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 					})),
 					nickname: userPreferences.find((row) => row.kind === 'nickname')?.value ?? null,
 					// Everything jjb remembers about them: notes from chat, pets, birthday, favourites.
-					notes: userPreferences
-						.filter((row) => row.kind.startsWith('memory_'))
-						.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-						.map(({ kind, value }) => ({ kind, value })),
+					notes: [
+						...userPreferences
+							.filter((row) => row.kind.startsWith('memory_'))
+							.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+							.map(({ kind, value }) => ({ kind, value })),
+						...(factsByUser.get(id) ?? []).map((fact) => ({
+							kind: `memory_fact_${fact.id}`,
+							value: fact.text,
+							label: factLabel(fact),
+						})),
+					],
 					pets: (petsByUser.get(id) ?? []).map((row) => row.name),
 					leagueAccounts: (leagueByUser.get(id) ?? []).map((row) => ({
 						gameName: row.riotGamename,
@@ -227,6 +247,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 				}
 			: null,
 		savedUsers,
+		serverFacts,
 		lore: config?.bot_lore ?? '',
 		opinions,
 		review,

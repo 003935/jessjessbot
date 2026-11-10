@@ -4,7 +4,18 @@ import * as v from 'valibot';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { FlagsSchema, requireReviewToken } from '$lib/server/review';
-import type { ReviewFlagInput } from '@repo/database';
+import { renderFact, type ReviewFlagInput } from '@repo/database';
+
+const FACT_PREFIX = 'memory_fact_';
+
+// Current text of a flagged note: a saved fact, or an older preference-row detail.
+async function noteText(guildId: string, userId: string, key: string): Promise<string | null> {
+	if (!key.startsWith(FACT_PREFIX)) return db.botMemberPreference.getValue(guildId, userId, key);
+	const fact = await db.botMemory.get(guildId, key.slice(FACT_PREFIX.length));
+	// Server facts belong to no member, so their flags carry userId ''.
+	if (!fact || fact.subjectId !== userId) return null;
+	return renderFact(fact);
+}
 
 // Replaces the open flags with this review's. The text is looked up here so admins see the
 // note as it is now; anything that no longer exists is skipped.
@@ -26,7 +37,7 @@ export const PUT: RequestHandler = async ({ request, params }) => {
 				flags.push({ target: 'opinion', userId: '', key: flag.topic, text, reason: flag.reason });
 			else skipped.push(`opinion:${flag.topic}`);
 		} else {
-			const text = await db.botMemberPreference.getValue(guildId, flag.userId, flag.key);
+			const text = await noteText(guildId, flag.userId, flag.key);
 			if (text)
 				flags.push({
 					target: 'note',

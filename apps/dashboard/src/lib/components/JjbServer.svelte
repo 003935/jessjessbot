@@ -12,6 +12,7 @@
 		deleteFlagged,
 		forgetAllOpinions,
 		forgetOpinion,
+		forgetServerFact,
 		forgetUserNote,
 		keepFlagged,
 	} from '$lib/personality.remote';
@@ -31,7 +32,7 @@
 		avatar: string | null;
 		loot: Array<{ itemName: string; quantity: number }>;
 		nickname: string | null;
-		notes: Array<{ kind: string; value: string }>;
+		notes: Array<{ kind: string; value: string; label?: string }>;
 		pets: string[];
 		leagueAccounts: Array<{ gameName: string | null; tagline: string | null; region: string }>;
 		wordleGames: number;
@@ -42,6 +43,7 @@
 		guildId,
 		lore: initialLore,
 		savedUsers,
+		serverFacts: initialServerFacts,
 		opinions: initialOpinions,
 		review,
 		reviewFlags: initialFlags,
@@ -50,6 +52,7 @@
 		guildId: string;
 		lore: string;
 		savedUsers: SavedUser[];
+		serverFacts: Array<{ id: string; text: string; label: string }>;
 		opinions: Array<{ topic: string; opinion: string }>;
 		review: {
 			createdAt: string;
@@ -64,6 +67,8 @@
 
 	// svelte-ignore state_referenced_locally
 	let flags = $state(initialFlags);
+	// svelte-ignore state_referenced_locally
+	let serverFacts = $state(initialServerFacts);
 	let showReport = $state(false);
 	const nameOf = (userId: string) => savedUsers.find((user) => user.id === userId)?.name ?? userId;
 	const day = (iso: string) =>
@@ -124,6 +129,15 @@
 			forgottenNotes.add(`${userId}:${kind}`);
 		} catch {
 			toast.error('Could not delete that note');
+		}
+	}
+
+	async function deleteServerFact(id: string) {
+		try {
+			await forgetServerFact({ guildId, id });
+			serverFacts = serverFacts.filter((fact) => fact.id !== id);
+		} catch {
+			toast.error('Could not delete that one');
 		}
 	}
 
@@ -310,7 +324,12 @@
 							<div class="flex max-h-80 flex-col gap-2 overflow-y-auto">
 								{#each visibleNotes(selected) as note (note.kind)}
 									<div class="flex items-start justify-between gap-3 rounded-lg border p-2">
-										<p class="min-w-0 text-sm">{note.value}</p>
+										<p class="min-w-0 text-sm">
+											{note.value}
+											{#if note.label}
+												<span class="text-xs text-muted-foreground">· {note.label}</span>
+											{/if}
+										</p>
 										<Button
 											variant="ghost"
 											size="icon"
@@ -360,6 +379,37 @@
 						</div>
 					</div>
 				</div>
+			{/if}
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>What she knows about the server</Card.Title>
+			<Card.Description>
+				Things she picked up about the server itself. Delete one and she forgets it.
+			</Card.Description>
+		</Card.Header>
+		<Card.Content class="flex max-h-80 flex-col gap-2 overflow-y-auto">
+			{#if serverFacts.length === 0}
+				<p class="text-sm text-muted-foreground">Nothing saved about the server yet.</p>
+			{:else}
+				{#each serverFacts as fact (fact.id)}
+					<div class="flex items-start justify-between gap-3 rounded-lg border p-2">
+						<p class="min-w-0 flex-1 text-sm">
+							{fact.text}
+							<span class="text-xs text-muted-foreground">· {fact.label}</span>
+						</p>
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label={`Delete server fact: ${fact.text}`}
+							onclick={() => deleteServerFact(fact.id)}
+						>
+							<XIcon />
+						</Button>
+					</div>
+				{/each}
 			{/if}
 		</Card.Content>
 	</Card.Root>
