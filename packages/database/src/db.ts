@@ -17,6 +17,8 @@ export class Database extends DatabaseConnection {
 	readonly botOpinion: t.BotOpinionTable;
 	readonly botVoice: t.BotVoiceTable;
 	readonly botReplyLabel: t.BotReplyLabelTable;
+	readonly botReview: t.BotReviewTable;
+	readonly botMemory: t.BotMemoryTable;
 
 	constructor(db_url: string, poolConfig?: PoolConfig, logger?: DatabaseLogger) {
 		super(db_url, poolConfig, logger);
@@ -35,5 +37,7 @@ export class Database extends DatabaseConnection {
 		this.botOpinion = new t.BotOpinionTable(this);
 		this.botVoice = new t.BotVoiceTable(this);
 		this.botReplyLabel = new t.BotReplyLabelTable(this);
+		this.botReview = new t.BotReviewTable(this);
+		this.botMemory = new t.BotMemoryTable(this);
 	}
 }

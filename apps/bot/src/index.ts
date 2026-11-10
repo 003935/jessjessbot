@@ -16,6 +16,7 @@ import { handleMediaReply } from '@/modules/media-replies';
 import { uploadPoeLootEmojis } from '@/modules/poe-loot-emojis';
 import { handleLootInventoryButton } from '@/modules/poe-loot';
 import { shutdownVoice } from '@/modules/voice/voice-manager';
+import { flushConversations, recordMemoryMessage } from '@/modules/memory-recorder';
 
 const logger = new Logger('Bot', LogLevel.Info);
 const client = new SapphireClient({
@@ -67,6 +68,13 @@ async function gracefulShutdown(signal: string) {
 	logger.info(`${signal} received. Shutting down gracefully...`);
 
 	try {
+		// Save conversations still open; a slow model call shouldn't hold up the deploy.
+		await Promise.race([flushConversations(), new Promise((resolve) => setTimeout(resolve, 8000))]);
+	} catch (error) {
+		logger.error('Could not save open conversations:', error);
+	}
+
+	try {
 		shutdownVoice();
 		await client.destroy();
 		logger.info('Discord client destroyed');
@@ -107,6 +115,8 @@ async function messageparser(message: Message<boolean>) {
 
 client.on('messageCreate', (message) => {
 	messageparser(message).catch((error) => logger.error('Message handling failed', error));
+	// Separate from messageparser so it also sees jjb's own replies.
+	recordMemoryMessage(message);
 });
 
 client.on('interactionCreate', (interaction) => {

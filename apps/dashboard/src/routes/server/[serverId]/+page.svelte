@@ -340,7 +340,10 @@
 				guildId={data.guild.id}
 				lore={data.lore}
 				savedUsers={data.savedUsers}
+				serverFacts={data.serverFacts}
 				opinions={data.opinions}
+				review={data.review}
+				reviewFlags={data.reviewFlags}
 				canResetLoot={data.canResetLoot}
 			/>
 		</div>

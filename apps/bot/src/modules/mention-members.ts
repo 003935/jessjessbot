@@ -218,7 +218,9 @@ export function formatMemberContext(members: ReferencedMember[]): string | null 
 			member.mention ? `@mentioned as <@${member.id}>` : 'named in the message',
 			member.aliases.length ? `also goes by ${member.aliases.map((alias) => `"${alias}"`).join(', ')}` : '',
 			member.botNickname ? `asked you to call them "${member.botNickname}"` : '',
-			hasDetails(member.details) ? `saved details about them: ${JSON.stringify(member.details)}` : '',
+			hasDetails(member.details)
+				? `saved details about them: ${JSON.stringify({ ...member.details, noteKeywords: undefined })}`
+				: '',
 		].filter(Boolean);
 		return `- "${member.displayName}" (${parts.join('; ')})`;
 	});

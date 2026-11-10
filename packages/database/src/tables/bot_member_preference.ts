@@ -1,4 +1,5 @@
 import { DatabaseConnection } from '../connection';
+import { BotMemoryTable, renderFact, type FactSource } from './bot_memory';
 
 export type PreferenceKind = 'like' | 'dislike';
 export type MemberPreferences = {
@@ -8,20 +9,21 @@ export type MemberPreferences = {
 	birthday: string | null;
 	favourites: string[];
 	notes: string[];
+	/** Extra words per note that should bring it up, in the same order as notes. */
+	noteKeywords?: string[][];
 };
 
 const MAX_PREFERENCES = 20;
-// Things jjb picked up from chat on her own, oldest dropped first.
-const MAX_NOTES = 12;
-const NOTE_PREFIX = 'memory_note_';
-// Facts other members told jjb about someone; kept apart so they can't push out the person's own notes.
-const HEARSAY_PREFIX = 'memory_hearsay_';
-const MAX_HEARSAY = 8;
+// Notes (things she picked up or was told) live in bot_memory_facts; see BotMemoryTable.
 const AUTO_MEMORY_OFF = 'auto_memory_off';
 
 export class BotMemberPreferenceTable extends DatabaseConnection {
+	private get memory(): BotMemoryTable {
+		return new BotMemoryTable(this);
+	}
+
 	async list(guildId: string, userId: string): Promise<MemberPreferences> {
-		const [rows, savedDetails] = await Promise.all([
+		const [rows, savedDetails, facts] = await Promise.all([
 			this._db.botMemberPreference.findMany({
 				where: { guildId, userId, kind: { in: ['like', 'dislike'] } },
 				orderBy: { createdAt: 'asc' },
@@ -30,64 +32,59 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 			this._db.botMemberPreference.findMany({
 				where: { guildId, userId, kind: { startsWith: 'memory_' } },
 				orderBy: { createdAt: 'asc' },
-				take: 40 + MAX_NOTES + MAX_HEARSAY,
+				take: 40,
 			}),
+			this.memory.current(guildId, [userId]),
 		]);
 		const pets = savedDetails.filter((row) => row.kind.startsWith('memory_pet_')).map((row) => row.value);
 		const favourites = savedDetails
 			.filter((row) => row.kind.startsWith('memory_favourite_'))
 			.map((row) => row.value);
 		const birthday = savedDetails.find((row) => row.kind === 'memory_birthday')?.value ?? null;
-		const notes = savedDetails
-			.filter((row) => row.kind.startsWith(NOTE_PREFIX) || row.kind.startsWith(HEARSAY_PREFIX))
-			.map((row) => row.value);
 		return {
 			likes: rows.filter((row) => row.kind === 'like').map((row) => row.value),
 			dislikes: rows.filter((row) => row.kind === 'dislike').map((row) => row.value),
 			pets,
 			birthday,
 			favourites,
-			notes,
+			notes: facts.map(renderFact),
+			noteKeywords: facts.map((fact) => fact.keywords),
 		};
 	}
 
-	/** Saves notes learned from chat and drops outdated ones, keeping the newest MAX_NOTES. */
-	async saveNotes(guildId: string, userId: string, notes: string[], outdated: string[] = []): Promise<void> {
-		if (outdated.length)
-			await this._db.botMemberPreference.deleteMany({
-				where: { guildId, userId, kind: { startsWith: NOTE_PREFIX }, value: { in: outdated } },
-			});
-		for (const value of notes)
-			await this._db.botMemberPreference.create({
-				data: { guildId, userId, kind: `${NOTE_PREFIX}${crypto.randomUUID().slice(0, 8)}`, value },
-			});
-		const rows = await this._db.botMemberPreference.findMany({
-			where: { guildId, userId, kind: { startsWith: NOTE_PREFIX } },
-			orderBy: { createdAt: 'desc' },
-			select: { kind: true },
-		});
-		const extra = rows.slice(MAX_NOTES).map((row) => row.kind);
-		if (extra.length)
-			await this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind: { in: extra } } });
+	/** Saves notes about a member and closes the outdated ones (matched by text). */
+	async saveNotes(
+		guildId: string,
+		userId: string,
+		notes: string[],
+		outdated: string[] = [],
+		source: FactSource = 'asked'
+	): Promise<void> {
+		const current = await this.memory.current(guildId, [userId]);
+		const wanted = new Set(outdated.map((note) => note.toLocaleLowerCase()));
+		const replaces = current
+			.filter(
+				(fact) =>
+					wanted.has(fact.text.toLocaleLowerCase()) || wanted.has(renderFact(fact).toLocaleLowerCase())
+			)
+			.map((fact) => fact.id);
+		await this.memory.add(
+			guildId,
+			notes.map((text) => ({ subjectId: userId, text, source, saidById: userId })),
+			replaces
+		);
 	}
 
-	/** Saves something another member said about this person, skipping repeats and keeping the newest MAX_HEARSAY. */
-	async saveHearsay(guildId: string, userId: string, note: string): Promise<void> {
-		const existing = await this._db.botMemberPreference.findFirst({
-			where: { guildId, userId, kind: { startsWith: HEARSAY_PREFIX }, value: note },
-		});
-		if (existing) return;
-		await this._db.botMemberPreference.create({
-			data: { guildId, userId, kind: `${HEARSAY_PREFIX}${crypto.randomUUID().slice(0, 8)}`, value: note },
-		});
-		const rows = await this._db.botMemberPreference.findMany({
-			where: { guildId, userId, kind: { startsWith: HEARSAY_PREFIX } },
-			orderBy: { createdAt: 'desc' },
-			select: { kind: true },
-		});
-		const extra = rows.slice(MAX_HEARSAY).map((row) => row.kind);
-		if (extra.length)
-			await this._db.botMemberPreference.deleteMany({ where: { guildId, userId, kind: { in: extra } } });
+	/** Saves something another member said about this person; shown to jjb as what they said. */
+	async saveHearsay(
+		guildId: string,
+		userId: string,
+		fact: string,
+		saidBy: { id: string; name: string }
+	): Promise<void> {
+		await this.memory.add(guildId, [
+			{ subjectId: userId, text: fact, source: 'friend', saidById: saidBy.id, saidByName: saidBy.name },
+		]);
 	}
 
 	async autoMemoryEnabled(guildId: string, userId: string): Promise<boolean> {
@@ -108,7 +105,6 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 					guildId,
 					userId,
 					kind: { startsWith: 'memory_' },
-					AND: [{ NOT: { kind: { startsWith: NOTE_PREFIX } } }, { NOT: { kind: { startsWith: HEARSAY_PREFIX } } }],
 				},
 			});
 			if (count >= 40) return false;
@@ -123,15 +119,7 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 	}
 
 	async forgetNoteValue(guildId: string, userId: string, value: string): Promise<boolean> {
-		const result = await this._db.botMemberPreference.deleteMany({
-			where: {
-				guildId,
-				userId,
-				value,
-				OR: [{ kind: { startsWith: NOTE_PREFIX } }, { kind: { startsWith: HEARSAY_PREFIX } }],
-			},
-		});
-		return result.count > 0;
+		return this.memory.forgetText(guildId, userId, value);
 	}
 
 	async forgetDetailsByPrefix(guildId: string, userId: string, prefix: string): Promise<number> {
@@ -185,7 +173,7 @@ export class BotMemberPreferenceTable extends DatabaseConnection {
 				],
 			},
 		});
-		return result.count;
+		return result.count + (await this.memory.forgetPerson(guildId, userId));
 	}
 
 	// Single-value markers per member (e.g. the last day they gave jjb a gift).

@@ -13,3 +13,5 @@ export * from './bot_member_preference';
 export * from './bot_opinion';
 export * from './bot_voice';
 export * from './bot_reply_label';
+export * from './bot_review';
+export * from './bot_memory';

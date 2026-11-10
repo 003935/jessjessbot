@@ -94,7 +94,9 @@ test('maps birthday, favourite and like', async () => {
 test('hearsay becomes an attributed note', async () => {
 	const { failures } = await applyMemoryChanges('g', speaker, [pet('cheesy', 'cat', 'hannie')], found('h'));
 	expect(failures).toEqual([]);
-	expect(writes()).toEqual([['saveHearsay', 'g', 'h', 'donkeyboy says: has a cat called cheesy']]);
+	expect(writes()).toEqual([
+		['saveHearsay', 'g', 'h', 'has a cat called cheesy', { id: 's', name: 'donkeyboy' }],
+	]);
 });
 
 test('hearsay skipped when target opted out', async () => {
