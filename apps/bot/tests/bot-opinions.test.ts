@@ -92,12 +92,8 @@ test('saves a new opinion, and a changed one, but not a repeat', async () => {
 	]);
 });
 
-test('dashboard personality and her relevant opinions go into the prompt', () => {
-	const prompt = personalityPrompt(
-		{ extra: 'she is obsessed with frogs', preferences: null, opinions },
-		'pineapple pizza thoughts?'
-	);
-	expect(prompt).toContain('she is obsessed with frogs');
+test('her relevant opinions go into the prompt', () => {
+	const prompt = personalityPrompt({ opinions }, 'pineapple pizza thoughts?');
 	expect(prompt).toContain('- pineapple pizza: a crime against italy');
 	expect(prompt).not.toContain('jinx');
 	expect(personalityPrompt(null, 'hi')).toBe('');

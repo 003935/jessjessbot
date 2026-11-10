@@ -106,10 +106,10 @@ test('after routing, the persona gets no command tools and is told not to fake a
 	process.env.DEEPSEEK_API_KEY = 'test-deepseek';
 	mockFetch(() => toolCall('reply_chat', { reply: 'lol' }));
 	const args: Parameters<typeof askDeepSeek> = ['tldr past hour', [], false];
-	args[25] = true;
+	args[20] = true;
 	await askDeepSeek(...args);
 	expect(toolNames(bodies[0])).toContain('summarize_channel');
-	args[25] = false;
+	args[20] = false;
 	await askDeepSeek(...args);
 	expect(toolNames(bodies[1])).not.toContain('summarize_channel');
 	expect(bodies[1].messages[0].content).toContain('never say you confirmed, posted');

@@ -111,10 +111,7 @@ test('a link gets reasoning, and falls back without it if the model rejects that
 		[],
 		false,
 		null,
-		0,
 		null,
-		false,
-		false,
 		'mond',
 		null,
 		'mond',
@@ -162,10 +159,7 @@ test('food image comments include a model-chosen rating, but video comments do n
 		[],
 		false,
 		null,
-		0,
 		null,
-		false,
-		false,
 		'person',
 		null,
 		'person',
@@ -175,7 +169,6 @@ test('food image comments include a model-chosen rating, but video comments do n
 		null,
 		null,
 		null,
-		undefined,
 		'yum',
 		'food',
 	];
@@ -189,7 +182,7 @@ test('food image comments include a model-chosen rating, but video comments do n
 	expect(imageMessages[0].content).not.toContain('display name');
 	expect(imageMessages.at(-1).content[0].text).toBe('made this');
 	const videoReply = await askDeepSeek(
-		...([...args.slice(0, 12), [], ...args.slice(13)] as unknown as Parameters<typeof askDeepSeek>)
+		...([...args.slice(0, 9), [], ...args.slice(10)] as unknown as Parameters<typeof askDeepSeek>)
 	);
 	expect(videoReply.reply).toBe('those noodles look dangerous');
 	expect(bodies[1]!.tools[0].function.parameters.required).not.toContain('rating');

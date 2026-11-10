@@ -8,28 +8,15 @@ mock.module('../src/db', () => ({ db: {} }));
 
 const { addressPrompt, dropUnaskedGreeting } = await import('../src/modules/mention');
 
-test('a behaviour row replaces the address line', () => {
-	const text = addressPrompt('boss cuck', null, 'hi', { behaviour: 'be extra polite', when_upset: null });
-	expect(text).toContain('be extra polite');
-	expect(text).toContain("from this server's admins");
-	expect(text).not.toContain('Greet them');
-});
-
-test('when_upset is added only when they sound upset', () => {
-	const behaviour = { behaviour: 'be extra polite', when_upset: 'panic a bit' };
-	expect(addressPrompt('boss cuck', null, 'why did u do that', behaviour)).toContain('panic a bit');
-	expect(addressPrompt('boss cuck', null, 'hi', behaviour)).not.toContain('panic a bit');
-});
-
-test('no row means the normal address', () => {
-	expect(addressPrompt('hannah', null, 'hi', null)).toContain('greet them back as that display name');
-	expect(addressPrompt('hannah', 'hannie', 'hi', null)).toContain('asked to be called "hannie"');
+test('she addresses them by display name or the nickname they asked for', () => {
+	expect(addressPrompt('hannah', null, 'hi')).toContain('greet them back as that display name');
+	expect(addressPrompt('hannah', 'hannie', 'hi')).toContain('asked to be called "hannie"');
 });
 
 test('she only greets when they said hi', () => {
-	expect(addressPrompt('donkeyboy', null, 'jjb hiii', null)).toContain('greet them back');
+	expect(addressPrompt('donkeyboy', null, 'jjb hiii')).toContain('greet them back');
 	for (const prompt of ['gn', 'jjb gn', 'what is the time', 'high score?']) {
-		const text = addressPrompt('donkeyboy', 'donk', prompt, null);
+		const text = addressPrompt('donkeyboy', 'donk', prompt);
 		expect(text).not.toContain('greet them back');
 		expect(text).toContain('do not open with a hello');
 		expect(text).toContain('call them "donk"');

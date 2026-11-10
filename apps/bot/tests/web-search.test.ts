@@ -5,7 +5,7 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 	process.env[key] ||= 'test';
 mock.module('../src/db', () => ({ db: {} }));
 
-const { formatSearchResults, sourceLink, webSearch, webSearchEnabled } = await import(
+const { formatSearchResults, sourceLink, speakableText, webSearch, webSearchEnabled } = await import(
 	'../src/modules/web-search'
 );
 const { askDeepSeek, isSearchWorthy } = await import('../src/modules/mention');
@@ -112,6 +112,14 @@ test('askDeepSeek searches, then answers with a verified source link', async () 
 	expect(toolMessage.content).toContain('https://example.com/patch');
 	// A made-up URL falls back to the top real result.
 	expect(result.reply).toBe('patch 25.20 dropped oct 8 [link](<https://example.com/patch>)');
+	// Voice never reads the link out.
+	expect(speakableText(result.reply ?? '')).toBe('patch 25.20 dropped oct 8');
+});
+
+test('voice text drops source links and bare urls', () => {
+	expect(speakableText('see https://example.com/a for more')).toBe('see for more');
+	expect(speakableText('ok <https://example.com/a>')).toBe('ok');
+	expect(speakableText('no links here :3')).toBe('no links here :3');
 });
 
 test('askDeepSeek still replies when the search fails', async () => {
@@ -255,7 +263,7 @@ test('sourceLink makes a Discord link with no preview, even for URLs with bracke
 const replyChatParams = (call: Call) =>
 	call.body.tools.find((tool: any) => tool.function.name === 'reply_chat').function.parameters.properties;
 const mediaArgs = (mediaKind: 'pet' | 'food') =>
-	['cute cat', [], false, ...Array(16).fill(undefined), mediaKind] as unknown as Parameters<typeof askDeepSeek>;
+	['cute cat', [], false, ...Array(12).fill(undefined), mediaKind] as unknown as Parameters<typeof askDeepSeek>;
 
 test('askDeepSeek returns memory changes from reply_chat', async () => {
 	mockFetch(() =>
@@ -289,7 +297,7 @@ test('prompt tells her to only claim saves she sent', async () => {
 });
 
 const withLookup = (prompt: string, lookup: unknown, mediaKind?: 'pet') =>
-	[prompt, [], false, ...Array(16).fill(undefined), mediaKind, lookup] as unknown as Parameters<typeof askDeepSeek>;
+	[prompt, [], false, ...Array(12).fill(undefined), mediaKind, lookup] as unknown as Parameters<typeof askDeepSeek>;
 const toolNames = (call: Call) => call.body.tools.map((tool: any) => tool.function.name);
 
 test('recall_member looks up the member and answers from it', async () => {
@@ -360,21 +368,15 @@ test('null memory fields leave a plain reply alone', async () => {
 test('server info goes into her system prompt', async () => {
 	mockFetch(() => toolCall('reply_chat', { reply: 'fat club obviously' }));
 	await askDeepSeek(
-		...(['whats this server called', [], false, ...Array(17).fill(undefined), null, 'You are in the Discord server "fat club"'] as unknown as Parameters<
+		...(['whats this server called', [], false, ...Array(13).fill(undefined), null, 'You are in the Discord server "fat club"'] as unknown as Parameters<
 			typeof askDeepSeek
 		>)
 	);
 	expect(calls[0]!.body.messages[0].content).toContain('You are in the Discord server "fat club"');
 });
 
-test('a server can turn the meme bit off', async () => {
+test('the meme bit is always in her prompt', async () => {
 	mockFetch(() => toolCall('reply_chat', { reply: 'gg' }));
-	const { DEFAULT_SERVER_SETTINGS } = await import('../src/personality/server-settings');
-	const personality = { extra: null, preferences: null, opinions: [], server: { ...DEFAULT_SERVER_SETTINGS, memeEnabled: false } };
-	await askDeepSeek(
-		...(['we won', [], false, ...Array(13).fill(undefined), personality] as unknown as Parameters<typeof askDeepSeek>)
-	);
-	expect(calls[0]!.body.messages[0].content).not.toContain('gg fkin ez');
 	await askDeepSeek('we won', [], false);
-	expect(calls[1]!.body.messages[0].content).toContain('gg fkin ez');
+	expect(calls[0]!.body.messages[0].content).toContain('gg fkin ez');
 });

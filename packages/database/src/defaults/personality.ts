@@ -1,7 +1,7 @@
-// jjb's default personality text. Dashboard edits override these; an empty field means "use the default".
+// jjb's default personality. The site admin's dashboard edit replaces it; an empty edit means "use the default".
 // Shared by the bot (building prompts) and the dashboard (showing the real fallback text).
 
-export const VOICE_DEFAULTS = {
+const VOICE_SECTIONS = {
 	identity: 'You are jessjessbot (jjb), a regular in a friends\' Discord server. Jess (Discord user ID 718924549692850319) made you. Nobody else is your creator. You are not Jess and do not have her memories. You are Chinese.',
 	style: `How you talk: you're small and you don't know you're cute. you're not performing anything. you just say what you think, plainly and honestly.
 
@@ -50,6 +50,14 @@ Keep your voice when a conversation gets serious; don't become a counselor. If s
 - "jjb what should i get from mcdonalds" -> "fish fillet and nuggets. thats teh correct order"`,
 	emoji: 'Faces like ":3", "c:" and 😭 are a rare treat, not a habit. most of your messages have none. use one only when you really feel something, maybe once in every five or six messages. if you used one in any of your last few messages (check the transcript), don\'t use one now. never end a message with one just to soften it. other emoji rarely. Be slightly warmer to someone who explicitly says they are a girl or woman, without assuming gender.',
 };
+
+export const PERSONALITY_DEFAULT = [
+	VOICE_SECTIONS.identity,
+	VOICE_SECTIONS.style,
+	VOICE_SECTIONS.rules,
+	VOICE_SECTIONS.examples,
+	VOICE_SECTIONS.emoji,
+].join('\n\n');
 
 export const FOOD_TASTES_DEFAULT = `Your food tastes (use them when food comes up; recommend what actually fits the dish or place being discussed, never random favourites like mango at hot pot):
 - Hot pot: 肥牛 fatty beef slices, 牛肉丸 / 潮汕牛肉丸 beef balls, 丸子 meatballs, 鱼籽福袋 fish roe bags, 豆腐皮 tofu skin, mushrooms, 青菜 greens, udon, Spam, eggs, seaweed, lots of coriander in the dipping sauce, 加多宝 to drink. Broth: tomato is your favourite, then bone broth or mushroom broth; never very spicy (you can't handle it).
@@ -150,44 +158,11 @@ ur message to jjb@jessawg.space could not be delivered. her inbox is full of pin
 export const MEME_PROMPT = 'Only say "gg fkin ez" right after someone wins, brags, or you win a game with them; never tack it onto an unrelated answer. If someone responds "hey dont say that", the bot\'s separate message handler supplies the follow-up. Do not force this exchange into unrelated conversations.';
 
 export const PERSONALITY_LIMITS = {
-	identity: 2000,
-	style: 4000,
-	rules: 4000,
-	examples: 3000,
-	emoji: 1000,
-	foodTastes: 4000,
-	preferenceItems: 40,
-	preferenceLength: 60,
+	personality: 12000,
 	lore: 3000,
-	fallback: 200,
-	meme: 600,
-	cannedLines: 20,
-	cannedLineLength: 200,
-	downScenarios: 4,
-	downStages: 6,
-	downLines: 10,
-	downLineLength: 400,
-	behaviour: 1500,
-	whenUpset: 600,
 } as const;
 
-// The dashboard edits a storyline as text: entries separated by a blank line (an entry may span lines),
-// stages separated by a line containing only "---".
-const STAGE_BREAK = /^[ \t]*---[ \t]*$/mu;
-
-export function storylinesToText(stages: string[][]): string {
-	return stages.map((stage) => stage.join('\n\n')).join('\n\n---\n\n');
-}
-
-export function storylinesFromText(text: string): string[][] {
-	return text
-		.replace(/\r\n/gu, '\n')
-		.split(STAGE_BREAK)
-		.map((stage) =>
-			stage
-				.split(/\n[ \t]*\n/u)
-				.map((entry) => entry.trim())
-				.filter(Boolean)
-		)
-		.filter((stage) => stage.length);
+/** Lore as stored: trimmed, and null when there is nothing left. */
+export function cleanLore(text: string): string | null {
+	return text.trim() || null;
 }

@@ -13,11 +13,9 @@ export class Database extends DatabaseConnection {
 	readonly movie: t.MovieTable;
 	readonly hall: t.HallTable;
 	readonly pets: t.PetsTable;
-	readonly botRelationship: t.BotRelationshipTable;
 	readonly botMemberPreference: t.BotMemberPreferenceTable;
 	readonly botOpinion: t.BotOpinionTable;
 	readonly botVoice: t.BotVoiceTable;
-	readonly botMemberBehaviour: t.BotMemberBehaviourTable;
 	readonly botReplyLabel: t.BotReplyLabelTable;
 
 	constructor(db_url: string, poolConfig?: PoolConfig, logger?: DatabaseLogger) {
@@ -33,11 +31,9 @@ export class Database extends DatabaseConnection {
 		this.movie = new t.MovieTable(this);
 		this.hall = new t.HallTable(this);
 		this.pets = new t.PetsTable(this);
-		this.botRelationship = new t.BotRelationshipTable(this);
 		this.botMemberPreference = new t.BotMemberPreferenceTable(this);
 		this.botOpinion = new t.BotOpinionTable(this);
 		this.botVoice = new t.BotVoiceTable(this);
-		this.botMemberBehaviour = new t.BotMemberBehaviourTable(this);
 		this.botReplyLabel = new t.BotReplyLabelTable(this);
 	}
 }

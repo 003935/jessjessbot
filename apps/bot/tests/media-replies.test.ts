@@ -22,9 +22,9 @@ mock.module('../src/modules/mention', () => ({
 	shouldRetryForRepeats: (_prompt: string, stale: string[]) => stale.length > 0,
 }));
 
-const MEDIA_KIND = 19;
-const MEMBER_DETAILS = 5;
-const AVOID = 24;
+const MEDIA_KIND = 15;
+const MEMBER_DETAILS = 4;
+const AVOID = 19;
 
 const { handleMediaReply, mediaReplyKind } = await import('../src/modules/media-replies');
 
@@ -81,7 +81,7 @@ test('food image gets one contextual reply with rating and no user ping', async 
 	} finally {
 		globalThis.fetch = fetchBefore;
 	}
-	expect((askDeepSeek.mock.calls.at(-1)?.[12] as unknown[]).length).toBe(1);
+	expect((askDeepSeek.mock.calls.at(-1)?.[9] as unknown[]).length).toBe(1);
 	expect(askDeepSeek.mock.calls.at(-1)?.[MEDIA_KIND]).toBe('food');
 	expect(askDeepSeek.mock.calls.at(-1)?.[MEMBER_DETAILS]).toBeNull();
 	expect(post.reply).toHaveBeenCalledWith({
@@ -100,7 +100,7 @@ test('videos in both channels do not pretend to see frames', async () => {
 	expect(await handleMediaReply(message('pets', '', [video]))).toBe(true);
 	expect(await handleMediaReply(message('yum', 'my dinner', [video]))).toBe(true);
 	expect(askDeepSeek.mock.calls.at(-1)?.[0]).toBe('my dinner');
-	expect(askDeepSeek.mock.calls.at(-1)?.[12]).toEqual([]);
+	expect(askDeepSeek.mock.calls.at(-1)?.[9]).toEqual([]);
 });
 
 test('a reply to jjb is left to normal mention handling', async () => {

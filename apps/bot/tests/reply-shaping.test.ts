@@ -5,8 +5,8 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 	process.env[key] ||= 'test';
 mock.module('../src/db', () => ({ db: {} }));
 
-const { dropFollowUpQuestion, keepsResultOnRepeat, rareCasualLine, shouldRetryForRepeats } = await import('../src/modules/mention');
-const { DEFAULT_SERVER_SETTINGS } = await import('../src/personality/server-settings');
+const { datePrompt, dropFollowUpQuestion, keepsResultOnRepeat, rareCasualLine, shouldRetryForRepeats } = await import('../src/modules/mention');
+const { ANNOYED_LINES, LAZY_LINES } = await import('@repo/database/defaults');
 
 test('generic chat-extender questions are cut', () => {
 	expect(dropFollowUpQuestion('sushi obviously. pizza is for quitters. what about u?')).toBe(
@@ -39,16 +39,16 @@ function withRandom<T>(value: number, run: () => T): T {
 test('no canned line mid-conversation', () => {
 	setSystemTime(new Date(50_000_000));
 	const line = withRandom(0.005, () =>
-		rareCasualLine('theres a 7 car pileup on your block', DEFAULT_SERVER_SETTINGS, Date.now() - 60_000)
+		rareCasualLine('theres a 7 car pileup on your block', Date.now() - 60_000)
 	);
 	expect(line).toBeNull();
 });
 
 test('lazy lines only on a bare ping', () => {
 	setSystemTime(new Date(60_000_000));
-	expect(withRandom(0.005, () => rareCasualLine('jjb what do u think of the new champ', DEFAULT_SERVER_SETTINGS, null))).toBeNull();
+	expect(withRandom(0.005, () => rareCasualLine('jjb what do u think of the new champ', null))).toBeNull();
 	setSystemTime(new Date(70_000_000));
-	expect(withRandom(0.005, () => rareCasualLine('yo', { ...DEFAULT_SERVER_SETTINGS, lazyLines: ['on break'] }, null))).toBe('on break');
+	expect(LAZY_LINES).toContain(withRandom(0.005, () => rareCasualLine('yo', null)) ?? 'no line');
 	setSystemTime();
 });
 
@@ -77,4 +77,18 @@ test('a reply that saved, changed, searched or scheduled something is never retr
 	expect(keepsResultOnRepeat({ reply: 'x', webSearched: true })).toBe(true);
 	expect(keepsResultOnRepeat({ reply: 'noted', memoryChanges: [] })).toBe(false);
 	expect(keepsResultOnRepeat({ reply: 'just chat' })).toBe(false);
+});
+
+test('a rude bare message can still get an annoyed line', () => {
+	setSystemTime(new Date(900_000_000));
+	expect(ANNOYED_LINES).toContain(withRandom(0.03, () => rareCasualLine('shut up jjb', null)) ?? 'no line');
+	setSystemTime(new Date(990_000_000));
+	expect(withRandom(0.03, () => rareCasualLine('ur not stupid jjb', null))).toBeNull();
+	setSystemTime();
+});
+
+test('she knows today\'s date in UK time', () => {
+	expect(datePrompt(new Date('2026-11-04T12:00:00Z'))).toMatch(/^Today is Wednesday,? 4 November 2026 \(UK time\)/u);
+	// 23:30 UTC in summer is already the next day in London
+	expect(datePrompt(new Date('2026-07-01T23:30:00Z'))).toMatch(/Thursday,? 2 July 2026/u);
 });
