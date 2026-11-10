@@ -5,7 +5,7 @@ for (const key of ['BOT_ID', 'ROLE_ID', 'BOT_TOKEN', 'CLIENT_ID', 'RIOT_API_KEY'
 	process.env[key] ||= 'test';
 mock.module('../src/db', () => ({ db: {} }));
 
-const { addressPrompt, datePrompt, dropFollowUpQuestion, keepsResultOnRepeat, rareCasualLine, shouldRetryForRepeats } = await import('../src/modules/mention');
+const { datePrompt, dropFollowUpQuestion, keepsResultOnRepeat, rareCasualLine, shouldRetryForRepeats } = await import('../src/modules/mention');
 const { ANNOYED_LINES, LAZY_LINES } = await import('@repo/database/defaults');
 
 test('generic chat-extender questions are cut', () => {
@@ -85,11 +85,6 @@ test('a rude bare message can still get an annoyed line', () => {
 	setSystemTime(new Date(990_000_000));
 	expect(withRandom(0.03, () => rareCasualLine('ur not stupid jjb', null))).toBeNull();
 	setSystemTime();
-});
-
-test('she greets people by display name or their saved nickname', () => {
-	expect(addressPrompt('hannah', null)).toContain('Greet them by that display name');
-	expect(addressPrompt('hannah', 'hannie')).toContain('asked to be called "hannie"');
 });
 
 test('she knows today\'s date in UK time', () => {

@@ -25,6 +25,7 @@ export const CRUTCH_PHRASES = [
 	'dumpling',
 	'hand it over',
 	'legally',
+	'new here',
 ];
 
 const log = new Map<string, Array<{ reply: string; at: number }>>();

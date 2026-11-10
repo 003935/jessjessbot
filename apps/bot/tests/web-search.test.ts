@@ -163,6 +163,11 @@ test('isSearchWorthy only lets fact-seeking messages search', () => {
 		'who won the last f1 race',
 		'jjb can you look up fat katz',
 		'how much is a switch 2?',
+		'can someone link the t1 vs blg seraphine ult',
+		'find it for me',
+		'link ittt',
+		'bro link it or i will start getting upset',
+		'anyone got the faker clip?',
 	])
 		expect(isSearchWorthy(prompt)).toBe(true);
 	for (const prompt of [
@@ -172,8 +177,51 @@ test('isSearchWorthy only lets fact-seeking messages search', () => {
 		'what do you think of my cat',
 		'how many cats do we have',
 		'lol the patch sucks',
+		'lol the link is broken',
+		'i will find a way',
+		'did u see my clip?',
+		'link up later?',
 	])
 		expect(isSearchWorthy(prompt)).toBe(false);
+});
+
+test('a link request on twitter answers with a real tweet link', async () => {
+	process.env.DEEPSEEK_API_KEY = 'test-deepseek';
+	process.env.X_AUTH_TOKEN = 'x-test';
+	const tweets = [
+		{ id: '111', text: 'SERAPHINE ULT T1 vs BLG', user: { name: 'LoL Esports', username: 'lolesports' }, media: [{ type: 'video' }] },
+		{ id: '222', text: 'other', user: { username: 'someone' } },
+	];
+	mock.module('emusks', () => ({
+		default: class {
+			async login() {}
+			tweets = { get: async () => tweets[0] };
+			search = { tweets: async () => ({ tweets }) };
+		},
+	}));
+	let deepSeekCalls = 0;
+	mockFetch(() =>
+		++deepSeekCalls === 1
+			? toolCall('search_twitter', { query: 'T1 BLG seraphine ult' }, 'call_x')
+			: toolCall('reply_chat', {
+					reply: 'here u go',
+					source_url: 'https://x.com/made/status/999',
+					results_relevant: true,
+				})
+	);
+	try {
+		const result = await askDeepSeek('link the seraphine ult from twitter', [], false);
+		const followUp = calls[1]!.body;
+		expect(followUp.messages.find((message: any) => message.role === 'tool').content).toContain(
+			'https://x.com/lolesports/status/111'
+		);
+		expect(Object.keys(followUp.tools[0].function.parameters.properties)).toContain('source_url');
+		// A made-up URL falls back to the top real tweet.
+		expect(result.reply).toBe('here u go [link](<https://x.com/lolesports/status/111>)');
+		expect(result.webSearched).toBe(true);
+	} finally {
+		delete process.env.X_AUTH_TOKEN;
+	}
 });
 
 test('askDeepSeek does not offer web_search for banter', async () => {

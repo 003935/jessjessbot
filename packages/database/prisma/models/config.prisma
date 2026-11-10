@@ -5,6 +5,7 @@ model ServerConfig {
 	bot_mention_only_channels    String[] @default([])
 	bot_reply_policy_configured  Boolean  @default(false)
 	bot_ignored_channels         String[] @default([])
+	bot_ignored_users            String[] @default([])
 	bot_lore                     String?
 
   @@map("server_config")

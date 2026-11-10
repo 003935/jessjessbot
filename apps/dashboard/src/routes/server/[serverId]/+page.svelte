@@ -275,6 +275,7 @@
 					config={{
 						custom_channel: data.config?.custom_channel ?? undefined,
 						bot_ignored_channels: data.config?.bot_ignored_channels ?? [],
+						bot_ignored_users: data.config?.bot_ignored_users ?? [],
 					}}
 					guildId={data.guild.id}
 				/>

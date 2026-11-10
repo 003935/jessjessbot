@@ -1,5 +1,12 @@
 const BOT_NAME = /\b(?:jessjessbot|jjb)\b/iu;
-const LEADING_BOT_NAME = /^\s*(?:jessjessbot|jjb)\b[,:]?\s*/iu;
+// The @ covers a typed "@jessjessbot confirm" copied from her own instructions, not a real ping.
+const LEADING_BOT_NAME = /^\s*@?(?:jessjessbot|jjb)\b[,:]?\s*/iu;
+
+// Discord's @ autocomplete offers her managed "jjb" role next to her account, and people
+// pick it by accident. A ping of that role is a ping of her.
+export function botRoleAsMention(content: string, botId: string, botRoleId?: string | null): string {
+	return botRoleId ? content.replaceAll(`<@&${botRoleId}>`, `<@${botId}>`) : content;
+}
 
 export function botPrompt(
 	content: string,
