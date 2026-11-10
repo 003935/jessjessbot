@@ -16,6 +16,9 @@ import {
 	type RESTGetAPIUserResult,
 	type RESTGetAPIGuildMembersSearchResult,
 	type RESTGetAPIGuildChannelsResult,
+	type RESTGetAPIChannelMessagesResult,
+	type RESTGetAPIGuildThreadsResult,
+	type APIChannel,
 } from 'discord-api-types/v10';
 
 type DiscordComponentPayload = {
@@ -48,6 +51,11 @@ class DiscordApi {
 			Routes.currentApplication()
 		)) as RESTGetCurrentApplicationResult;
 		return new DiscordApi(api, application, module);
+	}
+
+	/** The bot's own user ID. */
+	get botId(): string | null {
+		return this.application.bot?.id ?? null;
 	}
 
 	async getEmojis(): Promise<APIApplicationEmoji[]> {
@@ -141,6 +149,35 @@ class DiscordApi {
 		)) as RESTGetAPIGuildChannelsResult;
 
 		return res;
+	}
+
+	/** Active threads across the guild (archived ones are skipped). */
+	async getActiveThreads(guildId: string) {
+		return (await this.api.get(Routes.guildActiveThreads(guildId))) as RESTGetAPIGuildThreadsResult;
+	}
+
+	/** Up to 100 messages after a message ID, oldest first. */
+	async getMessagesAfter(
+		channelId: string,
+		after: string,
+		limit = 100
+	): Promise<RESTGetAPIChannelMessagesResult> {
+		const query = new URLSearchParams({ after, limit: String(Math.min(Math.max(limit, 1), 100)) });
+		const page = (await this.api.get(
+			`${Routes.channelMessages(channelId)}?${query}`
+		)) as RESTGetAPIChannelMessagesResult;
+		return [...page].sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : 1));
+	}
+
+	/** Sends a DM from the bot. Mentions are switched off. */
+	async sendDirectMessage(userId: string, content: string): Promise<string> {
+		const channel = (await this.api.post(Routes.userChannels(), {
+			body: { recipient_id: userId },
+		})) as APIChannel;
+		const message = (await this.api.post(Routes.channelMessages(channel.id), {
+			body: { content: content.slice(0, 2000), allowed_mentions: { parse: [] } },
+		})) as { id: string };
+		return message.id;
 	}
 
 	async reactToMessage(channelId: string, messageID: string, emojiId: string) {

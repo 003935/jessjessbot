@@ -3,16 +3,27 @@
 	import * as Field from '$lib/components/ui/field/index.js';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { SaveIcon, UsersIcon, XIcon } from '@lucide/svelte';
+	import { CheckIcon, SaveIcon, Trash2Icon, UsersIcon, XIcon } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { toast } from 'svelte-sonner';
 	import { PERSONALITY_LIMITS } from '@repo/database/defaults';
 	import {
 		editLore,
+		deleteFlagged,
 		forgetAllOpinions,
 		forgetOpinion,
 		forgetUserNote,
+		keepFlagged,
 	} from '$lib/personality.remote';
+
+	type ReviewFlag = {
+		id: number;
+		target: 'note' | 'opinion';
+		userId: string;
+		key: string;
+		text: string;
+		reason: string;
+	};
 
 	type SavedUser = {
 		id: string;
@@ -32,14 +43,46 @@
 		lore: initialLore,
 		savedUsers,
 		opinions: initialOpinions,
+		review,
+		reviewFlags: initialFlags,
 		canResetLoot,
 	}: {
 		guildId: string;
 		lore: string;
 		savedUsers: SavedUser[];
 		opinions: Array<{ topic: string; opinion: string }>;
+		review: {
+			createdAt: string;
+			periodStart: string;
+			periodEnd: string;
+			summary: string;
+			report: string;
+		} | null;
+		reviewFlags: ReviewFlag[];
 		canResetLoot: boolean;
 	} = $props();
+
+	// svelte-ignore state_referenced_locally
+	let flags = $state(initialFlags);
+	let showReport = $state(false);
+	const nameOf = (userId: string) => savedUsers.find((user) => user.id === userId)?.name ?? userId;
+	const day = (iso: string) =>
+		new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+
+	async function resolveFlag(flag: ReviewFlag, action: 'delete' | 'keep') {
+		try {
+			if (action === 'delete') {
+				await deleteFlagged({ guildId, id: flag.id });
+				if (flag.target === 'note') forgottenNotes.add(`${flag.userId}:${flag.key}`);
+				else opinions = opinions.filter((entry) => entry.topic !== flag.key);
+			} else {
+				await keepFlagged({ guildId, id: flag.id });
+			}
+			flags = flags.filter((other) => other.id !== flag.id);
+		} catch {
+			toast.error('Could not update that one. Reload and try again.');
+		}
+	}
 
 	// svelte-ignore state_referenced_locally
 	let lore = $state(initialLore);
@@ -105,6 +148,73 @@
 </script>
 
 <div class="flex flex-col gap-4">
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>Weekly review</Card.Title>
+			<Card.Description>
+				{#if review}
+					How chat went {day(review.periodStart)} to {day(review.periodEnd)}, and notes or opinions
+					that make her sound robotic. Delete them, or keep them and they won’t be flagged again.
+				{:else}
+					No review yet. The weekly reviewer posts here once it has run.
+				{/if}
+			</Card.Description>
+			{#if review}
+				<Card.Action>
+					<Button variant="outline" onclick={() => (showReport = !showReport)}>
+						{showReport ? 'Hide full review' : 'Full review'}
+					</Button>
+				</Card.Action>
+			{/if}
+		</Card.Header>
+		{#if review}
+			<Card.Content class="flex flex-col gap-4">
+				<p class="text-sm whitespace-pre-wrap">{showReport ? review.report : review.summary}</p>
+				{#if flags.length}
+					<div class="flex max-h-[28rem] flex-col gap-2 overflow-y-auto">
+						{#each flags as flag (flag.id)}
+							<div class="flex items-start justify-between gap-3 rounded-lg border p-2">
+								<div class="min-w-0 flex-1 text-sm">
+									<p>
+										<span class="font-medium">
+											{flag.target === 'note'
+												? `Note on ${nameOf(flag.userId)}`
+												: `Opinion on ${flag.key}`}
+										</span>
+										<span class="text-muted-foreground">· {flag.text}</span>
+									</p>
+									<p class="mt-1 text-xs text-muted-foreground">{flag.reason}</p>
+								</div>
+								<div class="flex shrink-0 gap-1">
+									<Button
+										variant="ghost"
+										size="icon"
+										aria-label={`Keep: ${flag.text}`}
+										title="Keep"
+										onclick={() => resolveFlag(flag, 'keep')}
+									>
+										<CheckIcon />
+									</Button>
+									<Button
+										variant="ghost"
+										size="icon"
+										aria-label={`Delete: ${flag.text}`}
+										title="Delete"
+										onclick={() => resolveFlag(flag, 'delete')}
+									>
+										<Trash2Icon />
+									</Button>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="text-sm text-muted-foreground">Nothing flagged right now.</p>
+				{/if}
+			</Card.Content>
+		{/if}
+	</Card.Root>
+
 	<Card.Root>
 		<Card.Header>
 			<Card.Title>Server lore</Card.Title>
