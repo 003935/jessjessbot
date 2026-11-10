@@ -1,0 +1,38 @@
+// A member note or opinion the weekly reviewer thinks makes jjb sound robotic.
+// An admin deletes it or keeps it on the dashboard; kept ones aren't flagged again.
+model BotReviewFlag {
+  id        Int      @id @default(autoincrement())
+  guildId   String
+  // "note" or "opinion"
+  target    String
+  // The note's owner; empty for opinions.
+  userId    String   @default("")
+  // The note's kind (memory_...) or the opinion's topic.
+  key       String
+  // The note or opinion as it read when flagged.
+  text      String
+  reason    String
+  // "open" or "kept"
+  status    String   @default("open")
+  createdAt DateTime @default(now())
+
+  @@unique([guildId, target, userId, key])
+  @@index([guildId, status])
+  @@map("bot_review_flags")
+}
+
+// The weekly chat review: how people reacted to jjb and what to change.
+model BotReview {
+  id          Int      @id @default(autoincrement())
+  guildId     String
+  periodStart DateTime
+  periodEnd   DateTime
+  // A few lines, sent to Jess as a DM.
+  summary     String
+  // The full review, shown on the dashboard.
+  report      String
+  createdAt   DateTime @default(now())
+
+  @@index([guildId, createdAt])
+  @@map("bot_reviews")
+}

@@ -54,6 +54,21 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	let hallChannels: Awaited<ReturnType<typeof db.hall.getChannels>> = [];
 	let hallImport: Awaited<ReturnType<typeof db.hall.getImport>> = null;
 	let opinions: Array<{ topic: string; opinion: string; updatedAt: string }> = [];
+	let review: {
+		createdAt: string;
+		periodStart: string;
+		periodEnd: string;
+		summary: string;
+		report: string;
+	} | null = null;
+	let reviewFlags: Array<{
+		id: number;
+		target: 'note' | 'opinion';
+		userId: string;
+		key: string;
+		text: string;
+		reason: string;
+	}> = [];
 	let savedUsers: Array<{
 		id: string;
 		name: string;
@@ -76,6 +91,19 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			...entry,
 			updatedAt: entry.updatedAt.toISOString(),
 		}));
+		const latestReview = await db.botReview.latestReview(guild.id);
+		review = latestReview
+			? {
+					createdAt: latestReview.createdAt.toISOString(),
+					periodStart: latestReview.periodStart.toISOString(),
+					periodEnd: latestReview.periodEnd.toISOString(),
+					summary: latestReview.summary,
+					report: latestReview.report,
+				}
+			: null;
+		reviewFlags = (await db.botReview.listFlags(guild.id, 'open')).map(
+			({ id, target, userId, key, text, reason }) => ({ id, target, userId, key, text, reason })
+		);
 		const preferences = await db._db.botMemberPreference.findMany({ where: { guildId: guild.id } });
 		// Everyone jjb remembers something about, or who asked her for a nickname.
 		const ids = new Set<string>(
@@ -201,6 +229,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		savedUsers,
 		lore: config?.bot_lore ?? '',
 		opinions,
+		review,
+		reviewFlags,
 	};
 };
 

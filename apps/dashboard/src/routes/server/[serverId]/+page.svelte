@@ -341,6 +341,8 @@
 				lore={data.lore}
 				savedUsers={data.savedUsers}
 				opinions={data.opinions}
+				review={data.review}
+				reviewFlags={data.reviewFlags}
 				canResetLoot={data.canResetLoot}
 			/>
 		</div>

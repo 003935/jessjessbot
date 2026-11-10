@@ -28,6 +28,7 @@ export const forgetOpinion = command(
 	async ({ guildId, topic }) => {
 		await requireAdmin(guildId);
 		await db.botOpinion.forget(guildId, topic);
+		await db.botReview.dropFor(guildId, 'opinion', '', topic);
 	}
 );
 
@@ -40,10 +41,30 @@ export const forgetUserNote = command(
 	async ({ guildId, userId, kind }) => {
 		await requireAdmin(guildId);
 		await db.botMemberPreference.forgetDetail(guildId, userId, kind);
+		await db.botReview.dropFor(guildId, 'note', userId, kind);
 	}
 );
 
 export const forgetAllOpinions = command(v.object({ guildId: v.string() }), async ({ guildId }) => {
 	await requireAdmin(guildId);
 	await db.botOpinion.forgetAll(guildId);
+	await db.botReview.dropAllFor(guildId, 'opinion');
+});
+
+const FlagSchema = v.object({ guildId: v.string(), id: v.number() });
+
+// Deletes the note or opinion the weekly review flagged.
+export const deleteFlagged = command(FlagSchema, async ({ guildId, id }) => {
+	await requireAdmin(guildId);
+	const flag = await db.botReview.getFlag(guildId, id);
+	if (!flag) error(404, 'Already handled');
+	if (flag.target === 'opinion') await db.botOpinion.forget(guildId, flag.key);
+	else await db.botMemberPreference.forgetDetail(guildId, flag.userId, flag.key);
+	await db.botReview.deleteFlag(guildId, id);
+});
+
+// Keeps it; later reviews leave it alone unless it changes.
+export const keepFlagged = command(FlagSchema, async ({ guildId, id }) => {
+	await requireAdmin(guildId);
+	if (!(await db.botReview.keep(guildId, id))) error(404, 'Already handled');
 });
