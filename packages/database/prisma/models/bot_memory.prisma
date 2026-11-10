@@ -1,0 +1,51 @@
+// Something jjb remembers: about a member (subjectId set) or about the server itself
+// (subjectId empty: running jokes, events, things the group does).
+// Old facts are closed (validTo) instead of overwritten, so she knows what used to be true.
+model BotMemoryFact {
+  id              String    @id @default(uuid())
+  guildId         String
+  // The member it's about; empty for server facts.
+  subjectId       String    @default("")
+  text            String
+  // Extra words that should bring this fact up ("league", "ranked", "lol").
+  keywords        String[]  @default([])
+  // Other members it involves ("went to movie night with sam").
+  people          String[]  @default([])
+  // "fact", "plan", "event" or "joke"
+  kind            String    @default("fact")
+  // "self" (they said it), "friend" (someone else said it), "asked" (they asked her to remember)
+  source          String    @default("self")
+  saidById        String    @default("")
+  saidByName      String    @default("")
+  sourceMessageId String    @default("")
+  // Plans stop being shown after this.
+  expiresAt       DateTime?
+  // Set when a newer fact replaced this one.
+  validTo         DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([guildId, subjectId])
+  @@map("bot_memory_facts")
+}
+
+// A conversation jjb was part of, kept so she can look back at it ("remember when...").
+model BotChatWindow {
+  id          String   @id @default(uuid())
+  guildId     String
+  channelId   String
+  channelName String   @default("")
+  // Everyone who has a line in it, for searching by person and for "forget me".
+  userIds     String[] @default([])
+  // [{ userId, name, text, at }]
+  lines       Json
+  // The lines as plain text, searched with Postgres full-text search.
+  text        String
+  // One line about what was talked about.
+  summary     String   @default("")
+  startedAt   DateTime
+  endedAt     DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([guildId, endedAt])
+  @@map("bot_chat_windows")
+}

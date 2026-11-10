@@ -49,8 +49,7 @@ export async function handleMemberMemory(
 		)
 	) {
 		await db.botMemberPreference.setAutoMemory(guildId, userId, false);
-		await db.botMemberPreference.forgetDetailsByPrefix(guildId, userId, 'memory_note_');
-		await db.botMemberPreference.forgetDetailsByPrefix(guildId, userId, 'memory_hearsay_');
+		await db.botMemory.forgetPerson(guildId, userId);
 		return 'okie, i wont pick stuff up about u anymore and i forgot what i had. “remember …” still works if u ask';
 	}
 	if (
@@ -77,7 +76,9 @@ export async function handleMemberMemory(
 			memories.pets.length ? `ur pets: ${memories.pets.join(', ')}` : '',
 			memories.birthday ? `ur ${memories.birthday}` : '',
 			memories.favourites.length ? `ur favourites: ${memories.favourites.join(', ')}` : '',
-			memories.notes.length ? `stuff i picked up: ${memories.notes.join(', ')}` : '',
+			memories.notes.length
+				? `stuff i picked up: ${memories.notes.map((note) => note.replace(/ \([a-z]{3} \d{4}\)$/u, '')).join(', ')}`
+				: '',
 		].filter(Boolean);
 		return `i remember ${parts.join('; ')} (｡•̀ᴗ-)✧`;
 	}

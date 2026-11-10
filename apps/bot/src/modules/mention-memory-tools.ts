@@ -280,12 +280,14 @@ export async function applyMemoryChanges(
 			hearsayCounts.set(lookup.member.id, count + 1);
 			if (!(await db.botMemberPreference.autoMemoryEnabled(guildId, lookup.member.id))) continue;
 			const fact = cleanNote(hearsayFact(change));
-			const note = fact ? `${speaker.displayName} says: ${fact}` : null;
-			if (!note || note.length > MAX_NOTE_LENGTH) {
+			if (!fact || fact.length > MAX_NOTE_LENGTH) {
 				failures.push({ reason: 'invalid' });
 				continue;
 			}
-			await db.botMemberPreference.saveHearsay(guildId, lookup.member.id, note);
+			await db.botMemberPreference.saveHearsay(guildId, lookup.member.id, fact, {
+				id: speaker.id,
+				name: speaker.displayName,
+			});
 		} catch (error) {
 			logger.error('Could not apply a memory change', error);
 			failures.push({ reason: 'error' });
