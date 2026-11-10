@@ -15,3 +15,4 @@ export * from './bot_voice';
 export * from './bot_reply_label';
 export * from './bot_review';
 export * from './bot_memory';
+export * from './bot_reminder';
