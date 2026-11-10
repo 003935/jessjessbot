@@ -21,8 +21,7 @@ const GIVE_UP_AFTER_MS = 60 * 60 * 1000;
 const LATE_AFTER_MS = 30 * 60 * 1000;
 
 export type ReminderChange =
-	| { op: 'set'; text: string; at: Date }
-	| { op: 'cancel'; id: number | null; text: string | null };
+	{ op: 'set'; text: string; at: Date } | { op: 'cancel'; id: number | null; text: string | null };
 export type ReminderFailure = { reason: 'full' | 'past' | 'invalid' | 'not_found' | 'error' };
 
 export const REMINDER_TOOL_PROPERTIES = {
@@ -39,7 +38,8 @@ export const REMINDER_TOOL_PROPERTIES = {
 				},
 				at: {
 					type: 'string',
-					description: 'When, in UK time, as YYYY-MM-DD HH:MM (24 hour). Use this for a day and time.',
+					description:
+						'When, in UK time, as YYYY-MM-DD HH:MM (24 hour). Use this for a day and time.',
 				},
 				in_minutes: {
 					type: 'number',
@@ -81,7 +81,13 @@ function parseAt(value: unknown): Date | null {
 	if (typeof value !== 'string') return null;
 	const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})/u);
 	if (!match) return null;
-	const [year, month, day, hour, minute] = match.slice(1).map(Number) as [number, number, number, number, number];
+	const [year, month, day, hour, minute] = match.slice(1).map(Number) as [
+		number,
+		number,
+		number,
+		number,
+		number,
+	];
 	if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59) return null;
 	const date = londonTime(year, month, day, hour, minute);
 	if (!date) return null;
@@ -100,7 +106,8 @@ export function parseReminderChanges(
 	for (const item of Array.isArray(args.remind) ? args.remind : args.remind == null ? [] : [null]) {
 		const raw = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>;
 		const text = cleanText(raw.text);
-		const minutes = typeof raw.in_minutes === 'number' && Number.isFinite(raw.in_minutes) ? raw.in_minutes : null;
+		const minutes =
+			typeof raw.in_minutes === 'number' && Number.isFinite(raw.in_minutes) ? raw.in_minutes : null;
 		const at = minutes !== null ? new Date(now.getTime() + minutes * 60_000) : parseAt(raw.at);
 		if (!text || !at) failures.push({ reason: 'invalid' });
 		else if (at.getTime() - now.getTime() < MIN_LEAD_MS) failures.push({ reason: 'past' });
@@ -114,7 +121,12 @@ export function parseReminderChanges(
 			? []
 			: [args.cancel_reminder];
 	for (const item of cancels) {
-		const id = typeof item === 'number' ? item : typeof item === 'string' && /^#?\d+$/u.test(item.trim()) ? Number(item.trim().replace('#', '')) : null;
+		const id =
+			typeof item === 'number'
+				? item
+				: typeof item === 'string' && /^#?\d+$/u.test(item.trim())
+					? Number(item.trim().replace('#', ''))
+					: null;
 		const text = id === null ? cleanText(item) : null;
 		if (id === null && !text) failures.push({ reason: 'invalid' });
 		else if (changes.length >= MAX_CHANGES) failures.push({ reason: 'invalid' });
@@ -148,7 +160,9 @@ export async function applyReminderChanges(
 			let id = change.id;
 			if (id === null) {
 				const mine = (await db.botReminder.open(where.guildId, 100)).filter(
-					(reminder) => reminder.userId === speaker.id && reminder.text.toLocaleLowerCase().includes(change.text!)
+					(reminder) =>
+						reminder.userId === speaker.id &&
+						reminder.text.toLocaleLowerCase().includes(change.text!)
 				);
 				id = mine.length === 1 ? mine[0]!.id : null;
 			}
@@ -164,7 +178,8 @@ export async function applyReminderChanges(
 
 export function reminderFailureReply(failures: ReminderFailure[]): string {
 	const reason = failures[0]?.reason;
-	if (reason === 'full') return `u already have ${MAX_OPEN_REMINDERS} reminders waiting, cancel one first`;
+	if (reason === 'full')
+		return `u already have ${MAX_OPEN_REMINDERS} reminders waiting, cancel one first`;
 	if (reason === 'past') return 'that time already passed. when do u mean?';
 	if (reason === 'not_found') return "couldn't find a reminder of urs like that";
 	return "couldn't set that one. give me a day and a time?";
@@ -178,7 +193,8 @@ export async function finalizeReminderReply(
 	parsed: { changes: ReminderChange[]; failures: ReminderFailure[] } | undefined,
 	apply: (changes: ReminderChange[]) => Promise<{ failures: ReminderFailure[]; set: Reminder[] }>
 ): Promise<{ reply: string; touched: boolean }> {
-	if (!parsed || (!parsed.changes.length && !parsed.failures.length)) return { reply, touched: false };
+	if (!parsed || (!parsed.changes.length && !parsed.failures.length))
+		return { reply, touched: false };
 	const result = parsed.changes.length ? await apply(parsed.changes) : { failures: [], set: [] };
 	const failures = [...parsed.failures, ...result.failures];
 	const times = result.set.map((reminder) => `-# reminder set for ${stamp(reminder.remindAt)}`);
@@ -209,7 +225,7 @@ export function openRemindersPrompt(reminders: Reminder[], speakerId: string): s
 	if (!reminders.length) return 'Open reminders in this server: none.';
 	const lines = reminders.map(
 		(reminder) =>
-			`${reminder.id}. ${reminder.text}, ${listTime.format(reminder.remindAt)} UK time, set by ${reminder.userId === speakerId ? 'the current speaker' : reminder.userName}`
+			`${reminder.id}. ${reminder.text}, ${listTime.format(reminder.remindAt)} UK time, set by ${reminder.userName}${reminder.userId === speakerId ? ' (the person talking to you now, so they can cancel it)' : ''}`
 	);
 	return `Open reminders in this server (number, what, when, who set it). Only mention them if asked:\n${lines.join('\n')}`;
 }
@@ -232,7 +248,10 @@ export async function sendDueReminders(client: Client<true>, now = new Date()): 
 				await db.botReminder.markSent(reminder.id);
 				continue;
 			}
-			await channel.send({ content: reminderMessage(reminder, now), allowedMentions: { parse: [] } });
+			await channel.send({
+				content: reminderMessage(reminder, now),
+				allowedMentions: { parse: [] },
+			});
 			await db.botReminder.markSent(reminder.id);
 			sent++;
 		} catch (error) {

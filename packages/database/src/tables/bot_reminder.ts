@@ -44,7 +44,10 @@ export class BotReminderTable extends DatabaseConnection {
 	}
 
 	async markSent(id: number): Promise<void> {
-		await this._db.botReminder.updateMany({ where: { id, sentAt: null }, data: { sentAt: new Date() } });
+		await this._db.botReminder.updateMany({
+			where: { id, sentAt: null },
+			data: { sentAt: new Date() },
+		});
 	}
 
 	/** Cancels a waiting reminder; only the member who set it can. */

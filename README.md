@@ -8,6 +8,7 @@ JessJessBot is a Discord bot and web dashboard for servers. She handles the anno
 
 - Conversational replies when summoned by name or mention, with saved preferences and community context
 - Remembers things from conversations she is part of (jobs, games people main, upcoming plans, running jokes in the server). Plans drop off once they've happened, and old facts are kept as "used to" when they change. She can also look back at past conversations when someone asks "remember when...". Anyone can say “stop remembering stuff about me” to turn it off and clear it, “what do you remember about me” to check, or open their profile on the dashboard to see and delete what she knows
+- Reminders: ask her in chat ("jjb remind us about movie night on saturday at 8pm", "remind me in 20 mins"). She asks for a time if you only give a day, posts the reminder in the same channel without pinging anyone, and each person can have 5 waiting. "what reminders are there" lists them, and you can cancel your own
 - Forms her own opinions in chat and stays consistent with them; admins can add server lore and delete her opinions and member notes from the dashboard
 - Web search for current events and facts while chatting (optional, via Tavily)
 - Path of Exile 2 loot rolls, inventories, and leaderboards
