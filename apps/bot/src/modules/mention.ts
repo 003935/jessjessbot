@@ -59,6 +59,7 @@ import { avoidPrompt, lastReplyAt, logReply, recentReplies, staleParts } from '@
 import { formatSearchResults, sourceLink, speakableText, webSearch, webSearchEnabled } from '@/modules/web-search';
 import { formatTweetSearch, linkedTweetContext, mentionsTwitter, searchTweets, tweetUrl, twitterEnabled } from '@/modules/twitter';
 import { serverContext } from '@/modules/mention-server';
+import { asksAboutUpdates, updatesPrompt } from '@/modules/updates';
 import {
 	formatMemberContext,
 	lookupMember,
@@ -1998,6 +1999,7 @@ export async function handleMention(message: Message): Promise<void> {
 				];
 				const serverInfo =
 					[
+						asksAboutUpdates(prompt) ? updatesPrompt() : '',
 						serverContext(message as Message<true>, personality?.lore ?? null),
 						serverMemoryPrompt(serverLines),
 						mentionsReminders(prompt)
