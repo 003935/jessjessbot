@@ -1,0 +1,1 @@
+jjb plays along more. Ask her to hype something, announce it, roast someone or name a silly price and she does it instead of saying she can't. She is also more cheerful when the chat is loud or silly.
