@@ -1,0 +1,1 @@
+Reminders. Ask jjb to remind you or the server of something with a day and a time, or "in 20 mins". She posts it in the same channel when it is due and pings nobody. 5 waiting per person, and you can cancel your own.
