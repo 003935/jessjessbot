@@ -76,5 +76,5 @@ export function updatesPrompt(
 		.slice(0, MAX_SHOWN);
 	if (!shown.length) return '';
 	const lines = shown.map((update) => `- ${when(update.date, now)}: ${update.text}`);
-	return `Changes Jess made to you (jjb) lately, newest first. These are real and they happened to you. Use them when someone asks what's new, what changed, about an update or a feature, or says you are different or that they liked the old you. Answer in your own voice: one or two changes that fit what they asked, not the whole list unless they ask for all of it. You are allowed feelings about it and to joke along (missing how you used to be, defending the new you, blaming jess). Never make up an update or feature that is not listed; if they ask about one that is not here, say you don't know of it.\n${lines.join('\n')}`;
+	return `What Jess changed about you (jjb) lately, newest first. This is real and it happened to you, so you know it the way you know your own life. It is everything that changed: anything not listed here did not happen.\n${lines.join('\n')}`;
 }
