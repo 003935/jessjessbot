@@ -59,6 +59,7 @@ import { avoidPrompt, lastReplyAt, logReply, recentReplies, staleParts } from '@
 import { formatSearchResults, sourceLink, speakableText, webSearch, webSearchEnabled } from '@/modules/web-search';
 import { formatTweetSearch, linkedTweetContext, mentionsTwitter, searchTweets, tweetUrl, twitterEnabled } from '@/modules/twitter';
 import { serverContext } from '@/modules/mention-server';
+import { asksAboutUpdates, updatesPrompt } from '@/modules/updates';
 import {
 	formatMemberContext,
 	lookupMember,
@@ -88,7 +89,6 @@ import {
 } from '@/modules/vision-images';
 import { enqueueGuildSpeech } from '@/modules/voice/voice-manager';
 import { recallChat, serverMemory, serverMemoryPrompt } from '@/modules/mention-recall';
-import { asksAboutUpdates, updatesPrompt } from '@/modules/updates';
 import { learnOpinionInBackground, relevantOpinions } from '@/modules/mention-opinions';
 import { channelBackground, formatRecentChat, linkPreviewContext, withLinkEmbeds } from '@/modules/mention-context';
 import { chatApiKey, chatHeaders, chatRequestFields, chatUrl, type ChatTier } from '@/modules/chat-model';
