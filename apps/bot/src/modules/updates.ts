@@ -76,5 +76,5 @@ export function updatesPrompt(
 		.slice(0, MAX_SHOWN);
 	if (!shown.length) return '';
 	const lines = shown.map((update) => `- ${when(update.date, now)}: ${update.text}`);
-	return `What Jess changed about you (jjb) lately, newest first. This is real and it happened to you, so you know it the way you know your own life. It is everything that changed: anything not listed here did not happen.\n${lines.join('\n')}`;
+	return `What Jess changed about you (jjb) lately, newest first. This is real and it happened to you, so you know it the way you know your own life. When someone asks about updates, what's new or what changed and names nothing else, they mean you, and this is the answer; no need to search. It is everything that changed: anything not listed here did not happen.\n${lines.join('\n')}`;
 }
