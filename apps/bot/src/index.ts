@@ -4,6 +4,7 @@ import { LogLevel, SapphireClient } from '@sapphire/framework';
 import { wordle_module } from '@/modules/wordle';
 import { start_background_rank_update } from '@/modules/league';
 import { start_background_event_checker } from '@/modules/events';
+import { startReminderChecker } from '@/modules/reminders';
 import { Check_Attachments } from '@/modules/reaction';
 import { Logger } from '@/utils';
 import { db } from '@/db';
@@ -51,6 +52,7 @@ process.on('uncaughtException', (error) => {
 client.on('clientReady', (client) => {
 	logger.info(`${client.user?.tag} is online!`);
 	meowdule = new Meowdule(client);
+	startReminderChecker(client);
 	start_background_event_checker(client).catch((error) =>
 		logger.error('Background event checker failed', error)
 	);

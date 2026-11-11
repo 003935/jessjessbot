@@ -20,7 +20,7 @@ const dateParts = new Intl.DateTimeFormat('en-GB', {
 	hourCycle: 'h23',
 });
 
-function londonParts(date: Date) {
+export function londonParts(date: Date) {
 	const parts = Object.fromEntries(
 		dateParts.formatToParts(date).map((part) => [part.type, part.value])
 	);
@@ -33,7 +33,7 @@ function londonParts(date: Date) {
 	};
 }
 
-function londonTime(
+export function londonTime(
 	year: number,
 	month: number,
 	day: number,

@@ -9,3 +9,5 @@ export { flagsToWrite } from './tables/bot_review';
 export type { ChatLine, ChatWindow, FactKind, FactSource, MemoryFact, NewFact } from './tables/bot_memory';
 export { FACT_LIMITS, isCurrent, overLimit, renderFact, searchQuery, windowText } from './tables/bot_memory';
 export type { ServerConfig } from './generated/prisma/client';
+export type { NewReminder, Reminder } from './tables/bot_reminder';
+export { MAX_OPEN_REMINDERS } from './tables/bot_reminder';

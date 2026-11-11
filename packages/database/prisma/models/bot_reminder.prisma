@@ -1,0 +1,18 @@
+// Something a member asked jjb to bring up later. She posts it in the channel it was set in.
+model BotReminder {
+  id        Int       @id @default(autoincrement())
+  guildId   String
+  channelId String
+  // Who asked for it.
+  userId    String
+  userName  String
+  text      String
+  remindAt  DateTime
+  // Set once she has posted it (or given up on it).
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([sentAt, remindAt])
+  @@index([guildId, sentAt])
+  @@map("bot_reminders")
+}
